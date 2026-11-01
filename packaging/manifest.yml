@@ -1,5 +1,5 @@
 name: aholo-rhino
-version: 0.1.0-beta.2
+version: 0.1.0-beta.3
 authors:
   - CuriousArc
   - qrost
@@ -8,8 +8,8 @@ description: >-
   image, preserve original PLY/SPZ assets, display full Gaussian splats in
   an experimental native viewport mode, and render selected meshes/surfaces
   through offline RenderCloud. Rhino 8.32+ and .NET 8 Runtime required;
-  cloud calls require an international Aholo API Key. Small-scene development
-  prototype: native alpha/depth and Mac/Windows host acceptance pending.
+  cloud calls require an international Aholo API Key. Batched development
+  renderer: native color/alpha/depth and Mac/Windows host acceptance pending.
   Realtime cloud transport is experimental; no cloud viewport is enabled.
 url: https://github.com/QROST
 keywords:

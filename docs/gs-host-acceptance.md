@@ -1,6 +1,6 @@
 # GS viewport acceptance / 原生 GS 视口验收
 
-Maintainer: CuriousArc · qrost. Candidate: 0.1.0-beta.2. Status: **host tests pending**.
+Maintainer: CuriousArc · qrost. Candidate: 0.1.0-beta.3. Status: **host tests pending**.
 
 This document separates offline mathematical evidence from real Rhino rendering. A successful build, a mode name or visible proxy box is not a visual acceptance result. No account or API Key is needed for the local tests below. / 本文严格区分数学验证与 Rhino 实机表现；显示模式名称和包围盒不代表渲染通过。以下本地测试无需账户或 Key。
 
@@ -12,7 +12,7 @@ This document separates offline mathematical evidence from real Rhino rendering.
 4. Run `AholoGsDiagnostics` and record version, Rhino version, OS/architecture, mode, reported OpenGL/non-OpenGL backend, count and error. “Non-OpenGL” does not establish Metal. / 记录诊断信息，不能根据 Non-OpenGL 自动认定 Metal。
 5. Two Undo operations remove the opaque test geometry then the GS block; Redo should restore both. The probe deliberately uses two separately named undo records. / 两次 Undo 分别撤销遮挡几何和 GS；Redo 应恢复。
 
-Do not start with a large generated world: the current CPU projection plus per-splat native mesh/material path is a correctness prototype. It has no artificial input-count ceiling; available memory and redraw interruption still affect completion. / 首次先测小场景；本版没有人为导入数量上限，但大场景可能很慢或耗尽内存。
+Start with the colored probe, then test the existing generated world; no regeneration is needed. Beta.2 failed with a 212,864-splat scene. Beta.3 batches every visible splat, prepares in the background and skips saved-file thumbnail rendering. First verify color/alpha, then orbit/zoom continuously, stop and wait for the GS frame, and save/reopen. During preparation a bounding box is expected; it must not freeze navigation. Record `AholoGsDiagnostics` and its log. / 先测彩色小样，再复用原世界；无需重新生成。检查颜色/透明度、连续导航、静止后恢复与保存重开。准备期间的框是预期行为，但界面不应卡死。记录诊断和日志。
 
 ## Appearance and depth matrix / 外观与深度矩阵
 
@@ -49,7 +49,7 @@ The host's stock byte-color material clips HDR before blending, while the oracle
 
 ## Explicitly outside this candidate / 当前不验收为已支持
 
-Arbitrary transparent Rhino/GS interleaving; clipping planes; nested GS blocks; selection-outline fidelity and editing grips; printed/captured/stereo output; Raytraced/Cycles integration; dedicated GPU shaders, HDR parity, chunked streaming/LOD and million-splat speed. A native dropdown option exists for the experiment; it is a Shaded-derived conduit mode, not a replacement path tracer. / 透明对象交错、裁切、嵌套块、选择轮廓、打印/捕获/立体、Raytraced、专用 GPU、HDR、分块 LOD 与百万级速度均需后续阶段。
+Arbitrary transparent Rhino/GS interleaving; clipping planes; nested GS blocks; selection-outline fidelity and editing grips; layout details; printed/captured/stereo output; Raytraced/Cycles integration; dedicated GPU shaders, HDR parity, chunked streaming/LOD and million-splat speed. A native dropdown option exists for the experiment; it is a Shaded-derived conduit mode, not a replacement path tracer. / 透明对象交错、裁切、嵌套块、选择轮廓、打印/捕获/立体、Raytraced、专用 GPU、HDR、分块 LOD 与百万级速度均需后续阶段。
 
 ## Realtime cloud gate / 实时云视口门槛
 

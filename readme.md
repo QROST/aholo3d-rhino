@@ -4,7 +4,7 @@ World generation and RenderCloud rendering inside Rhino 8, by **CuriousArc · qr
 
 [简体中文](readme.zh-CN.md)
 
-**0.1.0-beta.2 — local development preview.** This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
+**0.1.0-beta.3 — local development preview.** This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
 
 ## What works in this version
 
@@ -18,7 +18,9 @@ World generation and RenderCloud rendering inside Rhino 8, by **CuriousArc · qr
 
 **World files are 3D Gaussian Splatting data, not ordinary triangle meshes.** World placement now uses the experimental GS renderer by default. A PLY without complete Gaussian fields is rejected; it is never silently substituted with a point cloud. The original PLY/SPZ is retained; this first renderer decodes PLY, not SPZ.
 
-This is a **small-scene correctness prototype**, not a production GPU engine. It projects/sorts on the CPU and draws textured Gaussian quads through Rhino's public display API. It does not impose a splat/vertex-count ceiling or silently decimate data. Large scenes can be slow or exhaust memory. The prototype needs actual Mac/Windows testing of texture alpha, sorting and native depth. Arbitrary interleaving with transparent Rhino objects, clipping planes, nested blocks, printing/view capture, stereo and Raytraced integration are not supported. Its byte-color material also clamps HDR SH colors before blending; the CPU oracle retains HDR and is not a claim of pixel-identical host rendering.
+This is an **experimental renderer**. Beta.3 replaces the per-Gaussian native resource path that caused a severe memory/navigation failure in beta.2. Projection and global depth sorting run on a cancellable background worker; native meshes are transferred in small UI slices, with up to 2,048 splats per mesh and one shared opacity atlas/material. The batch size is a transfer unit, not a geometry limit: all visible splats are retained. While a changed camera is being prepared, the block shows a bounding box; the complete GS frame returns after preparation. Saving a 3dm does not render GS into its thumbnail. See the [incident and repair record](docs/gs-freeze-repair.md).
+
+Actual Mac/Windows texture color/alpha, sorting, native depth and navigation acceptance remain pending for the repaired renderer. Arbitrary interleaving with transparent Rhino objects, clipping planes, nested blocks, layout details, printing/view capture, stereo and Raytraced integration are not supported. Display RGB is 8-bit and clips HDR before blending; opacity uses 256 atlas levels (at most 0.5/255 opacity rounding), without altering the source. The CPU oracle retains floating-point data and is not a claim of pixel-identical host rendering.
 
 Realtime RenderCloud REST/WebSocket transport and mock-tested session cleanup are implemented as a library foundation. **There is no realtime cloud viewport yet.** The published stream returns JPEG without depth, alpha or camera-associated frame IDs; World GS assets also need a validated bridge to cloud mesh IDs. Full-scene cloud rendering remains a planned stage, with explicit capability gates. Video/multi-image reconstruction and full Rhino PBR/textures/lights remain outside this candidate. World generation is best suited to indoor scenes according to the official documentation.
 
@@ -31,7 +33,7 @@ See the [staged plan and evidence](docs/decisions/0001-native-gaussian-viewport.
 | Rhino | Rhino 8.32 or later; host assembly targets .NET 7 |
 | Background runtime | .NET 8 Runtime matching the host architecture |
 | Service | International Aholo API Key with World/RenderCloud access and sufficient service credits |
-| macOS | Release build and offline checks on Apple Silicon; actual Rhino UI/import/cloud acceptance pending |
+| macOS | Apple Silicon: user confirmed World generation/download/import in beta.2; GS rendering failed performance/color checks. Beta.3 host retest pending |
 | Windows | Cross-platform source and Windows credential storage included; Windows build, installer execution and Rhino host acceptance pending |
 | Intel Mac | Not yet host-tested |
 
@@ -71,6 +73,8 @@ The camera export preserves the viewport's horizontal field of view and uses the
 The background process uses private stdin/stdout pipes; it exposes no local HTTP control port. Only the fixed international API receives the API Key. Uploads use a separate short-lived OUS token; downloads use unauthenticated HTTPS with redirects disabled and public-address checks.
 
 Prompt/reference images and selected render geometry are sent to Aholo when submitted. Job JSON, input snapshots and downloaded results stay under `Aholo-Rhino` in the OS local application-data folder. The export subfolder can contain intermediate GLB files. GS imports create a SHA-256-named local PLY snapshot. The Rhino document saves the asset hash and local path, not embedded splat data; share the matching PLY/cache with the 3dm. Missing or changed assets keep a visible bounding-box placeholder. The document may therefore contain local filesystem paths. Task records do not contain Keys or signed asset URLs. Disconnect removes the saved Key, while preserving local work. There is no automatic telemetry. Storage protection does not defend against other processes running as the same user or administrators.
+
+Local GS preparation timings, batch counts and sanitized errors are written asynchronously to `Aholo-Rhino/logs/gs-viewport.log`, rotated at about 1 MiB with one previous file. `AholoGsDiagnostics` displays its exact path. The renderer does not log prompts, Keys or signed URLs.
 
 The UI shows the latest 100 local records across job types; older records remain on disk. An interrupted pre-submit upload is not automatically restarted. Large exports/imports may require substantial memory and disk space.
 
