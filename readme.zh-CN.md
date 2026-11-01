@@ -4,7 +4,7 @@
 
 [English](readme.md)
 
-**0.1.0-beta.4，本地开发预览版。** 本项目是独立集成，不是 Manycore、Aholo 或 McNeel 官方产品。插件标识、命令、凭据和缓存均独立，不替换 Lux3D for Rhino。
+**0.1.0-beta.5，本地开发预览版。** 本项目是独立集成，不是 Manycore、Aholo 或 McNeel 官方产品。插件标识、命令、凭据和缓存均独立，不替换 Lux3D for Rhino。
 
 ## 当前功能
 
@@ -26,6 +26,8 @@
 
 详见[阶段方案与依据](docs/decisions/0001-native-gaussian-viewport.md)及 [GS 验收步骤](docs/gs-host-acceptance.md)。
 
+beta.5 还修复了安装 beta.4 后反馈的启动报错：先检查并复用已有 GS 模式，在界面空闲时初始化；GS 初始化失败也不阻断主面板。若仍未就绪，可运行 `AholoGsMode` 在本机重试。重启加载和此前显示稳定性修复仍需实机复测。
+
 ## 环境与验证状态
 
 | 项目 | 状态 |
@@ -33,7 +35,7 @@
 | Rhino | 8.32 及以上，宿主程序集使用 .NET 7 |
 | 后台运行时 | 与宿主架构匹配的 .NET 8 Runtime |
 | 服务账户 | 有相应权限和额度的国际站 Aholo API Key |
-| macOS | Apple Silicon：世界生成/导入已确认；beta.3 颜色与导航改善已确认，beta.4 显示稳定性待复测 |
+| macOS | Apple Silicon：世界生成/导入已确认；beta.3 颜色与导航改善已确认，beta.4 启动失败，beta.5 启动和显示稳定性待复测 |
 | Windows | 已有跨平台源码及 Windows 凭据实现；Windows 构建、安装执行和 Rhino 宿主验收待进行 |
 | Intel Mac | 尚未完成宿主验收 |
 

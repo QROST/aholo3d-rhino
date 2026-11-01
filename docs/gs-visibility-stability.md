@@ -1,6 +1,6 @@
 # GS display stability investigation
 
-Maintainer: CuriousArc · qrost. Candidate: 0.1.0-beta.4. Date: 2026-11-01.
+Maintainer: CuriousArc · qrost. Candidate: 0.1.0-beta.5 (includes beta.4 visibility changes). Date: 2026-11-01.
 
 ## Evidence
 
@@ -24,4 +24,16 @@ No model is resubmitted or regenerated, and no input-count cap, point-cloud conv
 
 ## Acceptance
 
-The full offline suite passes 221 tests. Twelve new regression cases cover alternating DPI passes, clip-range contraction/expansion, simulated upload completion and real pose/projection changes. The 256-observation simulation completes all 104 batches after one depth expansion; it does not execute native Rhino callbacks. The Release solution builds without warnings or errors. Host retest remains required at the reported angles. The previous probe/world-color result is user-reported host evidence, not an automated screenshot comparison. Basic clipping observed in one scene does not establish all clipping-plane combinations or exact Gaussian-volume clipping.
+The beta.4 offline suite passed 221 tests. Twelve new regression cases cover alternating DPI passes, clip-range contraction/expansion, simulated upload completion and real pose/projection changes. The 256-observation simulation completes all 104 batches after one depth expansion; it does not execute native Rhino callbacks. The Release solution builds without warnings or errors. Host retest remains required at the reported angles. The previous probe/world-color result is user-reported host evidence, not an automated screenshot comparison. Basic clipping observed in one scene does not establish all clipping-plane combinations or exact Gaussian-volume clipping.
+
+## Restart failure and beta.5 repair
+
+The user reported that restarting into beta.4 failed before the plug-in finished loading, with “无法保存 Aholo GS 显示模式。” The exception came from an unconditional `UpdateDisplayMode` call in `PlugIn.OnLoad`. Read-only inspection found the existing Aholo GS mode and matching saved ID in local Rhino settings. The native API returned false; this does not establish whether the cause was startup readiness, an unchanged update or another native failure. Offline tests and package-byte checks did not exercise this startup path.
+
+Beta.5 first verifies the existing mode's required flags and reuses it without updating the mode definition when already correct. If a change is required, it performs one update and rereads the manager's runtime state regardless of the boolean result. This confirms runtime usability, not disk persistence. Missing saved IDs recover by exact mode name before copying Shaded; new IDs are saved before subsequent configuration so retries reuse them. Other modes are not deleted or changed.
+
+The panel loads independently. Renderer initialization starts on UI idle, with a UI timer for subsequent attempts (at most three total); `AholoGsMode` can retry explicitly. Failed partial initialization releases resources, and diagnostics retain the initialization stage. No cloud requests or model regeneration are involved.
+
+The full offline suite passes 244 tests, including 23 registration-policy cases. Native startup timing and resource cleanup are compile-checked, not fault-injected in a running Rhino host.
+
+Acceptance requires a successful Rhino restart, `AholoPanel` and original-world display, followed by another restart to verify stable mode identity and persistence. The beta.4 view-stability retest was blocked by the startup error and remains pending in beta.5.

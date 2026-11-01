@@ -4,7 +4,7 @@ World generation and RenderCloud rendering inside Rhino 8, by **CuriousArc · qr
 
 [简体中文](readme.zh-CN.md)
 
-**0.1.0-beta.4 — local development preview.** This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
+**0.1.0-beta.5 — local development preview.** This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
 
 ## What works in this version
 
@@ -26,6 +26,8 @@ Realtime RenderCloud REST/WebSocket transport and mock-tested session cleanup ar
 
 See the [staged plan and evidence](docs/decisions/0001-native-gaussian-viewport.md) and [GS acceptance procedure](docs/gs-host-acceptance.md).
 
+Beta.5 also repairs a startup failure reported after installing beta.4: an existing GS mode is checked and reused, GS initialization is deferred to UI idle, and a GS failure no longer blocks the panel. Run `AholoGsMode` to retry locally if initialization remains unavailable. Restart/loading and the earlier visibility fix still require host retesting.
+
 ## Requirements and validation status
 
 | Item | Status |
@@ -33,7 +35,7 @@ See the [staged plan and evidence](docs/decisions/0001-native-gaussian-viewport.
 | Rhino | Rhino 8.32 or later; host assembly targets .NET 7 |
 | Background runtime | .NET 8 Runtime matching the host architecture |
 | Service | International Aholo API Key with World/RenderCloud access and sufficient service credits |
-| macOS | Apple Silicon: user confirmed World generation/download/import in beta.2; GS rendering failed performance/color checks. Beta.3 colors/navigation improved; beta.4 display stability retest pending |
+| macOS | Apple Silicon: user confirmed World generation/download/import in beta.2; GS rendering failed performance/color checks. Beta.3 colors/navigation improved; beta.4 startup failed; beta.5 startup/display stability retest pending |
 | Windows | Cross-platform source and Windows credential storage included; Windows build, installer execution and Rhino host acceptance pending |
 | Intel Mac | Not yet host-tested |
 
