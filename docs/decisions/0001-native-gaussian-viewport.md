@@ -68,3 +68,11 @@ M1/M2 与 M3 可按独立文件范围并行。M4 不绕过 M2 实机门槛；M5 
 按[公开论文](https://arxiv.org/abs/2308.04079)的数学和文件格式独立实现；不复制 Graphdeco 研究用途许可的 CUDA/训练源码到 Apache-2.0 项目。[官方 Aholo Viewer](https://github.com/manycoretech/aholo-viewer) 可作为另一个公开参考，但 Web viewer 不是 Rhino 原生深度集成的现成方案。
 
 本轮不使用 Computer Use 操作 Rhino，不读取/复用用户凭据，不自动进行付费生成或云渲染，不发布 Yak。人工宿主与真实账户验证必须记录实际结果，不能以 mock 或编译代替。
+
+
+## 首轮执行记录（0.1.0-beta.2）
+
+- M0 已先提交方案；M1 已落地完整 PLY / SH / covariance / projection / CPU reference，41 个新数学/解析用例与 29 个原几何用例通过；参考图中心值符合闭式结果。
+- M2 已实现原生 Shaded 派生模式、外部 PLY 引用块、双精度 quad、全局深度排序、透明材质、资源取消/回收、故障包围盒与离线试验命令。编译通过，但 Mac/Windows 的 alpha 与实际深度遮挡仍未验收。字节材质会预先截断 HDR，不能宣称浮点图像等价。
+- M3 已实现 REST/WSS、分片消息、串行 patch、初始化/关闭保护和显式清理重试，67 个用例通过；没有接入云视口，没有真实账户调用。
+- 集成 Release 构建零警告/错误，完整离线套件 179 项通过。M4–M6 仍按原门槛继续，不将 mock/编译当成宿主或服务实测。验收步骤见 [GS host acceptance](../gs-host-acceptance.md)。

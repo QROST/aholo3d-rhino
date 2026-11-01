@@ -4,20 +4,25 @@
 
 [English](readme.md)
 
-**0.1.0-beta.1，本地开发预览版。** 本项目是独立集成，不是 Manycore、Aholo 或 McNeel 官方产品。插件标识、命令、凭据和缓存均独立，不替换 Lux3D for Rhino。
+**0.1.0-beta.2，本地开发预览版。** 本项目是独立集成，不是 Manycore、Aholo 或 McNeel 官方产品。插件标识、命令、凭据和缓存均独立，不替换 Lux3D for Rhino。
 
 ## 当前功能
 
 - 通过文字、单张参考图或两者结合，调用 World API 生成世界。
 - 保留任务历史、按已有 World ID 恢复查询，下载原始 PLY/SPZ 及可用的全景图。
-- 将 PLY 作为一个彩色 Rhino 点云放入文档，支持指定比例、上轴转换、撤销和定位显示；`AholoImportPly` 可离线使用。
+- 将完整 3DGS PLY 放为原生块实例，在 **Aholo GS (Experimental)** 模式绘制各向异性高斯椭圆、不透明度和 SH 0–3 视角颜色。原文件与完整参数保留；已实现比例、轴向、变换和撤销逻辑，实际宿主表现仍待验收。
+- `AholoGsProbe` 创建离线视口试验，`AholoImportGs` 导入本地 GS，`AholoGsDiagnostics` 输出状态。`AholoImportPly` 仅作为显式中心点诊断保留。
 - 上传选中的 Mesh/Brep/Extrusion，以当前透视视口相机提交离线云渲染，下载并打开结果图。
 - 可选将 Key 保存至 macOS 钥匙串或 Windows 当前用户 DPAPI；不保存时仅保留在后台进程内存。
 - 持久记录提交意图和任务 ID；遇到未知结果时不自动重提，避免重复创建可能扣费的任务。
 
-**世界模型是 3D Gaussian Splatting 数据，不是普通三角网格。** Rhino 内的预览只显示高斯中心点及 RGB/DC 颜色，不包含完整高斯形状、透明度和视角相关效果。原始 PLY/SPZ 保留，可交给完整 3DGS 工具使用。插件不人为设置点数或顶点数上限；实际仍受内存、Rhino/.NET 容器及 GLB 文件格式的 32 位长度字段约束。损坏或暂不支持的数据会报错，不会静默抽稀。
+**世界模型是 3D Gaussian Splatting 数据，不是普通三角网格。** World 默认放置方式现为 GS 实验渲染。缺少完整高斯字段的 PLY 会明确报错，不会悄悄转成点云。原始 PLY/SPZ 保留；首版渲染器解码 PLY，尚未解码 SPZ。
 
-本版尚未实现实时云渲染流、视频/多图重建、完整 Rhino PBR/贴图/灯光或原生高斯渲染。按照当前官方说明，世界生成主要适用于室内场景。
+这是**小场景正确性原型**，还不是生产级 GPU 引擎。它在 CPU 投影、排序，再通过 Rhino 公开显示接口绘制带透明纹理的高斯椭圆。没有人为设置高斯/顶点数上限，也不静默抽稀；大场景仍可能卡顿或耗尽内存。Mac/Windows 的透明纹理、排序与原生深度必须实测。透明 Rhino 对象任意交错、裁切平面、嵌套块、打印/视图捕获、立体视图与 Raytraced 集成尚不支持。当前字节颜色材质还会在混合前截断 HDR SH 颜色；CPU 参考保留 HDR，不能将两者说成像素完全一致。
+
+实时云渲染 REST/WebSocket 及经过模拟测试的会话清理已形成协议基础，**尚未开放实时云视口**。公开流只有 JPEG，没有深度、alpha 或可关联相机的帧号；World GS 入库到云 meshId 的桥接也需验证。整场景云渲染按能力门槛继续推进。本候选版不包含视频/多图重建和完整 Rhino PBR/贴图/灯光。官方当前说明世界生成主要适用于室内场景。
+
+详见[阶段方案与依据](docs/decisions/0001-native-gaussian-viewport.md)及 [GS 验收步骤](docs/gs-host-acceptance.md)。
 
 ## 环境与验证状态
 
@@ -47,11 +52,11 @@
 1. 运行 `AholoPanel`。
 2. 在连接页输入国际站 API Key，选择是否保存。
 3. 在世界页填写描述，可选一张参考图，提交一次后刷新或开启轮询。
-4. 成功后下载 PLY，放入当前文档。服务返回上轴信息，但没有为生成世界明确绝对长度单位；默认每个 PLY 单位对应一个 Rhino 文档单位，请按需要调整比例。
+4. 成功后下载 PLY，通过 GS 实验模式放入当前文档。服务返回上轴信息，但没有为生成世界明确绝对长度单位；默认每个 PLY 单位对应一个 Rhino 文档单位，请按需要调整比例。
 5. 云渲染时选中 Mesh/Brep/Extrusion，激活透视视口，选择输出尺寸并提交。保持面板开启和轮询，或手动刷新，使模型解析完成后继续提交渲染。
 6. 在渲染历史中下载/打开结果图。
 
-首次可离线运行 `AholoImportPly`，选择 `fixtures/tiny-world.ply`，再按[宿主验收步骤](docs/host-acceptance.md)检查。
+首次 GS 测试请使用空文档，运行 `AholoGsProbe`。它离线创建合成高斯、Brep 和 Mesh，不连接 Aholo，两次 Undo 可移除测试内容。`AholoImportGs` 可加载 `fixtures/gaussian-anisotropic.ply` 或 `fixtures/gaussian-sh3.ply`，`AholoGsMode` 可启用/重载模式。[GS 验收步骤](docs/gs-host-acceptance.md)列出预期与限制。`fixtures/tiny-world.ply` 仅供 `AholoImportPly` 中心点诊断使用。
 
 出现 `SubmissionUnknown` 时，先核对 Aholo 平台历史，避免直接再提交。已有 World ID 可重新加入历史；若渲染提交的 operation ID 丢失，目前无法自动对账。已保存 ID 的任务可以继续查询。
 
@@ -65,7 +70,7 @@ Rhino 几何按默认网格参数离散，再转换为 glTF 的米/Y 向上坐�
 
 后台使用专用标准输入/输出管道，没有本地 HTTP 控制端口。只有固定国际 API 域名接收 Key；上传使用单独的短期 OUS 令牌，下载使用不带凭据的 HTTPS，并禁止重定向、检查目标为公网地址。
 
-提交时，提示词、参考图或选中的渲染几何会发送至 Aholo。本地任务记录、输入快照和结果位于系统本地应用数据目录下的 `Aholo-Rhino`，导出目录可能留有中间 GLB。任务 JSON 不保存 Key 和带签名的资产 URL。断开连接会删除已保存 Key，保留本地工作。没有自动遥测。存储保护不防御同一用户权限下的其他进程或管理员。
+提交时，提示词、参考图或选中的渲染几何会发送至 Aholo。本地任务记录、输入快照和结果位于系统本地应用数据目录下的 `Aholo-Rhino`，导出目录可能留有中间 GLB。GS 导入会建立以 SHA-256 命名的 PLY 快照；Rhino 文档只保存哈希和本地路径，不嵌入全部高斯数据，转移 3dm 时需同时转移匹配的 PLY/缓存。资源缺失或变化时保留可见包围盒。因此文档可能包含本地文件路径。任务 JSON 不保存 Key 和带签名的资产 URL。断开连接会删除已保存 Key，保留本地工作。没有自动遥测。存储保护不防御同一用户权限下的其他进程或管理员。
 
 界面显示最近 100 条本地记录（世界和渲染合计），更早记录仍在磁盘上。上传阶段中断不会自动重启。大型导入/导出需要相应内存和磁盘空间。
 
@@ -74,6 +79,8 @@ Rhino 几何按默认网格参数离散，再转换为 glTF 的米/Y 向上坐�
 ```sh
 dotnet build Aholo.sln -c Release
 dotnet test tests/Aholo.Tests/Aholo.Tests.csproj -c Release
+python3 scripts/create-gs-assets.py --check
+dotnet run --project tools/Aholo.Reference -c Release -- --output artifacts/gs-reference
 ./scripts/build-package.sh --platform mac
 ./scripts/build-package.sh --platform win
 ```

@@ -1,13 +1,15 @@
 # Manual host acceptance
 
-Maintainer: CuriousArc · qrost. Candidate: 0.1.0-beta.1.
+Maintainer: CuriousArc · qrost. Candidate: 0.1.0-beta.2.
 
 These are required acceptance steps, not claims of completed tests. The user operates Rhino manually; no computer-control automation is used.
+
+> For the new native GS experiment, follow [GS host acceptance](gs-host-acceptance.md). Point-cloud checks below remain explicit diagnostic tests, not the World default.
 
 ## Offline / no service credits
 
 1. Install the matching local Yak package; restart Rhino; run `AholoPanel`.
-2. In Rhino plug-in properties verify publisher **CuriousArc**, description and independent plug-in GUID. The numeric assembly version is `0.1.0.0`; the package version is `0.1.0-beta.1`.
+2. In Rhino plug-in properties verify publisher **CuriousArc**, description and independent plug-in GUID. The numeric assembly version is `0.1.0.0`; the package version is `0.1.0-beta.2`.
 3. Run `AholoImportPly` and select `fixtures/tiny-world.ply`. Expect a colored point cloud, automatic zoom and one Undo step. Redo, save, reopen and check colors/positions again.
 4. Import into another document/unit system, use a different explicit scale and confirm its interpretation. Close/change the document while a larger file is parsing: the plugin must not place into the wrong document.
 5. Verify narrow panel layout, keyboard input, file pickers and closing/reopening on macOS. Repeat separately on Windows and Intel Mac.

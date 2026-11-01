@@ -7,6 +7,7 @@ import re
 import pathlib
 import shutil
 import subprocess
+import sys
 import tempfile
 import zipfile
 from datetime import datetime, timezone
@@ -40,6 +41,7 @@ def main():
     parser.add_argument('--yak', required=True)
     parser.add_argument('--checks', choices=['passed', 'not-rerun'], default='not-rerun')
     args = parser.parse_args()
+    subprocess.run([sys.executable, str(ROOT / "scripts/create-gs-assets.py"), "--check"], check=True)
     version = ET.parse(ROOT / 'Directory.Build.props').findtext('.//Version')
     manifest = (ROOT / 'packaging/manifest.yml').read_text()
     if f'version: {version}\n' not in manifest or 'name: aholo-rhino\n' not in manifest:
@@ -57,6 +59,8 @@ def main():
         'manifest.yml': 'packaging/manifest.yml',
     }
     for name in ['LICENSE','NOTICE','readme.md','readme.zh-CN.md','fixtures/tiny-world.ply',
+                 'fixtures/gaussian-anisotropic.ply','fixtures/gaussian-sh3.ply','assets/gaussian-alpha.png',
+                 'docs/gs-host-acceptance.md','docs/decisions/0001-native-gaussian-viewport.md',
                  'docs/architecture.md','docs/host-acceptance.md','docs/validation.md','docs/api/README.md',
                  'docs/api/world.openapi.json','docs/api/rendercloud.openapi.json','docs/api/asset.openapi.json']:
         required[name] = name
@@ -90,7 +94,9 @@ def main():
                 raise ValueError('Archive content mismatch: ' + entry.filename)
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     archive.with_suffix('.yak.sha256').write_text(digest+'  '+archive.name+'\n')
-    receipt = {'name':'aholo-rhino','version':version,'platform':args.platform,'path':str(archive),
+    commit = subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT, text=True).strip()
+    dirty = bool(subprocess.check_output(['git','status','--porcelain','--untracked-files=no'], cwd=ROOT, text=True).strip())
+    receipt = {'sourceCommit':commit,'trackedSourceDirty':dirty,'name':'aholo-rhino','version':version,'platform':args.platform,'path':str(archive),
         'sha256':digest,'files':len(required),'checks':args.checks,'hostAcceptance':'pending',
         'serviceAcceptance':'pending','createdUtc':datetime.now(timezone.utc).isoformat()}
     (artifacts / f'latest-package-{args.platform}.json').write_text(json.dumps(receipt,indent=2)+'\n')
