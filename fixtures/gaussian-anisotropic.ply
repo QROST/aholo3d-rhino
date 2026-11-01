@@ -1,0 +1,23 @@
+ply
+format ascii 1.0
+comment Synthetic Gaussian fixture by CuriousArc qrost; no external model data.
+element vertex 4
+property float x
+property float y
+property float z
+property float f_dc_0
+property float f_dc_1
+property float f_dc_2
+property float opacity
+property float scale_0
+property float scale_1
+property float scale_2
+property float rot_0
+property float rot_1
+property float rot_2
+property float rot_3
+end_header
+-1.4 0 0 1.77245385 -1.41796308 -1.41796308 1.38629436 -0.356674944 -1.71479843 -1.71479843 1 0 0 0
+1.4 0 0 -1.41796308 0.70898154 1.77245385 1.38629436 -0.356674944 -1.71479843 -1.71479843 0.923879533 0 0 0.382683432
+0 0 1.2 -1.06347231 1.77245385 -0.70898154 0 -0.916290732 -0.916290732 -1.89711998 1 0 0 0
+0 0.6 0.5 1.77245385 0.35449077 -1.41796308 0 -1.2039728 -1.2039728 -1.2039728 1 0 0 0

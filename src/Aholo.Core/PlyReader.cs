@@ -12,55 +12,100 @@ public static class PlyReader
     private sealed record Element(string Name, long Count, List<Property> Properties);
     private const double Sh0 = 0.28209479177387814;
 
-    public static IEnumerable<SplatPoint> Read(string path, CancellationToken ct = default)
+    public static IEnumerable<SplatPoint> Read(string path, CancellationToken ct = default) => ReadVertices<SplatPoint>(path, header =>
+    {
+        var properties = header.Elements.Single(e => e.Name == "vertex").Properties;
+        int x = Index(properties, "x"), y = Index(properties, "y"), z = Index(properties, "z");
+        int r = Index(properties, header.SphericalHarmonics ? "f_dc_0" : "red"),
+            g = Index(properties, header.SphericalHarmonics ? "f_dc_1" : "green"),
+            b = Index(properties, header.SphericalHarmonics ? "f_dc_2" : "blue");
+        return values =>
+        {
+            if (!double.IsFinite(values[x]) || !double.IsFinite(values[y]) || !double.IsFinite(values[z])) throw Invalid("Non-finite vertex position.");
+            double red = r < 0 ? 255 : values[r], green = g < 0 ? 255 : values[g], blue = b < 0 ? 255 : values[b];
+            if (header.SphericalHarmonics)
+            {
+                red = (.5 + Sh0 * red) * 255; green = (.5 + Sh0 * green) * 255; blue = (.5 + Sh0 * blue) * 255;
+            }
+            return new SplatPoint(values[x], values[y], values[z], Color(red), Color(green), Color(blue));
+        };
+    }, ct);
+
+    /// <summary>Strict original 3DGS PLY decoding. No color quantization or silent point-cloud fallback. Fully enumerate before host insertion.</summary>
+    public static IEnumerable<GaussianSplat> ReadGaussians(string path, CancellationToken ct = default) => ReadVertices<GaussianSplat>(path, header =>
+    {
+        var properties = header.Elements.Single(e => e.Name == "vertex").Properties;
+        int Required(string name)
+        {
+            int index = Index(properties, name);
+            if (index < 0) throw Invalid("Gaussian vertices require scalar " + name + ".");
+            return index;
+        }
+        int x = Required("x"), y = Required("y"), z = Required("z"), sx = Required("scale_0"), sy = Required("scale_1"), sz = Required("scale_2"),
+            rw = Required("rot_0"), rx = Required("rot_1"), ry = Required("rot_2"), rz = Required("rot_3"), opacity = Required("opacity");
+        int[] dc = { Required("f_dc_0"), Required("f_dc_1"), Required("f_dc_2") };
+        var restNames = properties.Where(p => p.Name.StartsWith("f_rest_", StringComparison.Ordinal)).Select(p => p.Name).ToArray();
+        int degree = restNames.Length switch { 0 => 0, 9 => 1, 24 => 2, 45 => 3, _ => throw Invalid("Gaussian SH requires complete degree 0, 1, 2 or 3.") };
+        int[] rest = Enumerable.Range(0, restNames.Length).Select(i => Required("f_rest_" + i.ToString(CultureInfo.InvariantCulture))).ToArray();
+        if (properties.Count(p => p.Name.StartsWith("scale_", StringComparison.Ordinal)) != 3 ||
+            properties.Count(p => p.Name.StartsWith("rot_", StringComparison.Ordinal)) != 4 ||
+            properties.Count(p => p.Name.StartsWith("f_dc_", StringComparison.Ordinal)) != 3)
+            throw Invalid("Unsupported Gaussian scale, quaternion or DC field layout.");
+        int perChannel = rest.Length / 3;
+        return values =>
+        {
+            var coefficients = new float[3 * (perChannel + 1)];
+            for (int channel = 0; channel < 3; ++channel)
+            {
+                coefficients[channel] = (float)values[dc[channel]];
+                for (int index = 0; index < perChannel; ++index)
+                    coefficients[3 * (index + 1) + channel] = (float)values[rest[channel * perChannel + index]];
+            }
+            try
+            {
+                return new GaussianSplat(new(values[x], values[y], values[z]), new(values[sx], values[sy], values[sz]),
+                    new(values[rw], values[rx], values[ry], values[rz]), values[opacity], degree, coefficients);
+            }
+            catch (ArgumentException error) { throw Invalid("Invalid Gaussian parameters: " + error.Message); }
+        };
+    }, ct);
+
+    private static int Index(List<Property> properties, string name) => properties.FindIndex(p => p.Name == name && p.CountType is null);
+
+    // Header, scalar parsing, element/list skipping and trailing-data validation are shared by both projections.
+    private static IEnumerable<T> ReadVertices<T>(string path, Func<(string Format, List<Element> Elements, bool SphericalHarmonics), Func<double[], T>> prepare, CancellationToken ct)
     {
         using var stream = new BufferedStream(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read), 65536);
         var header = ReadHeader(stream, ct);
+        Func<double[], T> decode = prepare(header);
         var reader = new Values(stream, header.Format, ct);
         foreach (var element in header.Elements)
         {
-            var vertex = element.Name == "vertex";
+            bool vertex = element.Name == "vertex";
+            var values = vertex ? new double[element.Properties.Count] : Array.Empty<double>();
             for (long i = 0; i < element.Count; ++i)
             {
                 ct.ThrowIfCancellationRequested();
-                double x = 0, y = 0, z = 0, r = 255, g = 255, b = 255, shR = 0, shG = 0, shB = 0;
-                foreach (var property in element.Properties)
+                for (int index = 0; index < element.Properties.Count; ++index)
                 {
+                    Property property = element.Properties[index];
                     if (property.CountType is { } countType)
                     {
-                        var count = reader.Read(countType);
+                        double count = reader.Read(countType);
                         if (count < 0 || count > uint.MaxValue || count != Math.Truncate(count)) throw Invalid("Invalid list count.");
-                        for (long n = 0; n < (long)count; n++)
+                        for (long n = 0; n < (long)count; ++n)
                         {
                             if ((n & 4095) == 0) ct.ThrowIfCancellationRequested();
                             reader.Read(property.Type);
                         }
-                        continue;
                     }
-                    var value = reader.Read(property.Type);
-                    if (!vertex) continue;
-                    switch (property.Name)
+                    else
                     {
-                        case "x": x = value; break;
-                        case "y": y = value; break;
-                        case "z": z = value; break;
-                        case "red": r = value; break;
-                        case "green": g = value; break;
-                        case "blue": b = value; break;
-                        case "f_dc_0": shR = value; break;
-                        case "f_dc_1": shG = value; break;
-                        case "f_dc_2": shB = value; break;
+                        double value = reader.Read(property.Type);
+                        if (vertex) values[index] = value;
                     }
                 }
-                if (!vertex) continue;
-                if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(z)) throw Invalid("Non-finite vertex position.");
-                if (header.SphericalHarmonics)
-                {
-                    r = (0.5 + Sh0 * shR) * 255;
-                    g = (0.5 + Sh0 * shG) * 255;
-                    b = (0.5 + Sh0 * shB) * 255;
-                }
-                yield return new SplatPoint(x, y, z, Color(r), Color(g), Color(b));
+                if (vertex) yield return decode(values);
             }
         }
         reader.RequireEnd();
