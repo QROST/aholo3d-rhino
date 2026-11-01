@@ -60,7 +60,7 @@ def main():
     }
     for name in ['LICENSE','NOTICE','readme.md','readme.zh-CN.md','fixtures/tiny-world.ply',
                  'fixtures/gaussian-anisotropic.ply','fixtures/gaussian-sh3.ply','assets/gaussian-alpha.png','assets/gaussian-opacity-atlas.png',
-                 'docs/gs-host-acceptance.md','docs/gs-freeze-repair.md','docs/decisions/0001-native-gaussian-viewport.md',
+                 'docs/gs-host-acceptance.md','docs/gs-freeze-repair.md','docs/gs-visibility-stability.md','docs/decisions/0001-native-gaussian-viewport.md',
                  'docs/architecture.md','docs/host-acceptance.md','docs/validation.md','docs/api/README.md',
                  'docs/api/world.openapi.json','docs/api/rendercloud.openapi.json','docs/api/asset.openapi.json']:
         required[name] = name

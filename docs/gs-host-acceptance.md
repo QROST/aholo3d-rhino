@@ -1,8 +1,14 @@
 # GS viewport acceptance / 原生 GS 视口验收
 
-Maintainer: CuriousArc · qrost. Candidate: 0.1.0-beta.3. Status: **host tests pending**.
+Maintainer: CuriousArc · qrost. Candidate: 0.1.0-beta.4. Status: **Mac beta.3 colors/navigation improvement reported; beta.4 stability retest pending**.
 
 This document separates offline mathematical evidence from real Rhino rendering. A successful build, a mode name or visible proxy box is not a visual acceptance result. No account or API Key is needed for the local tests below. / 本文严格区分数学验证与 Rhino 实机表现；显示模式名称和包围盒不代表渲染通过。以下本地测试无需账户或 Key。
+
+## Reported Mac result / Mac 已反馈结果
+
+On 2026-11-01, the user reported that beta.3 displayed the red/teal probe correctly, restored colored display of the generated world and greatly improved navigation. Basic clipping-plane interaction also worked in that scene. Some camera angles nevertheless entered a repeated preparation loop; complete display stability was not accepted. / 用户确认 beta.3 颜色和导航改善，并观察到基础裁切交互；仍有视角显示不稳定，不能视为整体验收完成。
+
+For beta.4, revisit the affected angles and stop moving the camera for several seconds. One complete GS frame should settle and remain visible; the log must not keep restarting preparation at the same viewpoint. Resize/switch viewports and toggle a clipping plane; real camera/object changes must still update the scene. / beta.4 优先复测问题角度停稳后的持续显示，再测窗口尺寸、多视口与裁切；不必重新生成世界。
 
 ## First manual test / 首次手动测试
 
@@ -49,7 +55,7 @@ The host's stock byte-color material clips HDR before blending, while the oracle
 
 ## Explicitly outside this candidate / 当前不验收为已支持
 
-Arbitrary transparent Rhino/GS interleaving; clipping planes; nested GS blocks; selection-outline fidelity and editing grips; layout details; printed/captured/stereo output; Raytraced/Cycles integration; dedicated GPU shaders, HDR parity, chunked streaming/LOD and million-splat speed. A native dropdown option exists for the experiment; it is a Shaded-derived conduit mode, not a replacement path tracer. / 透明对象交错、裁切、嵌套块、选择轮廓、打印/捕获/立体、Raytraced、专用 GPU、HDR、分块 LOD 与百万级速度均需后续阶段。
+Arbitrary transparent Rhino/GS interleaving; comprehensive clipping-plane behavior; nested GS blocks; selection-outline fidelity and editing grips; layout details; printed/captured/stereo output; Raytraced/Cycles integration; dedicated GPU shaders, HDR parity, chunked streaming/LOD and million-splat speed. A native dropdown option exists for the experiment; it is a Shaded-derived conduit mode, not a replacement path tracer. / 透明对象交错、完整裁切行为、嵌套块、选择轮廓、打印/捕获/立体、Raytraced、专用 GPU、HDR、分块 LOD 与百万级速度均需后续阶段。
 
 ## Realtime cloud gate / 实时云视口门槛
 
