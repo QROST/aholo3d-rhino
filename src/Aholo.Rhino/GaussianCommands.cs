@@ -19,7 +19,7 @@ public sealed class AholoImportGsCommand : Command
         dialog.Filters.Add(new Eto.Forms.FileFilter("Gaussian Splat PLY",".ply"));
         if(dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc))!=Eto.Forms.DialogResult.Ok)return Result.Cancel;
         ImportTarget target=AholoHost.CaptureTarget(doc);
-        global::Rhino.RhinoApp.WriteLine("GS 实验视窗使用逐高斯绘制，大场景可能较慢。保留完整高斯参数和原始文件；不转换为点云。请保持目标文档单位不变。");
+        global::Rhino.RhinoApp.WriteLine("GS 实验视窗会在后台准备完整高斯，准备期间显示包围盒。请保持目标文档单位不变。");
         _=ImportAsync(dialog.FileName,target); return Result.Success;
     }
     private static async Task ImportAsync(string path,ImportTarget target)
@@ -55,7 +55,9 @@ public sealed class AholoGsDiagnosticsCommand : Command
     public override string EnglishName=>"AholoGsDiagnostics";
     protected override Result RunCommand(RhinoDoc doc,RunMode mode)
     {
-        global::Rhino.RhinoApp.WriteLine(GaussianViewport.Diagnostics(doc)); return Result.Success;
+        global::Rhino.RhinoApp.WriteLine($"Aholo {AholoPlugin.DisplayVersion}; Rhino {(global::Rhino.RhinoApp.Version)}; {RuntimeInformation.OSDescription}; {RuntimeInformation.ProcessArchitecture}");
+        global::Rhino.RhinoApp.WriteLine(GaussianViewport.Diagnostics(doc));
+        return Result.Success;
     }
 }
 

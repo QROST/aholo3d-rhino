@@ -5,6 +5,7 @@ using System.Text.Json;
 using Aholo.Core;
 
 // This portable image oracle does not load Rhino or make network calls.
+if (args.Length == 2 && args[0] == "--benchmark") return GaussianBenchmark.Run(args[1]);
 if (args.Length != 2 || args[0] != "--output")
 {
     Console.Error.WriteLine("Usage: Aholo.Reference --output DIRECTORY");

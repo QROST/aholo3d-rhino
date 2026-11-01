@@ -17,7 +17,7 @@ internal static class GaussianDocument
     private static readonly Dictionary<uint, Dictionary<string, AssetEntry>> Documents = new();
     private static DateTime _lastRefresh;
     private static bool _initialized;
-    internal sealed record AssetData(GaussianSplat[] Splats, BoundingBox Bounds, string Hash, string Path);
+    internal sealed record AssetData(GaussianSplat[] Splats, GaussianPreparedAsset Prepared, BoundingBox Bounds, string Hash, string Path);
     internal sealed class AssetEntry
     {
         internal AssetData? Data;
@@ -48,7 +48,7 @@ internal static class GaussianDocument
     {
         if (Documents.Remove(e.DocumentSerialNumber, out var assets))
             foreach (var entry in assets.Values) entry.Cancellation?.Cancel();
-        GaussianViewport.ForgetDocument(e.DocumentSerialNumber);
+        GaussianViewport.DocumentClosed(e.DocumentSerialNumber);
     }
     private static void OnIdle(object? sender, EventArgs e)
     {
@@ -195,8 +195,8 @@ internal static class GaussianDocument
                 InstanceObject? existing = Instances(doc, null, true).FirstOrDefault(o => o.Attributes.GetUserString("Aholo.TaskId") == taskId.Value.ToString("D"));
                 if (existing is not null)
                 {
-                    doc.Objects.Select(existing.Id); GaussianViewport.Activate(doc);
-                    doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(existing.Geometry.GetBoundingBox(true)); doc.Views.Redraw();
+                    doc.Objects.Select(existing.Id);
+                    doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(existing.Geometry.GetBoundingBox(true)); GaussianViewport.Activate(doc);
                     return "此任务已有 GS 实例，已定位。可使用 Rhino 的 Move/Rotate/Scale 调整。";
                 }
             }
@@ -212,10 +212,10 @@ internal static class GaussianDocument
             if (added == Guid.Empty) throw new InvalidOperationException("Rhino 未能建立 GS 块实例。");
             if (!Documents.TryGetValue(targetSerial, out var assets)) Documents.Add(targetSerial, assets = new());
             assets[data.Hash] = new AssetEntry { Data = data };
-            GaussianViewport.ForgetDocument(targetSerial); GaussianViewport.Activate(doc);
+            GaussianViewport.ForgetDocument(targetSerial);
             doc.Objects.UnselectAll(); doc.Objects.Select(added);
-            doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(box); doc.Views.Redraw();
-            return $"已放入 {data.Splats.Length:N0} 个完整 GS 的块实例。原始 PLY 已保留，可 Undo；Aholo GS 模式为实验版本，透明物体交错和大场景速度尚未验收。";
+            doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(box); GaussianViewport.Activate(doc);
+            return $"已放入 {data.Splats.Length:N0} 个完整 GS 的块实例。原始 PLY 已保留，可 Undo；后台准备和分批上传期间显示包围盒，完整就绪后显示 GS。透明物体交错和实时速度尚未验收。";
         }).ConfigureAwait(false);
     }
     private static RhinoDoc RequireTarget(uint serial)
@@ -277,7 +277,8 @@ internal static class GaussianDocument
         }
         if (splats.Count == 0 || !bounds.IsValid) throw new InvalidDataException("PLY 没有有效的完整 Gaussian Splat 数据。");
         if (bounds.Diagonal.Length == 0) bounds.Inflate(1);
-        return new(splats.ToArray(), bounds, hash, path);
+        var source = splats.ToArray();
+        return new(source, GaussianPreparedAsset.Prepare(source, ct), bounds, hash, path);
     }
     private static Guid AddBlock(RhinoDoc doc, AssetData data, Transform transform, string sourcePath, double scale, string upAxis, Guid? taskId)
     {
