@@ -1,0 +1,1472 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RenderCloud OpenAPI",
+    "version": "1.1.0",
+    "description": "RenderCloud OpenAPI provides OpenUSD offline rendering and realtime rendering session capabilities.\n\nLong-running APIs use the same endpoint for submit and polling. Omit `operationId` when submitting. The service returns an `Operation` containing `operationId`; use that `operationId` to poll the same endpoint for the final result.\n"
+  },
+  "servers": [
+    {
+      "url": "https://api.aholo.ai",
+      "description": "Aholo OpenAPI gateway. China: api.aholo3d.cn; International: api.aholo.ai"
+    }
+  ],
+  "tags": [
+    {
+      "name": "RenderCloudOpenUSDGuide",
+      "x-displayName": "RenderCloud OpenUSD Format Guide",
+      "description": "This documentation entry explains the OpenUSD/USDA format accepted by `usdContent`.\n\n`usdContent` must be transmitted as:\n\n```text\nusdContent = Base64(UTF-8(USDA text))\n```\n\nFiles should start with `#usda 1.0` and use UTF-8 encoding. The service parses cameras, external asset references, and render settings from the scene. Unsupported Prim types or attributes are ignored; syntax errors cause the job or session to fail.\n\n## Use Cases\n\n| Scenario | API | `usdContent` | Description |\n|----------|-----|--------------|-------------|\n| Offline render submit | `POST /global/rendercloud/v1/jobs` | Full USDA scene | Parses camera, Mesh, 3DGS, and RenderSettings, then starts offline rendering |\n| Realtime render creation | `POST /global/rendercloud/v1/streams` | Full USDA scene | Parses the full scene and creates a realtime rendering stream |\n| Realtime render patch | `POST /global/rendercloud/v1/streams/{sessionId}:push` | Patch USDA using `over` | Separately updates cameras, models, lights, and environment light |\n\n## Recommended Top-Level Structure\n\n```usda\n#usda 1.0\n(\n    defaultPrim = \"World\"\n)\n\ndef Xform \"World\"\n{\n    def Xform \"MeshModel1\" { ... }\n    def Xform \"Cameras\"\n    {\n        def Camera \"MainCamera\" { ... }\n    }\n    def Xform \"Lights\"\n    {\n        def RectLight \"KeyRect\" { ... }\n        def SphereLight \"FillPoint\" { ... }\n    }\n}\n\ndef Scope \"Render\"\n{\n    def RenderSettings \"MainRenderSettings\"\n    {\n        custom float3 manycore:environment:giIntensity = (1, 1, 1)\n    }\n}\n```\n\nUse `def` for full scenes. Use `over` for realtime patch updates.\n\n## Stage Metadata\n\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| `defaultPrim` | `token` string | No | Default root Prim name, for example `\"World\"` |\n| `doc` | Triple-quoted string | No | Documentation text; retained after parsing and not used for rendering |\n| `upAxis` | `token` string | No | Optional documentation metadata; does not change the cloud-renderer axis |\n| `metersPerUnit` | Floating-point number | No | Optional documentation metadata; does not change the cloud-renderer unit |\n\nCloud rendering is always Z-up and always treats **1 unit as 1 millimeter**. Users do not need to set `upAxis` or `metersPerUnit`; when present, these Stage fields are read only as documentation metadata and do not trigger coordinate or light-size conversion.\n\n## Xform\n\n`def Xform` wraps models or cameras and applies transform matrices to child Prims.\n\n| Attribute | USDA Type | Required | Description |\n|-----------|-----------|----------|-------------|\n| `matrix4d xformOp:transform` | `matrix4d` | No | 4x4 transform matrix |\n| `uniform token[] xformOpOrder` | `token[]` | No | Recommended value: `[\"xformOp:transform\"]` |\n\nThe matrix follows the USD row-vector convention. Translation is stored in the fourth row:\n\n```usda\nmatrix4d xformOp:transform = (\n    (m00, m01, m02, m03),\n    (m10, m11, m12, m13),\n    (m20, m21, m22, m23),\n    (m30, m31, m32, m33)\n)\n```\n\n## External Assets\n\nMesh:\n\n```usda\ndef Mesh \"myMesh\" (\n    payload = @manycore:/mesh/{meshId}@</mesh>\n)\n{\n}\n```\n\n3D Gaussian Splatting:\n\n```usda\ndef ParticleField3DGaussianSplat \"MyGaussianSplat\" (\n    payload = @manycore:/mesh/{meshId}@</GaussianSplatData>\n)\n{\n}\n```\n\nThe `assetPath` in `payload` references an uploaded asset. `meshId` is taken from the final path segment. To keep the format explicit and consistent, every example in this guide uses a target Prim path: `Mesh` uses `@manycore:/mesh/{meshId}@</mesh>` and 3DGS uses `@manycore:/mesh/{meshId}@</GaussianSplatData>`; bare asset IDs are not used.\n\n## Camera\n\nFull scenes use the first camera found during traversal. Realtime **camera patches** use the first `over` node containing camera attributes; this rule does not apply to model, light, or environment-light patches.\n\n| Attribute | USDA Type | Required | Description |\n|-----------|-----------|----------|-------------|\n| `token projection` | `token` | No | Projection type, for example `\"perspective\"` |\n| `float2 clippingRange` | `(near, far)` | No | Near and far clipping planes |\n| `float focalLength` | `float` | No | Focal length in mm |\n| `float focusDistance` | `float` | No | Focus distance |\n| `float fStop` | `float` | No | Aperture f-number |\n| `float horizontalAperture` | `float` | No | Horizontal aperture in mm |\n| `float verticalAperture` | `float` | No | Vertical aperture in mm |\n| `matrix4d xformOp:transform` | `matrix4d` | No | Camera pose |\n| `uniform token[] xformOpOrder` | `token[]` | No | Recommended value: `[\"xformOp:transform\"]` |\n\nExample:\n\n```usda\ndef Camera \"MainCamera\"\n{\n    float2 clippingRange = (0.1, 1000)\n    float focalLength = 28\n    float fStop = 0\n    float horizontalAperture = 24.447495\n    float verticalAperture = 13.7517\n    token projection = \"perspective\"\n    matrix4d xformOp:transform = (\n        (1, 0, 0, 0),\n        (0, 1, 0, 0),\n        (0, 0, 1, 0),\n        (0, 0, 8.0, 1)\n    )\n    uniform token[] xformOpOrder = [\"xformOp:transform\"]\n}\n```\n\n## RenderSettings\n\n`def RenderSettings` should be placed under `def Scope \"Render\"`.\n\n| Attribute | USDA Type | Required | Description |\n|-----------|-----------|----------|-------------|\n| `rel camera` | Prim path | No | Active camera path, for example `</World/Cameras/MainCamera>` |\n| `int2 resolution` | `(width, height)` | Required for offline rendering | Output resolution |\n\nOffline rendering reads the output resolution from `RenderSettings.resolution`, with Camera `resolution` supported as a compatibility fallback. Width and height must be positive, and neither side may exceed the server-side configured limit. The default limit is 4500 pixels. If multiple `RenderSettings` Prims exist, the first one is used.\n\n## Lights and Environment Light\n\nLights and environment light can be written to the full USDA when creating a realtime session and updated incrementally through `POST /global/rendercloud/v1/streams/{sessionId}:push` after the session reaches `ACTIVE`. `usdContent` must always be encoded as `Base64(UTF-8(USDA text))`.\n\n### Lights\n\nThe current format supports `RectLight` rectangular area lights and `SphereLight` spherical point lights. Place lights under stable, unique Prim paths in the full scene and retain their complete paths; later updates and deletions must target the same paths. Light distances and dimensions are always interpreted using the cloud renderer's fixed **1 unit = 1 millimeter, Z-up** convention, so `metersPerUnit` and `upAxis` are not required.\n\n| Prim / Attribute | Constraint |\n|------------------|------------|\n| `RectLight` | `inputs:width` and `inputs:height` must be positive; supports `inputs:color`, `inputs:intensity`, `inputs:exposure`, `inputs:specular`, and `xformOp:transform` |\n| `SphereLight` | `inputs:radius` must be positive; supports `inputs:color`, `inputs:intensity`, `inputs:exposure`, `inputs:specular`, and `xformOp:transform` |\n| `inputs:color` | Linear RGB; white when omitted |\n| `inputs:intensity` / `inputs:exposure` | Effective intensity is `intensity × 2^exposure` |\n| `inputs:normalize` | May be omitted or set to `false`; setting it to `true` is not supported |\n| `xformOp:transform` / `xformOpOrder` | When setting a light transform, also write `uniform token[] xformOpOrder = [\"xformOp:transform\"]`; otherwise the Transform is not in the USD transform stack |\n| `manycore:affectReflections` | `0` or `1` in `customData`; defaults to `1` |\n| `manycore:doubleFace` | Boolean in `customData` for `RectLight`; defaults to `false` |\n\n`DistantLight`, `DiskLight`, `DomeLight`, Spot/IES/MeshLight, light linking, projected textures, and color temperature are not supported. Non-uniform scaling of `SphereLight` is also unsupported. `inputs:normalize` may be omitted or set to `false`, but must not be set to `true`. Matrices continue to use the row-vector convention in this guide, with translation in the fourth row.\n\n### Environment light\n\nWrite environment-light intensity on the active `RenderSettings` Prim, preferably alongside the camera and resolution:\n\n```usda\ncustom float3 manycore:environment:giIntensity = (1.25, 1.25, 1.25)\n```\n\n`manycore:environment:giIntensity` is an absolute RGB multiplier for GI environment light. All three values must be finite positive numbers representable as 32-bit floats; a regular brightness slider should convert scalar `v` to `(v, v, v)`. Omitting the attribute preserves the scene default and does not mean `(1, 1, 1)`. This attribute is not a light color and is not affected by `metersPerUnit`, `upAxis`, or sRGB/Gamma.\n\n### Patch rules\n\nSend patches only after the session reaches `ACTIVE`. Use `over` for updates and keep paths identical to the initialization scene; add models or lights with `def` and complete creation fields, and delete models or lights with `manycore:operation:type = \"del\"`. Serialize camera, model, light, and environment-light patches in user-operation order within the same session; debounce high-frequency input and flush the final value.\n\n## Minimal Realtime Initialization Example\n\nThe following compact complete scene contains one Mesh, one camera, one rectangular area light, and environment light. Extend it with additional assets or lights as needed. It deliberately omits optional `upAxis` and `metersPerUnit` metadata.\n\n```usda\n#usda 1.0\n(\n    defaultPrim = \"World\"\n)\n\ndef Xform \"World\"\n{\n    def Xform \"Model\"\n    {\n        matrix4d xformOp:transform = (\n            (1, 0, 0, 0),\n            (0, 1, 0, 0),\n            (0, 0, 1, 0),\n            (0, 0, 0, 1)\n        )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/{meshId}@</mesh>\n        ) {}\n    }\n\n    def Xform \"Cameras\"\n    {\n        def Camera \"MainCamera\"\n        {\n            float2 clippingRange = (0.1, 5000)\n            float focalLength = 28\n            float horizontalAperture = 24.447495\n            float verticalAperture = 13.7517\n            token projection = \"perspective\"\n            matrix4d xformOp:transform = (\n                (1, 0, 0, 0),\n                (0, 1, 0, 0),\n                (0, 0, 1, 0),\n                (0, 0, 8, 1)\n            )\n            uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        }\n    }\n\n    def Xform \"Lights\"\n    {\n        def RectLight \"KeyRect\"\n        {\n            color3f inputs:color = (1, 1, 1)\n            float inputs:intensity = 4\n            float inputs:width = 1200\n            float inputs:height = 600\n            float inputs:specular = 1\n            bool inputs:normalize = false\n            matrix4d xformOp:transform = (\n                (1, 0, 0, 0),\n                (0, 1, 0, 0),\n                (0, 0, 1, 0),\n                (1200, 600, 2400, 1)\n            )\n            uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        }\n    }\n}\n\ndef Scope \"Render\"\n{\n    def RenderSettings \"MainRenderSettings\"\n    {\n        rel camera = </World/Cameras/MainCamera>\n        int2 resolution = (1024, 576)\n        custom float3 manycore:environment:giIntensity = (1, 1, 1)\n    }\n}\n```\n\n## Realtime Rendering Initialization Example\n\nThe following is a complete reference scene containing multiple Meshes, 3DGS, a camera, lights, and environment light; it is not a minimal request body. In the actual request, encode the USDA text as `Base64(UTF-8(USDA plain text))` and pass it in `usdContent`. Every example `payload` uses the canonical form with a target Prim path.\n\n```usda\n#usda 1.0\n(\n    defaultPrim = \"World\"\n)\n\ndef Xform \"World\"\n{\n    def Xform \"MainSplat\" {\n        matrix4d xformOp:transform = ( (0.000051545731,0.000085786507,0,0), (-0.000085786507,0.000051545731,0,0), (0,0,0.000100081398,0), (0.174798629761,1.721153564453,0.3,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def ParticleField3DGaussianSplat \"SplatModel\" (\n            payload = @manycore:/mesh/YYKIL7BVAJQPYPTUKU888888@</GaussianSplatData>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_0_JVAIX5WPTUL4\" {\n        matrix4d xformOp:transform = ( (0.001,0,0,0), (0,0.001,0,0), (0,0,0.001,0), (0.18688556,1.6863253,1.321402,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/YYWWKOJVAIX5WPTUL4888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_1_ZVAIPWOPTULY\" {\n        matrix4d xformOp:transform = ( (0.001,0.000000000073,0,0), (-0.000000000073,0.001,0,0), (0,0,0.001,0), (-1.6171633,0.8850137,0.46721213,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/YRNLYLZVAIPWOPTULY888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_2_ZVAXAG6PTUJU\" {\n        matrix4d xformOp:transform = ( (-0.00000000008,0.0018392428,0,0), (-0.0018392428,-0.00000000008,0,0), (0,0,0.00015876645,0), (-1.638599,0.9451463,0.0005,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/ZSGMVMZVAXAG6PTUJU888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_3_BVAII3SPTUJU\" {\n        matrix4d xformOp:transform = ( (-0.00055461276,-0.0007359958,0,0), (0.0007359958,-0.00055461276,0,0), (0,0,0.00092156667,0), (0.06702871,0.49209814,0.32490457,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/YR3NPCBVAII3SPTUJU888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_4_RVALFX2PTUJQ\" {\n        matrix4d xformOp:transform = ( (0.00083867055,0.00054463905,0,0), (-0.00054463905,0.00083867055,0,0), (0,0,0.001,0), (-0.7005493,0.28526813,0.037392548,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/YWMNBJRVALFX2PTUJQ888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_5_RVAIIECPTULA\" {\n        matrix4d xformOp:transform = ( (-0.00000000004,0.0009199465,0,0), (-0.0009199465,-0.00000000004,0,0), (0,0,0.0009199465,0), (-3.0077407,0.81905786,0.3764504,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/ZC42U2RVAIIECPTULA888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_6_BVAJRHAPTUKQ\" {\n        matrix4d xformOp:transform = ( (0.0010743258,0,0,0), (0,0.0010743258,0,0), (0,0,0.0010743258,0), (0.1153041,2.9576484,1.8342776,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/ZDAFHEBVAJRHAPTUKQ888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_7_JVAUMCKPTULM\" {\n        matrix4d xformOp:transform = ( (-0.000000000048,0.0010972692,0,0), (-0.0010972692,-0.000000000048,0,0), (0,0,0.0010972692,0), (-1.0990643,2.1746306,0.23665573,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/ZS4RG7JVAUMCKPTULM888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_8_ZVAX3LMPTUJU\" {\n        matrix4d xformOp:transform = ( (0.0009108356,0.00056915325,0,0), (-0.00056915325,0.0009108356,0,0), (0,0,0.0010740377,0), (-3.3463013,2.5292085,0.863,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/ZSBUJIZVAX3LMPTUJU888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_9_ZVAJYACPTULU\" {\n        matrix4d xformOp:transform = ( (0.0008437305,0,0,0), (0,0.0008437305,0,0), (0,0,0.0008437305,0), (0.12560691,2.9127068,0.46892435,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/ZCCN76ZVAJYACPTULU888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_10_JVAIHW6PTULA\" {\n        matrix4d xformOp:transform = ( (0.00061403894,0,0,0), (0,0.00061403894,0,0), (0,0,0.00061403894,0), (-1.4365238,3.085212,1.3550343,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/ZG55YXJVAIHW6PTULA888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_11_UTDD52GSRTL4\" {\n        matrix4d xformOp:transform = ( (0.001,0,0,0), (0,0.0009986295,-0.00005233596,0), (0,0.00005233596,0.0009986295,0), (-0.9053951,3.1488496,1.6107593,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/6DM4O3UTDD52GSRTL4888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_12_JVAITAAPTULE\" {\n        matrix4d xformOp:transform = ( (0.0011506461,0,0,0), (0,0.0011506461,0,0), (0,0,0.0011506461,0), (-1.6382509,2.5568164,0.444,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/Z65NBFJVAITAAPTULE888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_13_JVAIJG2PTULA\" {\n        matrix4d xformOp:transform = ( (0.001,0,0,0), (0,0.001,0,0), (0,0,0.001,0), (-1.0495006,3.1262092,1.0833826,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/ZMXLP3JVAIJG2PTULA888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Model_14_JVAVUWOPTULM\" {\n        matrix4d xformOp:transform = ( (-0.000000000067,0.0015338801,0,0), (-0.0011504536,-0.00000000005,0,0), (0,0,0.0011504536,0), (-3.763693,2.7723376,1.2795,1) )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/6JVR45JVAVUWOPTULM888888@</mesh>\n        )\n        {\n        }\n    }\n\n    def Xform \"Cameras\"\n    {\n        def Camera \"MainCamera\"\n        {\n            float2 clippingRange = (0.1, 5000)\n            float focalLength = 20.7846\n            float fStop = 0\n            float horizontalAperture = 42.6667\n            float verticalAperture = 24.0000\n            token projection = \"perspective\"\n            matrix4d xformOp:transform = ( (0.7333269715309143,0.6797372698783875,-0.01374034397304058,0), (-0.0885528177022934,0.11553312093019485,0.9893485307693481,0), (0.6740845441818237,-0.7242991924285889,0.14491620659828186,0), (0.8263652324676514,-0.030662942677736282,0.8460000157356262,1) )\n            uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        }\n    }\n\n    def Xform \"Lights\"\n    {\n        def RectLight \"KeyRect\" (\n            customData = {\n                int manycore:affectReflections = 1\n                bool manycore:doubleFace = false\n            }\n        )\n        {\n            color3f inputs:color = (1.0, 0.95, 0.90)\n            float inputs:intensity = 4.0\n            float inputs:exposure = 0.0\n            float inputs:width = 1200\n            float inputs:height = 600\n            float inputs:specular = 1\n            bool inputs:normalize = false\n            matrix4d xformOp:transform = (\n                (1, 0, 0, 0),\n                (0, 1, 0, 0),\n                (0, 0, 1, 0),\n                (1200, 600, 2400, 1)\n            )\n            uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        }\n\n        def SphereLight \"FillPoint\"\n        {\n            color3f inputs:color = (0.70, 0.80, 1.00)\n            float inputs:intensity = 40.0\n            float inputs:exposure = -1.0\n            float inputs:radius = 80\n            float inputs:specular = 1\n            bool inputs:normalize = false\n            matrix4d xformOp:transform = (\n                (1, 0, 0, 0),\n                (0, 1, 0, 0),\n                (0, 0, 1, 0),\n                (-500, 900, 1800, 1)\n            )\n            uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        }\n    }\n}\n\ndef Scope \"Render\"\n{\n    def RenderSettings \"MainRenderSettings\"\n    {\n        rel camera = </World/Cameras/MainCamera>\n        int2 resolution = (1024, 576)\n        custom float3 manycore:environment:giIntensity = (1.25, 1.25, 1.25)\n    }\n}\n```\n\n## Realtime Patch\n\nRealtime patches do not rebuild the full scene; they separately update cameras, models, lights, and environment light. Send them only after the session reaches `ACTIVE`, using `over` and the same Prim paths as the initialization USDA.\n\n### Camera patch\n\n```usda\n#usda 1.0\n\nover \"World\"\n{\n    over \"Cameras\"\n    {\n        over \"MainCamera\"\n        {\n            token projection = \"perspective\"\n            float focalLength = 50\n            float focusDistance = 100\n            float horizontalAperture = 36.0\n            float verticalAperture = 24.0\n            float2 clippingRange = (0.1, 5000.0)\n            matrix4d xformOp:transform = (\n                (1, 0, 0, 0),\n                (0, 1, 0, 0),\n                (0, 0, -1, 0),\n                (10, 20, 30, 1)\n            )\n        }\n    }\n}\n```\n\n### Model patch\n\nUse a stable `Xform` Prim as the model parent and reference the uploaded asset with the `payload` of either `Mesh` or `ParticleField3DGaussianSplat`. Model addition, Transform updates, and deletion must use consistent complete Prim paths; the parent `Xform` must already be known from the full scene or from a successful earlier patch.\n#### 3DGS model\n\n**Add a 3DGS model** with `def`, including the Transform, `xformOpOrder`, and `payload`:\n\n```usda\nover \"World\"\n{\n    def Xform \"GaussianSplatModel2\"\n    {\n        matrix4d xformOp:transform = (\n            (0.001, 0.0, 0.0, 0.0),\n            (0.0, 0.0, 0.001, 0.0),\n            (0.0, -0.001, 0.0, 0.0),\n            (0.0, 0.0, 0.0, 1.0)\n        )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def ParticleField3DGaussianSplat \"MyGaussianSplat2\" (\n            payload = @manycore:/mesh/YYPZPUETQYRLIPTUKE888888@</GaussianSplatData>\n        )\n        {\n        }\n    }\n}\n```\n\n**Update a 3DGS model Transform** with `over` on the existing parent `Xform` and a complete row-vector matrix. An empty `over` node for the child model can be used to make the target path explicit:\n\n```usda\nover \"World\"\n{\n    over \"GaussianSplatModel2\"\n    {\n        matrix4d xformOp:transform = (\n            (0.001, 0.0, 0.0, 0.0),\n            (0.0, 0.0, 0.001, 0.0),\n            (0.0, -0.001, 0.0, 0.0),\n            (-2.01571919623, -0.262131040274, 1.279749806075, 1.0)\n        )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        over ParticleField3DGaussianSplat \"MyGaussianSplat2\"\n        {\n        }\n    }\n}\n```\n\n**Delete a 3DGS model** by adding `manycore:operation:type = \"del\"` to the `ParticleField3DGaussianSplat` at the original path. Do not rename or move the model before deleting it:\n\n```usda\nover \"World\"\n{\n    over \"GaussianSplatModel2\"\n    {\n        over ParticleField3DGaussianSplat \"MyGaussianSplat2\"\n        (\n            customData = {\n                string manycore:operation:type = \"del\"\n            }\n        )\n        {\n        }\n    }\n}\n```\n\n#### Mesh model\n\n`Mesh` model patches use the same semantics as 3DGS; the `payload` target Prim is `</mesh>`.\n\n**Add a Mesh model**:\n\n```usda\nover \"World\"\n{\n    def Xform \"MeshModel2\"\n    {\n        matrix4d xformOp:transform = (\n            (0.001, 0.0, 0.0, 0.0),\n            (0.0, 0.0, 0.001, 0.0),\n            (0.0, -0.001, 0.0, 0.0),\n            (0.0, 0.0, 0.0, 1.0)\n        )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        def Mesh \"Geom\" (\n            payload = @manycore:/mesh/YYPZPUETQYRLIPTUKE888888@</mesh>\n        )\n        {\n        }\n    }\n}\n```\n\n**Update a Mesh model Transform**:\n\n```usda\nover \"World\"\n{\n    over \"MeshModel2\"\n    {\n        matrix4d xformOp:transform = (\n            (0.001, 0.0, 0.0, 0.0),\n            (0.0, 0.0, 0.001, 0.0),\n            (0.0, -0.001, 0.0, 0.0),\n            (-2.01571919623, -0.262131040274, 1.279749806075, 1.0)\n        )\n        uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        over Mesh \"Geom\"\n        {\n        }\n    }\n}\n```\n\n**Delete a Mesh model**:\n\n```usda\nover \"World\"\n{\n    over \"MeshModel2\"\n    {\n        over Mesh \"Geom\"\n        (\n            customData = {\n                string manycore:operation:type = \"del\"\n            }\n        )\n        {\n        }\n    }\n}\n```\n\nModel patches share the same session-level send queue as camera, light, and environment-light patches. Update the local committed scene state only after the server succeeds and the session remains `ACTIVE`.\n\n### Light patch\n\nWhen modifying a light, write only changed fields. When updating position, rotation, or scale, write the complete row-vector `matrix4d xformOp:transform` together with `uniform token[] xformOpOrder = [\"xformOp:transform\"]`. For example, change the color and intensity of `/World/Lights/KeyRect`:\n\n```usda\nover \"World\"\n{\n    over \"Lights\"\n    {\n        over RectLight \"KeyRect\"\n        {\n            color3f inputs:color = (1.0, 0.72, 0.50)\n            float inputs:intensity = 8.0\n        }\n    }\n}\n```\n\nAdd a light with `def` and complete fields. Delete an existing light with the same path and `manycore:operation:type = \"del\"`:\n\n```usda\nover \"World\"\n{\n    over \"Lights\"\n    {\n        def SphereLight \"Accent\"\n        {\n            color3f inputs:color = (0.2, 0.4, 1.0)\n            float inputs:intensity = 12.0\n            float inputs:exposure = 0.0\n            float inputs:radius = 50.0\n            float inputs:specular = 1\n            bool inputs:normalize = false\n            matrix4d xformOp:transform = (\n                (1, 0, 0, 0),\n                (0, 1, 0, 0),\n                (0, 0, 1, 0),\n                (300, 400, 500, 1)\n            )\n            uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        }\n\n        over SphereLight \"FillPoint\" (\n            customData = { string manycore:operation:type = \"del\" }\n        ) {}\n    }\n}\n```\n\n### Environment-light patch\n\nAn environment-light patch must target the same `RenderSettings` Prim path recorded during initialization. Explicitly writing the types is recommended:\n\n```usda\n#usda 1.0\n\nover Scope \"Render\"\n{\n    over RenderSettings \"MainRenderSettings\"\n    {\n        custom float3 manycore:environment:giIntensity = (0.8, 0.8, 0.8)\n    }\n}\n```\n\nEnvironment-light updates use absolute replacement values: changing from `2.0` to `0.8` sends `(0.8, 0.8, 0.8)`. Do not send `0`, negative numbers, or `None`, and do not clear the environment light by deleting the attribute, deleting `RenderSettings`, or sending `manycore:operation:type = \"del\"`; explicitly send `(1, 1, 1)` to restore multiplier 1.\n\n## Supported Prims\n\n| Prim Type | Support | Key Attributes / Metadata |\n|-----------|---------|---------------------------|\n| `Xform` | Supported | `xformOp:transform`, `xformOpOrder`; can be a model parent for `def` / `over` |\n| `Mesh` | Supported | `payload` metadata; removable through `over` and the delete marker |\n| `ParticleField3DGaussianSplat` | Supported | `payload` metadata; removable through `over` and the delete marker |\n| `Camera` | Supported | Camera parameters and pose |\n| `RectLight` | Supported | `inputs:color`, `inputs:intensity`, `inputs:exposure`, `inputs:width`, `inputs:height`, `inputs:specular`, `xformOp:transform` |\n| `SphereLight` | Supported | `inputs:color`, `inputs:intensity`, `inputs:exposure`, `inputs:radius`, `inputs:specular`, `xformOp:transform` |\n| `RenderSettings` | Supported | `camera`, `resolution`, `manycore:environment:giIntensity` |\n| `Scope` | Supported | Hierarchy container |\n| Other USD types | Ignored | Not used for rendering |\n\n## Limitations\n\n| Item | Description |\n|------|-------------|\n| **Fixed units and axis** | Cloud rendering always uses 1 unit = 1 millimeter and Z-up; `metersPerUnit` and `upAxis` are not required and do not cause coordinate or size conversion when present |\n| **Important: Matrix convention mismatch** | The matrix convention used by frontend display may differ from cloud rendering; cloud rendering requires model and camera `xformOp:transform` matrices in USDA to use row-major / row-vector form, with translation in the 4th row |\n| Light transforms | `xformOp:transform` alone is not in the USD transform stack; always write `xformOpOrder` with it |\n| Environment-light intensity | The three `manycore:environment:giIntensity` values must be finite and positive; clearing with `0`, attribute deletion, or Prim deletion is unsupported |\n| Unsupported light types | `DistantLight`, `DiskLight`, `DomeLight`, Spot/IES/MeshLight, light linking, projected textures, and color temperature are not rendered |\n| Full USD composition | `references`, `subLayers`, `variantSets`, material networks, and similar composition features are not supported |\n| Multiple cameras / RenderSettings | The first one found during traversal is used |\n| Unknown attributes | Ignored without error |\n| Syntax errors | Unclosed braces or invalid attribute values cause parsing failure |\n| Missing asset | Rendering may fail or miss the referenced asset |\n",
+      "x-scalar-doc-only": true
+    },
+    {
+      "name": "RenderCloud",
+      "description": "OpenUSD render cloud APIs",
+      "x-displayName": "Render Cloud"
+    }
+  ],
+  "paths": {
+    "/global/rendercloud/v1/jobs": {
+      "post": {
+        "tags": [
+          "RenderCloud"
+        ],
+        "summary": "Submit or poll an OpenUSD offline render job",
+        "description": "Submit an OpenUSD offline render job or poll the status of an existing job.\n\n## Submit mode\n\nWhen `operationId` is empty, a new job is submitted. `requestId` and Base64-encoded `usdContent` are required. The output resolution is read from OpenUSD `RenderSettings.resolution`, with Camera `resolution` supported as a compatibility fallback. Width and height must be positive, and neither side may exceed the server-side configured limit. The default limit is 4500 pixels.\n\nThe server returns HTTP 202 with `{operationId, metaData:null, done:false, result:null, error:null}`. The `operationId` is the render task ID.\n\n`requestId` is generated by the caller and used for request tracing and records. The server applies a 1-minute idempotency guard for the same user and the same `requestId`. If the same user submits the same `requestId` again within 1 minute, the API returns 409 `ALREADY_EXISTS`.\n\n## Poll mode\n\nWhen `operationId` is present, the same POST endpoint polls the job status.\n\n- Processing: `done=false`\n- Succeeded: `done=true + result.taskId/resultUrl`\n- Failed: `done=true + error`\n\n## Rendering constraints\n\nThis API does not accept server-side rendering template parameters. The service selects a fixed offline rendering pipeline according to the OpenUSD content and output resolution.\n\n## REST response statuses\n\n| HTTP status | Scenario | Response |\n|-----------|------|---------|\n| `202` | Submit mode | Job accepted; returns `operationId` for polling |\n| `200` | Poll mode | Returns current `Operation`; completed responses include `resultUrl` |\n| `400` | Invalid argument | Missing `requestId` or `usdContent`; missing/invalid OpenUSD resolution; invalid Base64; or OpenUSD parse failure |\n| `404` | Not found | No job exists for `operationId` |\n| `409` | Duplicate request | The same user submitted the same `requestId` again within 1 minute |\n| `429` | Rate limited | User-level offline render frequency exceeded |\n| `500` | Internal error | Job creation, conversion, or render dispatch failed |\n",
+        "operationId": "runRenderCloudOfflineJob",
+        "requestBody": {
+          "description": "Offline render submit or poll request body. Submit with `requestId` and `usdContent`; poll with only `operationId`.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/OfflineRenderSubmitRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OperationPollRequest"
+                  }
+                ]
+              },
+              "examples": {
+                "submit": {
+                  "summary": "Submit an offline render job",
+                  "description": "Create an offline render job from OpenUSD content. Output resolution is read from OpenUSD resolution.",
+                  "value": {
+                    "requestId": "render-req-20260515-0001",
+                    "usdContent": "I3VzZGEgMS4wCg=="
+                  }
+                },
+                "poll": {
+                  "summary": "Poll offline render result",
+                  "description": "Use the `operationId` returned by submit to query the job status or result.",
+                  "value": {
+                    "operationId": "1305220918472257536"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current offline render operation status.",
+            "content": {
+              "application/+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/OfflineRenderProcessingOperation"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OfflineRenderSuccessOperation"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OperationError"
+                    }
+                  ]
+                },
+                "examples": {
+                  "processing": {
+                    "summary": "Job processing",
+                    "description": "The offline render job is still processing.",
+                    "value": {
+                      "operationId": "1305220918472257536",
+                      "metaData": null,
+                      "done": false,
+                      "result": null,
+                      "error": null
+                    }
+                  },
+                  "success": {
+                    "summary": "Render succeeded",
+                    "description": "The offline render job finished and returned the rendered image URL.",
+                    "value": {
+                      "operationId": "1305220918472257536",
+                      "metaData": null,
+                      "done": true,
+                      "result": {
+                        "taskId": "1305220918472257536",
+                        "resultUrl": "https://example.com/render/result.png"
+                      },
+                      "error": null
+                    }
+                  },
+                  "failed": {
+                    "summary": "Render failed",
+                    "description": "The offline render job failed and returned an error.",
+                    "value": {
+                      "operationId": "1305220918472257536",
+                      "metaData": null,
+                      "done": true,
+                      "result": null,
+                      "error": {
+                        "code": 500,
+                        "message": "code: INTERNAL, details: ErrorDetails(reason=INTERNAL_ERROR, message=null, domain=render, metaData=null)",
+                        "status": "INTERNAL",
+                        "details": {
+                          "reason": "INTERNAL_ERROR",
+                          "domain": "render"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Offline render job accepted and still processing.",
+            "content": {
+              "application/+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfflineRenderProcessingOperation"
+                },
+                "examples": {
+                  "processing": {
+                    "summary": "Job processing",
+                    "description": "The offline render job has been created but is not finished yet.",
+                    "value": {
+                      "operationId": "1305220918472257536",
+                      "metaData": null,
+                      "done": false,
+                      "result": null,
+                      "error": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "x-scalar-order": 3
+      }
+    },
+    "/global/rendercloud/v1/streams": {
+      "post": {
+        "tags": [
+          "RenderCloud"
+        ],
+        "summary": "Create or poll an OpenUSD realtime render stream",
+        "description": "Create a realtime render session or poll an existing session.\n\n## Submit mode\n\nWhen `operationId` is empty, a new session is created. `requestId` and `usdContent` are required.\nOptional `settings.autoEnhanceAI` enables AI enhancement. Omit it or set it to `false` to disable enhancement.\n\nThe server returns HTTP 202 with `{operationId, metaData:null, done:false, result:null, error:null}`. The returned `operationId` is the `sessionId`.\n\n## Poll mode\n\nWhen `operationId` is present, poll the session status. Recommended polling interval is 2 seconds; timeout is 120 seconds.\n\nWhen `status` is `ACTIVE`, `result` contains `host`, `nodeId`, `streamId`, and `token`, which are required to open the WebSocket Streaming connection.\n\n## REST response statuses\n\n| HTTP status | Scenario | Response |\n|-----------|------|---------|\n| `202` | Submit mode | Session is being created; returns `operationId` for polling |\n| `200` | Poll mode | Current `Operation`; processing is `done=false`, success is `done=true + result`, failure is `done=true + error` |\n| `400` | Invalid argument | Request body is missing required fields or contains invalid values |\n| `404` | Not found | `operationId` or session does not exist |\n| `429` | Rate limited | Request frequency exceeded |\n| `500` | Internal error | Internal server error |\n\n## WebSocket Streaming protocol\n\n### Connection URL\n\n```\nwss://{host}/streaming/ws/session?nid={encodeURIComponent(nodeId)}&token={encodeURIComponent(token)}\n```\n\nSet `ws.binaryType = 'blob'` when creating the WebSocket; otherwise image frames cannot be received as Blob objects.\n\n### Handshake\n\nImmediately after WebSocket `onopen`, send:\n\n```json\n{\"type\":3,\"slaveInit\":{\"masterStreamingId\":\"{streamId}\",\"receiveImage\":true}}\n```\n\n| Field | Value | Description |\n|------|-----|------|\n| type | fixed `3` | Slave initialization message |\n| slaveInit.masterStreamingId | `{streamId}` | The streamId returned by this API |\n| slaveInit.receiveImage | fixed `true` | Receive rendered images |\n\n### Server messages\n\nJSON status messages are received when `typeof event.data === 'string'`. Binary image messages are JPEG Blob objects. Convert the Blob with `FileReader.readAsDataURL(blob)` before assigning it to an `<img>` source.\n\nStatus codes:\n\n| code | Meaning | Connection state change |\n|------|------|-------------|\n| `\"0\"` | Initialized | Success |\n| `\"1000\"` | Node overloaded | Error |\n| `\"1001\"` | Initialization failed | Error |\n| `\"1003\"` | Slave limit exceeded | SlaveExceeded |\n| `\"2001\"` | Engine render error | No connection state change; only render failure callback |\n| `\"2002\"` | Engine process error | No connection state change; only render failure callback |\n\nClose the WebSocket first, then call the DELETE API to end the server-side session.\n",
+        "operationId": "createRenderCloudRealtimeStream",
+        "requestBody": {
+          "description": "Realtime render stream creation or poll request body. Create with `requestId`, `usdContent`, and optional `settings` (currently `autoEnhanceAI`); poll with only `operationId`.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RealtimeSessionSubmitRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OperationPollRequest"
+                  }
+                ]
+              },
+              "examples": {
+                "submit": {
+                  "summary": "Create a realtime render stream",
+                  "description": "Create a render stream with AI enhancement enabled.",
+                  "value": {
+                    "requestId": "stream-req-20260515-0001",
+                    "usdContent": "I3VzZGEgMS4wCg==",
+                    "settings": {
+                      "autoEnhanceAI": true
+                    }
+                  }
+                },
+                "poll": {
+                  "summary": "Poll realtime render stream",
+                  "description": "Use the `operationId` returned by creation to query stream status.",
+                  "value": {
+                    "operationId": "1305220918472257536"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Realtime render stream polling result. When status is ACTIVE, result contains WebSocket connection parameters.",
+            "content": {
+              "application/+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/RealtimeSessionProcessingOperation"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RealtimeSessionSuccessOperation"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OperationError"
+                    }
+                  ]
+                },
+                "examples": {
+                  "processing": {
+                    "summary": "Creating",
+                    "description": "The realtime render stream is still initializing.",
+                    "value": {
+                      "operationId": "1305220918472257536",
+                      "metaData": null,
+                      "done": false,
+                      "result": null,
+                      "error": null
+                    }
+                  },
+                  "success": {
+                    "summary": "Created",
+                    "description": "The realtime render stream is ready and returns connection parameters.",
+                    "value": {
+                      "operationId": "1305220918472257536",
+                      "metaData": null,
+                      "done": true,
+                      "result": {
+                        "sessionId": "1305220918472257536",
+                        "status": "ACTIVE",
+                        "currentQueuePosition": 0,
+                        "host": "stream.example.com",
+                        "nodeId": "node-01",
+                        "streamId": "stream-1305220918472257536",
+                        "token": "stream-token"
+                      },
+                      "error": null
+                    }
+                  },
+                  "failed": {
+                    "summary": "Creation failed",
+                    "description": "The realtime render stream failed to initialize.",
+                    "value": {
+                      "operationId": "1305220918472257536",
+                      "metaData": null,
+                      "done": true,
+                      "result": null,
+                      "error": {
+                        "code": 500,
+                        "message": "code: INTERNAL, details: ErrorDetails(reason=INTERNAL_ERROR, message=null, domain=render, metaData=null)",
+                        "status": "INTERNAL",
+                        "details": {
+                          "reason": "INTERNAL_ERROR",
+                          "domain": "render"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Session creation is in progress.",
+            "content": {
+              "application/+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RealtimeSessionProcessingOperation"
+                },
+                "examples": {
+                  "processing": {
+                    "summary": "Session creating",
+                    "description": "The submit response. `operationId` is the sessionId.",
+                    "value": {
+                      "operationId": "1305220918472257536",
+                      "metaData": null,
+                      "done": false,
+                      "result": null,
+                      "error": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "x-scalar-order": 4
+      }
+    },
+    "/global/rendercloud/v1/streams/{sessionId}:push": {
+      "post": {
+        "tags": [
+          "RenderCloud"
+        ],
+        "summary": "Push incremental OpenUSD content to a realtime render stream",
+        "description": "Apply incremental scene updates to an established realtime render session.\n\nThis API is used after the WebSocket Streaming session is ready. It pushes Base64-encoded incremental OpenUSD content to the server. The incremental content may describe camera, model, light, or environment-light patches; the server converts it into render operations and dispatches it to the realtime render pipeline. See the `RenderCloud OpenUSD Format Guide` for the USDA formats.\n\n## Requirements\n\n- `sessionId` must be the `operationId` returned by `/rendercloud/v1/streams` after creation.\n- Session status must be `ACTIVE`, otherwise the update is rejected.\n- `requestId` is generated by the caller for idempotency and request records.\n- `usdContent` is Base64-encoded incremental OpenUSD content.\n\n## REST response statuses\n\n| HTTP status | Scenario | Response |\n|-----------|------|---------|\n| `200` | Updated | Returns session ID and current session status |\n| `400` | Invalid argument | Missing `requestId` or `usdContent`, or invalid request body |\n| `404` | Not found | No session exists for `sessionId` |\n| `429` | Rate limited | User-level realtime render frequency exceeded |\n| `500` | Internal error | Session is not ACTIVE, forwarding failed, or update was rejected by the render pipeline |\n",
+        "operationId": "pushRenderCloudRealtimeStreamUpdate",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "description": "Realtime render stream incremental update request body. `usdContent` is Patch USDA for a camera, model, light, or environment light.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RealtimeSessionUpdateRequest"
+              },
+              "examples": {
+                "update": {
+                  "summary": "Push incremental content",
+                  "description": "Push camera, model, light, or environment-light Patch OpenUSD content to an existing realtime render stream.",
+                  "value": {
+                    "requestId": "stream-update-20260515-0001",
+                    "usdContent": "I3VzZGEgMS4wCg=="
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Incremental content pushed successfully.",
+            "content": {
+              "application/+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RealtimeSessionUpdateResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Updated",
+                    "description": "Session remains ACTIVE and incremental content has been sent to the realtime render pipeline.",
+                    "value": {
+                      "sessionId": "1305220918472257536",
+                      "status": "ACTIVE"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "x-scalar-order": 5
+      }
+    },
+    "/global/rendercloud/v1/streams/{sessionId}": {
+      "delete": {
+        "tags": [
+          "RenderCloud"
+        ],
+        "summary": "Close a realtime render stream",
+        "description": "Close the specified realtime render session and release server-side resources.\n\nWhen closing a realtime render stream, close the WebSocket first, then call this API to end the server-side session. The server releases resources related to the realtime rendering session.\n\n## REST response statuses\n\n| HTTP status | Scenario | Response |\n|-----------|------|---------|\n| `200` | Closed | `closed=true` means the server found and closed the session; `closed=false` means the session no longer exists or was already cleaned up |\n| `404` | Not found | The node that owns the session reports that the session does not exist |\n| `429` | Rate limited | User-level realtime render frequency exceeded |\n| `500` | Internal error | Forwarding failed or an internal server error occurred |\n",
+        "operationId": "closeRenderCloudRealtimeStream",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Realtime render stream closed.",
+            "content": {
+              "application/+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RealtimeSessionCloseResponse"
+                },
+                "examples": {
+                  "closed": {
+                    "summary": "Closed",
+                    "description": "The server found and closed the session.",
+                    "value": {
+                      "sessionId": "1305220918472257536",
+                      "closed": true
+                    }
+                  },
+                  "alreadyGone": {
+                    "summary": "Session already gone",
+                    "description": "The session was already closed, timed out, cleaned up, or is not on the current node.",
+                    "value": {
+                      "sessionId": "1305220918472257536",
+                      "closed": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "x-scalar-order": 6
+      }
+    },
+    "/global/rendercloud/v1/mesh-upload-process/task/create": {
+      "post": {
+        "tags": [
+          "RenderCloud"
+        ],
+        "summary": "Create a 3D parsing and ingestion task",
+        "description": "Create a 3D parsing and ingestion task to process a raw 3D file URL.\n\nSpecify the original 3D file URL with `originMeshUrl`. The optional `fastUpload` field enables fast upload and defaults to `false`.\nWhen `fastUpload` is `true` and the file is in GLB format, the fast upload workflow is used. If omitted or set to `false`, the standard upload workflow is used.\n\n## REST Response Status\n\n| HTTP Status | Scenario | Response Description |\n|-----------|------|---------|\n| `200` | Task created successfully | Returns the task ID |\n| `400` | Invalid arguments | `originMeshUrl` missing or invalid |\n| `500` | Internal error | Task creation or processing error |\n",
+        "operationId": "createMeshUploadAndProcessTask",
+        "requestBody": {
+          "description": "Mesh upload and process task request body.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeshUploadProcessRequest"
+              },
+              "examples": {
+                "submit": {
+                  "summary": "Create a 3D parsing and ingestion task",
+                  "description": "Submit a raw Mesh URL using the standard upload workflow. fastUpload can also be omitted and defaults to false.",
+                  "value": {
+                    "originMeshUrl": "https://example.com/mesh/original.glb",
+                    "fastUpload": false
+                  }
+                },
+                "fastSubmit": {
+                  "summary": "Create a fast GLB upload task",
+                  "description": "Submit an original GLB file URL and enable fast upload.",
+                  "value": {
+                    "originMeshUrl": "https://example.com/mesh/original.glb",
+                    "fastUpload": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mesh upload and parse task created successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Task created successfully",
+                    "description": "Returns the task ID for subsequent queries.",
+                    "value": {
+                      "success": true,
+                      "data": 1272794,
+                      "errorMsg": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request arguments.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonErrorResponse"
+                },
+                "examples": {
+                  "invalidArgument": {
+                    "summary": "Invalid arguments",
+                    "description": "originMeshUrl missing or invalid.",
+                    "value": {
+                      "success": false,
+                      "data": null,
+                      "errorMsg": "originMeshUrl cannot be empty"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonErrorResponse"
+                },
+                "examples": {
+                  "internalError": {
+                    "summary": "Internal error",
+                    "description": "Task creation or processing error.",
+                    "value": {
+                      "success": false,
+                      "data": null,
+                      "errorMsg": "System error"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-scalar-order": 1
+      }
+    },
+    "/global/rendercloud/v1/mesh-upload-process/task/get": {
+      "get": {
+        "tags": [
+          "RenderCloud"
+        ],
+        "summary": "Query 3D parsing and ingestion task status",
+        "description": "Query the status and result of a specified 3D parsing and ingestion task.\n\nThis API is used to query the task execution status and result. During the query, data that should not be exposed to users is filtered out,\nand the output data is wrapped for processing.\nTask status: `0`=INIT, `1`=RUNNING, `3`=SUCCESS, `4`=FAIL\n\n## Requirements\n\n- `taskid` must come from the task ID returned by the task creation API\n\n## REST Response Status\n\n| HTTP Status | Scenario | Response Description |\n|-----------|------|---------|\n| `200` | Query succeeded | Returns task details |\n| `400` | Invalid arguments | `taskid` missing or invalid |\n| `404` | Task not found | Specified task ID does not exist |\n| `500` | Internal error | Query error |\n",
+        "operationId": "getRenderCloudInstanceInAholo",
+        "parameters": [
+          {
+            "name": "taskid",
+            "in": "query",
+            "required": true,
+            "description": "Task ID.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task query succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskQueryResponse"
+                },
+                "examples": {
+                  "processing": {
+                    "summary": "Job processing",
+                    "description": "Task is currently executing.",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "taskId": 1272794,
+                        "status": 1,
+                        "outputs": null
+                      },
+                      "errorMsg": null
+                    }
+                  },
+                  "success": {
+                    "summary": "Task completed",
+                    "description": "Task execution completed, returning the result.",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "taskId": 1272794,
+                        "status": 3,
+                        "outputs": [
+                          {
+                            "content": "YYZN2MZVAIQLEPTULM888888",
+                            "sourceReferId": "607583273"
+                          }
+                        ]
+                      },
+                      "errorMsg": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request arguments.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonErrorResponse"
+                },
+                "examples": {
+                  "invalidArgument": {
+                    "summary": "Invalid arguments",
+                    "description": "taskid missing or invalid.",
+                    "value": {
+                      "success": false,
+                      "data": null,
+                      "errorMsg": "taskid cannot be empty"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonErrorResponse"
+                },
+                "examples": {
+                  "notFound": {
+                    "summary": "Task not found",
+                    "description": "Specified task ID does not exist.",
+                    "value": {
+                      "success": false,
+                      "data": null,
+                      "errorMsg": "Task not found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonErrorResponse"
+                },
+                "examples": {
+                  "internalError": {
+                    "summary": "Internal error",
+                    "description": "Query error.",
+                    "value": {
+                      "success": false,
+                      "data": null,
+                      "errorMsg": "System error"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-scalar-order": 2
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "SessionId": {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "description": "Realtime rendering stream session ID.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid request arguments.",
+        "content": {
+          "application/+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "examples": {
+              "invalidArgument": {
+                "summary": "Invalid argument",
+                "description": "The request body is missing required fields or contains invalid field values.",
+                "value": {
+                  "code": 400,
+                  "message": "requestId cannot be empty",
+                  "status": "INVALID_ARGUMENT",
+                  "details": {
+                    "reason": "INVALID_ARGUMENT",
+                    "domain": "render"
+                  }
+                }
+              },
+              "usdContentEmpty": {
+                "summary": "OpenUSD content is empty",
+                "description": "`usdContent` is empty when submitting a render or creating a realtime stream.",
+                "value": {
+                  "code": 400,
+                  "message": "OpenUSD content cannot be empty",
+                  "status": "INVALID_ARGUMENT",
+                  "details": {
+                    "reason": "USD_CONTENT_EMPTY",
+                    "domain": "render"
+                  }
+                }
+              },
+              "openUsdParseError": {
+                "summary": "OpenUSD parse failed",
+                "description": "`usdContent` is not valid Base64 or the decoded OpenUSD content cannot be parsed.",
+                "value": {
+                  "code": 400,
+                  "message": "OpenUSD content parse failed",
+                  "status": "INVALID_ARGUMENT",
+                  "details": {
+                    "reason": "OPENUSD_PARSE_ERROR",
+                    "domain": "render"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found.",
+        "content": {
+          "application/+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "examples": {
+              "taskNotFound": {
+                "summary": "Task not found",
+                "description": "No offline render task exists for the `operationId` when polling.",
+                "value": {
+                  "code": 404,
+                  "message": "Task not found",
+                  "status": "NOT_FOUND",
+                  "details": {
+                    "reason": "TASK_NOT_FOUND",
+                    "domain": "render"
+                  }
+                }
+              },
+              "sessionNotFound": {
+                "summary": "Session not found",
+                "description": "The realtime render session does not exist, has been closed, or has been cleaned up.",
+                "value": {
+                  "code": 404,
+                  "message": "Session not found",
+                  "status": "NOT_FOUND",
+                  "details": {
+                    "reason": "SESSION_NOT_FOUND",
+                    "domain": "render"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Duplicate request.",
+        "content": {
+          "application/+json": {
+            "schema": {
+              "$ref": "#/components/schemas/OperationError"
+            },
+            "examples": {
+              "duplicateRequest": {
+                "summary": "Duplicate requestId",
+                "description": "The same user submitted the same `requestId` again within 1 minute.",
+                "value": {
+                  "operationId": null,
+                  "metaData": null,
+                  "done": true,
+                  "result": null,
+                  "error": {
+                    "code": 409,
+                    "message": "requestId has already been submitted within 60 seconds",
+                    "status": "ALREADY_EXISTS",
+                    "details": {
+                      "reason": "OFFLINE_RENDER_DUPLICATE_REQUEST",
+                      "domain": "render"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "The request was rate limited.",
+        "content": {
+          "application/+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "examples": {
+              "rateLimited": {
+                "summary": "Rate limited",
+                "description": "The user-level request frequency exceeds the current API limit.",
+                "value": {
+                  "code": 429,
+                  "message": "Rate limited",
+                  "status": "RESOURCE_EXHAUSTED",
+                  "details": {
+                    "reason": "RATE_LIMITED",
+                    "domain": "render"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Internal render service error.",
+        "content": {
+          "application/+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "examples": {
+              "renderInternalError": {
+                "summary": "Render failed",
+                "description": "Task creation, OpenUSD conversion, render dispatch, or realtime session update failed.",
+                "value": {
+                  "code": 500,
+                  "message": "Render failed",
+                  "status": "INTERNAL",
+                  "details": {
+                    "reason": "INTERNAL_ERROR",
+                    "domain": "render"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "OfflineRenderSubmitRequest": {
+        "type": "object",
+        "description": "Offline render submit request body. Do not pass `operationId` when submitting.",
+        "additionalProperties": false,
+        "required": [
+          "requestId",
+          "usdContent"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "description": "Caller-generated request tracing ID. The server does not use this field for offline render task idempotency.",
+            "minLength": 1
+          },
+          "usdContent": {
+            "type": "string",
+            "description": "Base64-encoded OpenUSD text or binary content.",
+            "minLength": 1
+          }
+        }
+      },
+      "OperationPollRequest": {
+        "type": "object",
+        "description": "Long-running operation polling request body. Use the returned `operationId` after a successful submit.",
+        "additionalProperties": false,
+        "required": [
+          "operationId"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "description": "Operation ID returned by submit.",
+            "minLength": 1
+          }
+        }
+      },
+      "OfflineRenderResponse": {
+        "type": "object",
+        "description": "Offline render result. Returned only when `Operation.done=true` and the job succeeded.",
+        "additionalProperties": false,
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "Offline render task ID."
+          },
+          "resultUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Rendered image URL."
+          }
+        }
+      },
+      "RealtimeSessionSubmitRequest": {
+        "type": "object",
+        "description": "Realtime render stream creation request body. Do not pass `operationId` when creating.",
+        "additionalProperties": false,
+        "required": [
+          "requestId",
+          "usdContent"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "description": "Caller-generated idempotency key.",
+            "minLength": 1
+          },
+          "usdContent": {
+            "type": "string",
+            "description": "Base64-encoded OpenUSD text or binary content.",
+            "minLength": 1
+          },
+          "settings": {
+            "type": "object",
+            "description": "Optional realtime-render session configuration. Server defaults apply when omitted.",
+            "additionalProperties": false,
+            "properties": {
+              "autoEnhanceAI": {
+                "type": "boolean",
+                "default": false,
+                "description": "Enable AI enhancement. Enabling it increases per-frame processing latency."
+              }
+            }
+          }
+        }
+      },
+      "RealtimeSessionQueryResponse": {
+        "type": "object",
+        "description": "Realtime render stream query result. When `status=ACTIVE`, it contains WebSocket connection parameters.",
+        "additionalProperties": false,
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "Realtime render stream session ID."
+          },
+          "status": {
+            "$ref": "#/components/schemas/RenderCloudSessionStatus"
+          },
+          "currentQueuePosition": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Current queue position. `0` means the session is ready."
+          },
+          "host": {
+            "type": "string",
+            "description": "Realtime render stream host."
+          },
+          "nodeId": {
+            "type": "string",
+            "description": "Value of the `nid` query parameter in the WebSocket URL."
+          },
+          "streamId": {
+            "type": "string",
+            "description": "Value of `slaveInit.masterStreamingId` in the WebSocket handshake message."
+          },
+          "token": {
+            "type": "string",
+            "description": "Authentication token required to establish the realtime render stream."
+          }
+        }
+      },
+      "RealtimeSessionUpdateRequest": {
+        "type": "object",
+        "description": "Realtime render stream incremental update request body.",
+        "additionalProperties": false,
+        "required": [
+          "requestId",
+          "usdContent"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "description": "Caller-generated idempotency key.",
+            "minLength": 1
+          },
+          "usdContent": {
+            "type": "string",
+            "description": "Base64-encoded incremental OpenUSD content.",
+            "minLength": 1
+          }
+        }
+      },
+      "RealtimeSessionUpdateResponse": {
+        "type": "object",
+        "description": "Realtime render stream incremental update response body.",
+        "additionalProperties": false,
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "Realtime render stream session ID."
+          },
+          "status": {
+            "$ref": "#/components/schemas/RenderCloudSessionStatus"
+          }
+        }
+      },
+      "RealtimeSessionCloseResponse": {
+        "type": "object",
+        "description": "Realtime render stream close response body.",
+        "additionalProperties": false,
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "Realtime render stream session ID."
+          },
+          "closed": {
+            "type": "boolean",
+            "description": "Whether the server found and closed the session."
+          }
+        }
+      },
+      "OfflineRenderProcessingOperation": {
+        "type": "object",
+        "description": "Offline render processing state.",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "metaData",
+          "done",
+          "result",
+          "error"
+        ],
+        "properties": {
+          "operationId": {
+            "$ref": "#/components/schemas/OperationId"
+          },
+          "metaData": {
+            "$ref": "#/components/schemas/OperationMetaData"
+          },
+          "done": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "result": {
+            "type": "object",
+            "nullable": true,
+            "description": "Null while processing."
+          },
+          "error": {
+            "type": "object",
+            "nullable": true,
+            "description": "Null while processing."
+          }
+        }
+      },
+      "OfflineRenderSuccessOperation": {
+        "type": "object",
+        "description": "Offline render success state.",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "metaData",
+          "done",
+          "result",
+          "error"
+        ],
+        "properties": {
+          "operationId": {
+            "$ref": "#/components/schemas/OperationId"
+          },
+          "metaData": {
+            "$ref": "#/components/schemas/OperationMetaData"
+          },
+          "done": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/OfflineRenderResponse"
+          },
+          "error": {
+            "type": "object",
+            "nullable": true,
+            "description": "Null on success."
+          }
+        }
+      },
+      "RealtimeSessionProcessingOperation": {
+        "type": "object",
+        "description": "Realtime render stream creation processing state.",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "metaData",
+          "done",
+          "result",
+          "error"
+        ],
+        "properties": {
+          "operationId": {
+            "$ref": "#/components/schemas/OperationId"
+          },
+          "metaData": {
+            "$ref": "#/components/schemas/OperationMetaData"
+          },
+          "done": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "result": {
+            "type": "object",
+            "nullable": true,
+            "description": "Null while processing."
+          },
+          "error": {
+            "type": "object",
+            "nullable": true,
+            "description": "Null while processing."
+          }
+        }
+      },
+      "RealtimeSessionSuccessOperation": {
+        "type": "object",
+        "description": "Realtime render stream creation success state.",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "metaData",
+          "done",
+          "result",
+          "error"
+        ],
+        "properties": {
+          "operationId": {
+            "$ref": "#/components/schemas/OperationId"
+          },
+          "metaData": {
+            "$ref": "#/components/schemas/OperationMetaData"
+          },
+          "done": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/RealtimeSessionQueryResponse"
+          },
+          "error": {
+            "type": "object",
+            "nullable": true,
+            "description": "Null on success."
+          }
+        }
+      },
+      "OperationError": {
+        "type": "object",
+        "description": "Long-running operation failure state.",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "metaData",
+          "done",
+          "result",
+          "error"
+        ],
+        "properties": {
+          "operationId": {
+            "$ref": "#/components/schemas/OperationId"
+          },
+          "metaData": {
+            "$ref": "#/components/schemas/OperationMetaData"
+          },
+          "done": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "result": {
+            "type": "object",
+            "nullable": true,
+            "description": "Null on failure."
+          },
+          "error": {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        }
+      },
+      "OperationId": {
+        "type": "string",
+        "description": "Long-running operation ID."
+      },
+      "OperationMetaData": {
+        "type": "object",
+        "nullable": true,
+        "description": "Long-running operation metadata. This API usually returns null.",
+        "additionalProperties": true
+      },
+      "Int2": {
+        "type": "object",
+        "description": "Two-dimensional integer vector. Used for output resolution, where `x` is width and `y` is height.",
+        "additionalProperties": false,
+        "required": [
+          "x",
+          "y"
+        ],
+        "properties": {
+          "x": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "description": "Image width in pixels."
+          },
+          "y": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "description": "Image height in pixels."
+          }
+        }
+      },
+      "RenderCloudSessionStatus": {
+        "type": "string",
+        "description": "Realtime render stream session status.\n\n- `INITIALIZING`: The session has been created and the backend is establishing the streaming connection.\n- `ACTIVE`: The streaming connection is ready and can render normally.\n- `FAILED`: Initialization or operation failed.\n- `CLOSED`: The session has been closed.\n",
+        "enum": [
+          "RENDER_CLOUD_SESSION_STATUS_UNSPECIFIED",
+          "INITIALIZING",
+          "ACTIVE",
+          "FAILED",
+          "CLOSED"
+        ]
+      },
+      "ApiError": {
+        "type": "object",
+        "description": "Standard OpenAPI gateway error response. For async operation failures, this object is returned in `Operation.error`.",
+        "additionalProperties": true,
+        "required": [
+          "code",
+          "message",
+          "status"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32",
+            "description": "HTTP semantic error code.",
+            "example": 500
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message. It may include error details forwarded by the gateway.",
+            "example": "code: INTERNAL, details: ErrorDetails(reason=INTERNAL_ERROR, message=null, domain=render, metaData=null)"
+          },
+          "status": {
+            "type": "string",
+            "description": "Standard error status.",
+            "enum": [
+              "INVALID_ARGUMENT",
+              "NOT_FOUND",
+              "RESOURCE_EXHAUSTED",
+              "INTERNAL"
+            ],
+            "example": "INTERNAL"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ErrorDetails"
+          }
+        }
+      },
+      "ErrorDetails": {
+        "type": "object",
+        "description": "Extended error details forwarded by the gateway.",
+        "additionalProperties": true,
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Error reason.",
+            "example": "INTERNAL_ERROR"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Error domain. Examples use a generic value and do not expose internal service domains.",
+            "example": "render"
+          }
+        }
+      },
+      "MeshUploadProcessRequest": {
+        "type": "object",
+        "description": "Mesh upload and parsing task request body.",
+        "additionalProperties": false,
+        "properties": {
+          "originMeshUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL of the original Mesh file. Cloud-hosted URLs must be publicly accessible. If the file is stored only locally, upload it first through the [Asset Upload](https://labs.aholo.ai/api-docs/en/api-reference#tag/asset) endpoint to obtain a URL, then populate this field with that URL.",
+            "example": "https://example.com/mesh/original.glb"
+          },
+          "fastUpload": {
+            "type": "boolean",
+            "description": "Whether to enable fast upload. Optional; defaults to false. When fastUpload is true and the file is in GLB format, the fast upload workflow is used. If omitted or false, the standard upload workflow is used.",
+            "default": false,
+            "example": false
+          }
+        }
+      },
+      "TaskCreateResponse": {
+        "type": "object",
+        "description": "Task creation response using the standard Result format.",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the request succeeded.",
+            "example": true
+          },
+          "data": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Created task ID.",
+            "example": 1305220918472257500
+          },
+          "errorMsg": {
+            "type": "string",
+            "nullable": true,
+            "description": "Error message. Null when the request succeeds.",
+            "example": null
+          }
+        }
+      },
+      "TaskQueryResponse": {
+        "type": "object",
+        "description": "Task query response using the standard Result format.",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the request succeeded.",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/AiGenerateBusInstanceOpenDto"
+          },
+          "errorMsg": {
+            "type": "string",
+            "nullable": true,
+            "description": "Error message. Null when the request succeeds.",
+            "example": null
+          }
+        }
+      },
+      "CommonErrorResponse": {
+        "type": "object",
+        "description": "Common error response body.",
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the request succeeded.",
+            "example": false
+          },
+          "data": {
+            "type": "object",
+            "nullable": true,
+            "description": "Data payload. Null when an error occurs.",
+            "example": null
+          },
+          "errorMsg": {
+            "type": "string",
+            "description": "Error message.",
+            "example": "Invalid arguments"
+          }
+        }
+      },
+      "AiGenerateBusInstanceOpenDto": {
+        "type": "object",
+        "description": "RenderCloud task details.",
+        "additionalProperties": false,
+        "properties": {
+          "taskId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Task ID.",
+            "example": 1272794
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "User ID.",
+            "example": 12345
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Task status:\n- `0`: INIT\n- `1`: RUNNING\n- `3`: SUCCESS\n- `4`: FAIL\n",
+            "example": 3
+          },
+          "outputs": {
+            "type": "array",
+            "nullable": true,
+            "description": "Task output asset list. Null while the task is processing.",
+            "items": {
+              "$ref": "#/components/schemas/AiGraphicAssetDto"
+            },
+            "example": [
+              {
+                "content": "YYZN2MZVAIQLEPTULM888888",
+                "sourceReferId": "607583273"
+              }
+            ]
+          }
+        }
+      },
+      "AiGraphicAssetDto": {
+        "type": "object",
+        "description": "AI asset object.",
+        "additionalProperties": false,
+        "properties": {
+          "sourceReferId": {
+            "type": "string",
+            "description": "Source asset reference ID, such as a product ID.",
+            "example": "607583273"
+          },
+          "content": {
+            "type": "string",
+            "description": "Asset content:\n- For Mesh upload task input: original Mesh URL\n- For Mesh upload task output: parsed meshId\n",
+            "example": "YYZN2MZVAIQLEPTULM888888"
+          }
+        }
+      }
+    }
+  }
+}

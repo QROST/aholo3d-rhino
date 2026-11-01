@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <TargetExt>.rhp</TargetExt>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <Description>Aholo for Rhino by CuriousArc and qrost. World generation, native point cloud previews and RenderCloud rendering. Independent integration requiring an Aholo API Key.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="RhinoCommon" IncludeAssets="compile;build" PrivateAssets="all" />
+    <ProjectReference Include="../Aholo.Core/Aholo.Core.csproj" />
+  </ItemGroup>
+</Project>

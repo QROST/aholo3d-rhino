@@ -1,0 +1,20 @@
+Aholo for Rhino
+Copyright 2026 CuriousArc / qrost
+
+Independent community integration for Aholo World and RenderCloud.
+Not an official Manycore, Aholo, or McNeel product.
+
+Contains adapted code from Lux3D for Rhino (Apache-2.0), maintained by qrost:
+https://github.com/QROST/lux3D-rhino
+Reference source snapshot: 175d99b (2026-11-01).
+Adaptations include private pipe communication, runtime discovery,
+macOS Keychain/Windows DPAPI credential storage, and public-network transport.
+Product identities, namespaces and state paths have been changed for Aholo.
+
+The public-network transport originated in Tripo-Rhino (Apache-2.0):
+https://github.com/QROST/tripo-rhino
+Reference commit: 838fbd8; maintainer: qrost.
+
+Official API specification snapshots are unmodified reference material from
+https://labs.aholo.ai/api-docs/ . Their sources and capture hashes are recorded
+in docs/api/README.md; no ownership of the service or its marks is implied.

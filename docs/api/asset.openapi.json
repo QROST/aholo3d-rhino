@@ -1,0 +1,933 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Upload Open API",
+    "description": "Public asset upload APIs: obtain an OUS upload token and upload on the `globalDomain` (COS) host via direct or multipart upload.\n\n**Routes**: gateway token at `GET /global/asset/v1/token` (international: `/global/asset/v1/token`); uploads and status polling happen on COS (e.g. `https://ous-sg.kujiale.com`, international `ous-sg`) per `ousCos*` under the **Asset** tag.\n\n**Flow**: get token → single or multipart upload by file size → poll status for public `url` → use the URL in downstream APIs (e.g. create 3D world).\n\n**Auth**: `Authorization` header with API key (no `Bearer` prefix).\n\n**Responses**: token API returns `ousToken`, `globalDomain`, `blockSize` on HTTP 200; OUS APIs use `c` / `m` / `d` envelope.",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.aholo.ai",
+      "description": "Aholo Open Platform HTTPS entry (upload token) (International)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Asset",
+      "description": "After you obtain an OUS token, run `ousCos*` direct-upload steps on `globalDomain` (COS) under this tag, then use the public URL in downstream business APIs."
+    }
+  ],
+  "paths": {
+    "/global/asset/v1/token": {
+      "get": {
+        "tags": [
+          "Asset"
+        ],
+        "summary": "Get OUS upload token",
+        "description": "This endpoint returns upload credentials only; **actual upload happens on OUS `globalDomain`** (not the open-platform gateway), then continue with `ousCosSingleUpload`, `ousCosBlockUploadInit`, `ousCosBlockUploadPart`, and `ousCosUploadStatus` in the **Upload** tag.\n\n**Recommended flow:**\n1. Call this endpoint to get `ousToken`, `globalDomain` (e.g. `https://ous-sg.kujiale.com`), and `blockSize`.\n2. If file size **≤ `blockSize`**: call `ousCosSingleUpload`; if **> `blockSize`**: call `ousCosBlockUploadInit` then `ousCosBlockUploadPart` as needed.\n3. Poll `ousCosUploadStatus` until success and you receive `url`.\n4. Use the public URL in downstream APIs, e.g. `resources[].url` for **Create 3DGS world reconstruction**.\n",
+        "operationId": "getUploadToken",
+        "responses": {
+          "200": {
+            "description": "On success, the body is the OUS credential (`ousToken`, `globalDomain`, `blockSize`) for direct or multipart upload on the returned COS host.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadTokenOuterOpen"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Token retrieved",
+                    "description": "success",
+                    "value": {
+                      "ousToken": "<token>",
+                      "globalDomain": "https://ous-sg.kujiale.com",
+                      "blockSize": 1048576
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Parameter/business validation failed (`ApiError`; legacy biz code in `details.metaData.bizCode`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "Parameter validation failed",
+                    "description": "Code 10001 (PARAMS_INVALID)",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo.ai",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid `Authorization`; authentication failed (`ApiError`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "Not logged in or authentication failed",
+                    "description": "Legacy biz code 10004 (NOT_LOGGED_IN)",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo.ai",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 5,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK (TypeScript)",
+            "source": "import { createAssetClient } from '@manycore/aholo-sdk-asset';\n\n// SDK handles token, multipart upload, and polling — no need to call this endpoint directly\nconst asset = createAssetClient({ region: 'com' });\nconst result = await asset.uploadFile('./video.mp4');\nconsole.log(result.url);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK (Java)",
+            "source": "import com.manycoreapis.sdk.asset.AssetClient;\nimport com.manycoreapis.sdk.asset.UploadResult;\nimport com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\n\nAssetClient asset = AssetClient.create(AholoClientConfig.ofRegion(\"com\"));\nUploadResult result = asset.uploadFile(Paths.get(\"video.mp4\"));\nSystem.out.println(result.url());"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK (Python)",
+            "source": "from manycore.aholo_sdk_asset import create_asset_client\n\n# SDK handles token, multipart upload, and polling — no need to call this endpoint directly\nasset = create_asset_client(region='com')\nresult = asset.upload_file('./video.mp4')\nprint(result.url)"
+          }
+        ]
+      }
+    },
+    "/ous/api/v2/single/upload": {
+      "post": {
+        "tags": [
+          "Asset"
+        ],
+        "summary": "OUS single-file upload (≤ blockSize)",
+        "description": "Use when file size **≤** `blockSize` from the token response; see `requestBody` and `components.schemas.OusCosSingleUploadForm`.",
+        "operationId": "ousCosSingleUpload",
+        "requestBody": {
+          "description": "Single-file upload request body.",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/OusCosSingleUploadForm"
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/octet-stream"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "On success, `c` is `0` and `d` contains `taskId`; then poll `GET /ous/api/v2/upload/status`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OusV2SingleUploadApiResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OusTokenV2": []
+          }
+        ],
+        "servers": [
+          {
+            "url": "https://ous-sg.kujiale.com",
+            "description": "`globalDomain` returned by OUS; production is often this COS host (see the token response)."
+          }
+        ],
+        "x-scalar-order": 6
+      }
+    },
+    "/ous/api/v2/block/upload/init": {
+      "post": {
+        "tags": [
+          "Asset"
+        ],
+        "summary": "OUS multipart upload — initialize",
+        "description": "Use when file size **>** `blockSize`. **Typical call**: `POST` with required fields in **URL query** (no JSON body). Example: `…/ous/api/v2/block/upload/init?md5=…&blocks=…&size=…&name=…`.",
+        "operationId": "ousCosBlockUploadInit",
+        "parameters": [
+          {
+            "name": "md5",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "File MD5, lowercase hex",
+              "example": "e99a18c428cb38d5f260853678922e03"
+            }
+          },
+          {
+            "name": "blocks",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "Total part count",
+              "format": "int64",
+              "example": 11
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "File size in bytes",
+              "format": "int64",
+              "example": 5942880
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Original file name",
+              "example": "photo.jpg"
+            }
+          },
+          {
+            "name": "metadata",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Metadata (optional)"
+            }
+          },
+          {
+            "name": "customPrefix",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Custom storage prefix (optional)"
+            }
+          },
+          {
+            "name": "customFilename",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Custom file name (optional)"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "On success, `c` is `0` and `d` contains `taskId`, `lackBlocks`, `progress`, `deduplicated`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OusV2BlockInitApiResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OusTokenV2": []
+          }
+        ],
+        "servers": [
+          {
+            "url": "https://ous-sg.kujiale.com",
+            "description": "`globalDomain` returned by OUS; production is often this COS host (see the token response)."
+          }
+        ],
+        "x-scalar-order": 7
+      }
+    },
+    "/ous/api/v2/block/upload/part": {
+      "post": {
+        "tags": [
+          "Asset"
+        ],
+        "summary": "OUS multipart upload — upload one part",
+        "description": "Call once per part; see `OusCosBlockUploadPartForm`.",
+        "operationId": "ousCosBlockUploadPart",
+        "requestBody": {
+          "description": "Single-part upload request body.",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/OusCosBlockUploadPartForm"
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/octet-stream"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "On success, `c` is `0` and `d` is `null`. For the same file, limit concurrent part uploads to 2.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OusV2BlockPartApiResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OusTokenV2": []
+          }
+        ],
+        "servers": [
+          {
+            "url": "https://ous-sg.kujiale.com",
+            "description": "`globalDomain` returned by OUS; production is often this COS host (see the token response)."
+          }
+        ],
+        "x-scalar-order": 8
+      }
+    },
+    "/ous/api/v2/upload/status": {
+      "get": {
+        "tags": [
+          "Asset"
+        ],
+        "summary": "OUS — poll upload status",
+        "description": "Poll the upload task; `d` differs for single-file vs multipart (see `oneOf` in the response schema). Send only `ous-token-v2`, no body. Poll about every ≥200ms for ~5s total.",
+        "operationId": "ousCosUploadStatus",
+        "responses": {
+          "200": {
+            "description": "On success, `c` is `0`; `d` is single-file or multipart status/result (`status=5` is success; see embedded fields and status table).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OusV2UploadStatusApiResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OusTokenV2": []
+          }
+        ],
+        "servers": [
+          {
+            "url": "https://ous-sg.kujiale.com",
+            "description": "`globalDomain` returned by OUS; production is often this COS host (see the token response)."
+          }
+        ],
+        "x-scalar-order": 9
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UploadTokenOuterOpen": {
+        "type": "object",
+        "properties": {
+          "ousToken": {
+            "type": "string",
+            "description": "Upload token. For OUS host requests set header `ous-token-v2: <token>`.",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "globalDomain": {
+            "type": "string",
+            "description": "OUS global host (no path); upload/part requests go here.",
+            "example": "https://ous-sg.kujiale.com"
+          },
+          "blockSize": {
+            "type": "integer",
+            "description": "Part size threshold (bytes); larger files use multipart.",
+            "format": "int64",
+            "example": 1048576
+          }
+        },
+        "description": "OUS credential for direct upload on `globalDomain`; header `ous-token-v2`; full flow under **Upload** `ousCos*`."
+      },
+      "ApiError": {
+        "required": [
+          "code",
+          "details",
+          "message",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "HTTP status code",
+            "format": "int32",
+            "example": 403
+          },
+          "message": {
+            "type": "string",
+            "description": "Developer-facing error message (English); use `localizedMessage` for user-visible localized text.",
+            "example": "Permission denied to access this resource"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Code"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ErrorDetails"
+          },
+          "localizedMessage": {
+            "$ref": "#/components/schemas/LocalizedMessage"
+          },
+          "help": {
+            "$ref": "#/components/schemas/Help"
+          }
+        },
+        "description": "API error response with status, details, and optional help."
+      },
+      "Code": {
+        "type": "string",
+        "description": "REST API status code per Google API design guidelines.",
+        "example": "PERMISSION_DENIED",
+        "enum": [
+          "OK",
+          "CANCELLED",
+          "UNKNOWN",
+          "INVALID_ARGUMENT",
+          "DEADLINE_EXCEEDED",
+          "NOT_FOUND",
+          "ALREADY_EXISTS",
+          "PERMISSION_DENIED",
+          "UNAUTHENTICATED",
+          "RESOURCE_EXHAUSTED",
+          "FAILED_PRECONDITION",
+          "ABORTED",
+          "OUT_OF_RANGE",
+          "UNIMPLEMENTED",
+          "INTERNAL",
+          "UNAVAILABLE",
+          "DATA_LOSS",
+          "PARTIAL_ELEMENT_UPDATE_FAILED"
+        ]
+      },
+      "ErrorDetails": {
+        "required": [
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
+            "maxLength": 63,
+            "pattern": "[A-Z][A-Z0-9_]+[A-Z0-9]",
+            "type": "string",
+            "description": "Error reason identifier in UPPER_SNAKE_CASE (max 63 characters).",
+            "example": "RESOURCE_NOT_FOUND"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable explanation with error context.",
+            "nullable": true,
+            "example": "The requested design with ID 12345 does not exist"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Error domain, usually the service that produced the error.",
+            "nullable": true,
+            "example": "restapi.qunhe.com"
+          },
+          "metaData": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "description": "Additional metadata as key/value pairs (keys up to 64 chars, pattern /[a-zA-Z0-9-_]/).",
+              "nullable": true,
+              "example": "{\"instanceLimitPerRequest\":\"100\",\"currentInstanceCount\":\"150\"}"
+            },
+            "description": "Additional metadata as key/value pairs (keys up to 64 chars, pattern /[a-zA-Z0-9-_]/).",
+            "nullable": true,
+            "example": {
+              "instanceLimitPerRequest": "100",
+              "currentInstanceCount": "150"
+            }
+          }
+        },
+        "description": "Error details: reason, domain, and metadata."
+      },
+      "Help": {
+        "required": [
+          "desc",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "desc": {
+            "type": "string",
+            "description": "Description of the linked help document.",
+            "example": "How to resolve permission denied errors"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL of the help document",
+            "example": "https://docs.example.com/errors/permission-denied"
+          }
+        },
+        "description": "Help link and description for resolving the error.",
+        "nullable": true
+      },
+      "LocalizedMessage": {
+        "required": [
+          "locale",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "description": "Locale identifier for the message",
+            "example": "zh_CN"
+          },
+          "message": {
+            "type": "string",
+            "description": "Localized error text for end users",
+            "example": "You do not have permission to access this resource"
+          }
+        },
+        "description": "Localized message for a specific locale.",
+        "nullable": true
+      },
+      "OusCosSingleUploadForm": {
+        "required": [
+          "file",
+          "md5"
+        ],
+        "type": "object",
+        "properties": {
+          "md5": {
+            "type": "string",
+            "description": "File MD5, lowercase hex",
+            "example": "d41d8cd98f00b204e9800998ecf8427e"
+          },
+          "file": {
+            "type": "string",
+            "description": "Full file body to upload",
+            "format": "binary"
+          }
+        },
+        "description": "`multipart/form-data` fields (client supplies boundary)."
+      },
+      "OusCosBlockUploadInitRequest": {
+        "required": [
+          "blocks",
+          "md5",
+          "name",
+          "size"
+        ],
+        "type": "object",
+        "properties": {
+          "md5": {
+            "type": "string",
+            "description": "Whole-file MD5, lowercase hex",
+            "example": "e99a18c428cb38d5f260853678922e03"
+          },
+          "blocks": {
+            "minimum": 1,
+            "type": "integer",
+            "description": "Total parts ≈ ceil(fileSize / blockSize); `blockSize` from token.",
+            "format": "int64",
+            "example": 11
+          },
+          "size": {
+            "minimum": 1,
+            "type": "integer",
+            "description": "File size in bytes",
+            "format": "int64",
+            "example": 10616832
+          },
+          "name": {
+            "type": "string",
+            "description": "Original file name",
+            "example": "photo.jpg"
+          },
+          "metadata": {
+            "type": "string",
+            "description": "Metadata (optional)"
+          },
+          "customPrefix": {
+            "type": "string",
+            "description": "Custom storage prefix (optional)"
+          },
+          "customFilename": {
+            "type": "string",
+            "description": "Custom file name (optional)"
+          }
+        },
+        "description": "Multipart init parameter semantics (same as **query** on `POST …/block/upload/init`; not a JSON body)."
+      },
+      "OusCosBlockUploadPartForm": {
+        "required": [
+          "block",
+          "file"
+        ],
+        "type": "object",
+        "properties": {
+          "block": {
+            "minimum": 1,
+            "type": "integer",
+            "description": "Part index from 1 up to `blocks` from init",
+            "format": "int32",
+            "example": 1
+          },
+          "file": {
+            "type": "string",
+            "description": "Binary bytes for this part",
+            "format": "binary"
+          }
+        },
+        "description": "`multipart/form-data` fields `block` + `file`"
+      },
+      "OusV2UploadTaskStatus": {
+        "type": "integer",
+        "description": "Read `d.status` when polling `GET /ous/api/v2/upload/status`.\n\n**Guide**: `5` success (use `url`); `6`/`8` terminal failure—stop polling; others keep polling.\n\n| Value | Meaning | Terminal |\n|---|---|---|\n| 0 | Draft | No |\n| 1 | Basic checks done | No |\n| 2 | Content checks done | No |\n| 3 | Queued | No |\n| 4 | Uploading | No |\n| 5 | Success | **Yes** |\n| 6 | Failed | **Yes** |\n| 7 | Reviewing | No |\n| 8 | Aborted | **Yes** |",
+        "format": "int32",
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "OusV2BusinessErrorCode": {
+        "type": "integer",
+        "description": "Use `errorCode` in non-success responses for retries/metrics (field names vary).\n\n| Code | Meaning | Suggestion |\n|---|---|---|\n| 1 | Config error | Check upload config |\n| 2 | Bad file size | Check size / parts |\n| 3 | Bad format | Change format / retry |\n| 4 | Bad content | Change content |\n| 5 | Safety check failed | Change asset |\n| 6 | Upload throttled | Backoff / fewer concurrent |\n| 7 | Uploading | Poll / retry later |\n| 8 | Part failed | Retry parts / restart |\n| 9 | Server limit | Backoff |\n| 10 | Pool full | Backoff |\n| 11 | Metadata too large | Shrink metadata |\n| 12 | Token issue | Re-fetch token / re-init |\n| 13 | Task issue | New task |",
+        "format": "int32",
+        "enum": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13
+        ]
+      },
+      "OusV2BlockInitData": {
+        "required": [
+          "taskId"
+        ],
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "integer",
+            "description": "Task id; bound to the token for subsequent status polling.",
+            "format": "int64",
+            "example": 123456789
+          },
+          "lackBlocks": {
+            "type": "array",
+            "description": "Missing part indexes (`a-b` ranges); `null` if not resuming.",
+            "nullable": true,
+            "items": {
+              "type": "string",
+              "example": "1-3"
+            }
+          },
+          "progress": {
+            "type": "number",
+            "description": "Progress [0,1]; `null` if N/A.",
+            "format": "double",
+            "nullable": true,
+            "example": 0.6
+          },
+          "deduplicated": {
+            "type": "boolean",
+            "description": "Dedup: `true` means file exists—skip parts, poll `status`.",
+            "nullable": true,
+            "example": false
+          }
+        },
+        "description": "Multipart init result (V2)."
+      },
+      "OusV2BlockInitApiResponse": {
+        "required": [
+          "c",
+          "d"
+        ],
+        "type": "object",
+        "properties": {
+          "c": {
+            "type": "string",
+            "description": "Business code; `0` is success.",
+            "example": "0"
+          },
+          "m": {
+            "type": "string",
+            "description": "Message; may be empty.",
+            "example": ""
+          },
+          "d": {
+            "$ref": "#/components/schemas/OusV2BlockInitData"
+          }
+        },
+        "description": "Init 200 body: when `c` is `0`, `d` has multipart task info."
+      },
+      "OusV2SingleUploadData": {
+        "required": [
+          "taskId"
+        ],
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "Upload task id; bound to the token for subsequent status polling.",
+            "example": "task_id"
+          }
+        },
+        "description": "Returned on single-file success."
+      },
+      "OusV2SingleUploadApiResponse": {
+        "required": [
+          "c",
+          "d"
+        ],
+        "type": "object",
+        "properties": {
+          "c": {
+            "type": "string",
+            "description": "Business code; `0` is success.",
+            "example": "0"
+          },
+          "m": {
+            "type": "string",
+            "description": "Message; may be empty.",
+            "example": ""
+          },
+          "d": {
+            "$ref": "#/components/schemas/OusV2SingleUploadData"
+          }
+        },
+        "description": "Single-file upload HTTP 200 body (`c` is `0`, `d` contains `taskId`)."
+      },
+      "OusV2BlockPartApiResponse": {
+        "required": [
+          "c",
+          "d"
+        ],
+        "type": "object",
+        "properties": {
+          "c": {
+            "type": "string",
+            "description": "Business code; `0` is success.",
+            "example": "0"
+          },
+          "m": {
+            "type": "string",
+            "description": "Message; may be empty."
+          },
+          "d": {
+            "description": "On success `d` is `null`.",
+            "nullable": true
+          }
+        },
+        "description": "Part upload success; `d` null when `c` is 0. Failures see `OusV2BusinessErrorCode` (e.g. 6)."
+      },
+      "OusV2StatusPollDataSingle": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/OusV2UploadTaskStatus"
+          },
+          "uploadKey": {
+            "type": "string",
+            "description": "Object key path.",
+            "example": "heihei/2026/02/03/NGA5S6IKBIDN3RSQAAAAAAA8.jpg"
+          },
+          "url": {
+            "type": "string",
+            "description": "Public resource URL.",
+            "format": "uri"
+          },
+          "md5": {
+            "type": "string",
+            "description": "File MD5, lowercase hex."
+          },
+          "obsTaskId": {
+            "type": "string",
+            "description": "OUS task/object id.",
+            "example": "3FO4K029K4A3"
+          }
+        },
+        "description": "Typical `d` for **single-file** status polling; see `OusV2UploadTaskStatus`."
+      },
+      "OusV2StatusBlockProgress": {
+        "type": "object",
+        "properties": {
+          "obsId": {
+            "type": "string",
+            "description": "Multipart sub-task id."
+          },
+          "status": {
+            "$ref": "#/components/schemas/OusV2UploadTaskStatus"
+          },
+          "progressPercent": {
+            "type": "integer",
+            "description": "Progress percent.",
+            "format": "int32",
+            "example": 100
+          },
+          "lackBlocks": {
+            "type": "array",
+            "description": "Missing parts (same encoding as init).",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "Aggregated multipart progress in `d.blockUpload`; see `OusV2UploadTaskStatus`."
+      },
+      "OusV2StatusPollDataBlock": {
+        "type": "object",
+        "properties": {
+          "obsTaskId": {
+            "type": "string",
+            "description": "Task id."
+          },
+          "status": {
+            "$ref": "#/components/schemas/OusV2UploadTaskStatus"
+          },
+          "uploadKey": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "md5": {
+            "type": "string"
+          },
+          "errorCode": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OusV2BusinessErrorCode"
+              }
+            ]
+          },
+          "errorMsg": {
+            "type": "string",
+            "nullable": true
+          },
+          "blockUpload": {
+            "$ref": "#/components/schemas/OusV2StatusBlockProgress"
+          },
+          "errorInfo": {
+            "type": "string",
+            "description": "Extra error detail; may be null.",
+            "nullable": true
+          }
+        },
+        "description": "Typical `d` for **multipart** polling; see `OusV2UploadTaskStatus` / `OusV2BusinessErrorCode`."
+      },
+      "OusV2UploadStatusApiResponse": {
+        "required": [
+          "c",
+          "d"
+        ],
+        "type": "object",
+        "properties": {
+          "c": {
+            "type": "string",
+            "description": "Business code; `0` is success.",
+            "example": "0"
+          },
+          "m": {
+            "type": "string",
+            "description": "Message; may be empty."
+          },
+          "d": {
+            "description": "`oneOf` single-file vs multipart shapes.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OusV2StatusPollDataSingle"
+              },
+              {
+                "$ref": "#/components/schemas/OusV2StatusPollDataBlock"
+              }
+            ]
+          }
+        },
+        "description": "Status poll response; `d` is one of single/multipart shapes; `d.status` in `OusV2UploadTaskStatus`."
+      }
+    },
+    "securitySchemes": {
+      "AuthorizationHeader": {
+        "type": "apiKey",
+        "description": "Open platform credential. API key auth: set header `Authorization` to your platform **API key** (no `Bearer` prefix).",
+        "name": "Authorization",
+        "in": "header"
+      },
+      "OusTokenV2": {
+        "type": "apiKey",
+        "description": "`ousToken` from **Get OUS upload token**; use only on OUS `globalDomain`; independent of gateway `Authorization`.",
+        "name": "ous-token-v2",
+        "in": "header"
+      }
+    }
+  }
+}

@@ -1,0 +1,1320 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "World Open API",
+    "description": "Public 3D Gaussian Splatting (3DGS) **world** APIs: create reconstruction/generation jobs, poll details, and paginate lists.\n\n**Path prefix** (relative to gateway): `/global/world/v1` (e.g. `POST /global/world/v1/reconstructions` on the international gateway).\n\n**Async jobs**: create APIs return `WorldAsyncOperation` with `worldId` only; poll **Get world details** until a terminal state.\n\n**Resources**: for reconstruction with images (`type=image` or omit `type`), need **≥20** images; for video-only set `type` to `video`.\n\n**Time & paging**: `createTime` / `updateTime` are Unix **milliseconds**; lists use `pageNum` / `pageSize`.\n\n**Auth**: header `Authorization` with API key (no `Bearer` prefix).\n\n**Responses**: HTTP 200 returns business objects; failures return unified error body with biz codes.",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.aholo.ai",
+      "description": "Aholo Open Platform HTTPS entry (International)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "World",
+      "description": "3D Gaussian Splatting world reconstruction APIs"
+    }
+  ],
+  "paths": {
+    "/global/world/v1/reconstructions": {
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "summary": "Create 3DGS world reconstruction job",
+        "description": "Creates an async 3DGS world reconstruction job. On acceptance, returns `WorldAsyncOperation` with `worldId` only (same as **Get world details** `{worldId}`).\n**Resource formats**: image: .jpg / .jpeg / .png / .webp; video: .mp4 / .mov; insv: .insv.\n**Rules**: if `resources` include images (`type=image` or omit `type`), need **≥20** image entries; for video set `type=video`; for Insta360 panoramic video set `type=insv` (neither triggers the 20-image rule).\n",
+        "operationId": "createWorld",
+        "parameters": [
+          {
+            "name": "x-source",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Create-job body; when using images, meet the count rules in `CreateWorldRequest`.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorldRequest"
+              },
+              "examples": {
+                "createWorldWithVideo": {
+                  "description": "Single video + indoor scene; `type: video`, supports .mp4 / .mov",
+                  "value": {
+                    "name": "Living room reconstruction",
+                    "resources": [
+                      {
+                        "url": "https://cdn.example.com/input/room-001.mp4",
+                        "type": "video"
+                      }
+                    ],
+                    "taskQuality": "high",
+                    "scene": "space"
+                  }
+                },
+                "createWorldWithImages": {
+                  "description": "Multi-image: need ≥20 `image` entries (or omit `type` to count as image), supports .jpg / .jpeg / .png / .webp; example is truncated—real calls need 20+ items.",
+                  "value": {
+                    "name": "Living room reconstruction",
+                    "resources": [
+                      {
+                        "url": "https://cdn.example.com/in/1.jpg",
+                        "type": "image"
+                      },
+                      {
+                        "url": "https://cdn.example.com/in/2.jpg",
+                        "type": "image"
+                      }
+                    ],
+                    "taskQuality": "high",
+                    "scene": "space"
+                  }
+                },
+                "createWorldWithInsv": {
+                  "description": "Insta360 panoramic video; `type: insv`, supports .insv",
+                  "value": {
+                    "name": "Panoramic living room reconstruction",
+                    "resources": [
+                      {
+                        "url": "https://cdn.example.com/input/room-001.insv",
+                        "type": "insv"
+                      }
+                    ],
+                    "taskQuality": "high",
+                    "scene": "space"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted: returns `WorldAsyncOperation` with `worldId`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldAsyncOperation"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Accepted for processing",
+                    "description": "success",
+                    "value": {
+                      "worldId": "A1b2C3d4E5"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body/parameters, insufficient credits, etc. (`ApiError`; legacy biz code in `details.metaData.bizCode`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "Invalid parameters / body",
+                    "description": "Code 10001 (PARAMS_INVALID)",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo.ai",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  },
+                  "insufficientCredits": {
+                    "summary": "Insufficient credits",
+                    "description": "Legacy biz code 11003; may not apply if create does not charge credits.",
+                    "value": {
+                      "code": 400,
+                      "message": "insufficient credits to complete task",
+                      "status": "FAILED_PRECONDITION",
+                      "details": {
+                        "reason": "BIZ_11003",
+                        "domain": "api.aholo.ai",
+                        "message": "insufficient credits to complete task",
+                        "metaData": {
+                          "bizCode": "11003"
+                        }
+                      }
+                    }
+                  },
+                  "taskMattingError": {
+                    "summary": "Other task error (example)",
+                    "description": "Legacy biz code 11004; may not occur on this path.",
+                    "value": {
+                      "code": 400,
+                      "message": "matting error",
+                      "status": "FAILED_PRECONDITION",
+                      "details": {
+                        "reason": "BIZ_11004",
+                        "domain": "api.aholo.ai",
+                        "message": "matting error",
+                        "metaData": {
+                          "bizCode": "11004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid `Authorization`; authentication failed (`ApiError`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "Not logged in or authentication failed",
+                    "description": "Legacy biz code 10004 (NOT_LOGGED_IN)",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo.ai",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Global task concurrency or rate limit (`ApiError`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "taskGlobalRateLimit": {
+                    "summary": "Global long-task concurrency limit",
+                    "description": "Legacy biz code 11001",
+                    "value": {
+                      "code": 429,
+                      "message": "task global rate limit",
+                      "status": "RESOURCE_EXHAUSTED",
+                      "details": {
+                        "reason": "BIZ_11001",
+                        "domain": "api.aholo.ai",
+                        "message": "task global rate limit",
+                        "metaData": {
+                          "bizCode": "11001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 10,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK (TypeScript)",
+            "source": "import { createWorldClient } from '@manycore/aholo-sdk-world';\n\nconst world = createWorldClient({ region: 'com' });\nconst { worldId } = await world.reconstructions.create({\n  name: 'Living room',\n  resources: [{ url: 'https://cdn.example.com/room.mp4', type: 'video' }],\n  taskQuality: 'normal',\n  scene: 'model',\n});\nconst detail = await world.waitFor(worldId);\nconsole.log(detail.assets?.splats?.urls?.plyPath);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK (Java)",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.world.WorldClient;\nimport com.manycoreapis.sdk.world.model.ReconstructionCreateParams;\nimport com.manycoreapis.sdk.world.model.GenerationCreateParams;\nimport com.manycoreapis.sdk.world.model.WorldListParams;\nimport com.manycoreapis.sdk.world.model.WorldAsyncOperation;\nimport com.manycoreapis.sdk.world.model.WorldDetail;\nimport com.manycoreapis.sdk.world.model.WorldPagedList;\n\nWorldClient world = WorldClient.create(AholoClientConfig.ofRegion(\"com\"));\nWorldAsyncOperation op = world.reconstructions().create(\n    ReconstructionCreateParams.builder()\n        .name(\"Living room\")\n        .addResource(\"https://cdn.example.com/room.mp4\", \"video\")\n        .taskQuality(\"normal\")\n        .scene(\"model\")\n        .build());\nWorldDetail detail = world.waitFor(op.worldId());"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK (Python)",
+            "source": "from manycore.aholo_sdk_world import create_world_client\n\nworld = create_world_client(region='com')\nop = world.reconstructions.create(\n    name='Living room',\n    resources=[{'url': 'https://cdn.example.com/room.mp4', 'type': 'video'}],\n    task_quality='normal',\n    scene='model',\n)\ndetail = world.wait_for(op['worldId'])\nprint(detail.get('assets', {}).get('splats', {}).get('urls', {}).get('plyPath'))"
+          }
+        ]
+      }
+    },
+    "/global/world/v1/generations": {
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "summary": "Create 3DGS world generation job",
+        "description": "Creates an async 3DGS world generation job (Spatial Gen). **Indoor** scenes are more mature and stable today; non-indoor input is allowed but still **Beta** and may be materially weaker than indoor—assess risk accordingly. On acceptance returns `WorldAsyncOperation` (`worldId` only). Supports text-only, a single image, or text + image. If `resources` includes an image, at most one (image: .jpg / .jpeg / .png / .webp).",
+        "operationId": "generateWorld",
+        "parameters": [
+          {
+            "name": "x-source",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Generation request body. Supports text-only, a single image, or text + image. At most one image (image: .jpg / .jpeg / .png / .webp).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateWorldRequest"
+              },
+              "examples": {
+                "generateWorldRequest": {
+                  "summary": "Text + image example",
+                  "description": "generateWorldRequest",
+                  "value": {
+                    "name": "Living room generation",
+                    "cover": "https://cdn.example.com/cover/gen-cover.jpg",
+                    "prompt": "Modern minimalist living room",
+                    "resources": [
+                      {
+                        "url": "https://cdn.example.com/input/room.jpg",
+                        "type": "image"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted: returns `WorldAsyncOperation` with `worldId`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldAsyncOperation"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Accepted for processing",
+                    "description": "success",
+                    "value": {
+                      "worldId": "B2c3D4e5F6"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body/parameters or other business errors (`ApiError`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "Invalid parameters / body",
+                    "description": "Code 10001 (PARAMS_INVALID)",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo.ai",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid `Authorization`; authentication failed (`ApiError`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "Not logged in or authentication failed",
+                    "description": "Legacy biz code 10004 (NOT_LOGGED_IN)",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo.ai",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 15,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK (TypeScript)",
+            "source": "import { createWorldClient } from '@manycore/aholo-sdk-world';\n\nconst world = createWorldClient({ region: 'com' });\nconst { worldId } = await world.generations.create({\n  name: 'Forest cabin',\n  prompt: 'A modern cabin in the forest',\n});\nconst detail = await world.waitFor(worldId);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK (Java)",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.world.WorldClient;\nimport com.manycoreapis.sdk.world.model.ReconstructionCreateParams;\nimport com.manycoreapis.sdk.world.model.GenerationCreateParams;\nimport com.manycoreapis.sdk.world.model.WorldListParams;\nimport com.manycoreapis.sdk.world.model.WorldAsyncOperation;\nimport com.manycoreapis.sdk.world.model.WorldDetail;\nimport com.manycoreapis.sdk.world.model.WorldPagedList;\n\nWorldClient world = WorldClient.create(AholoClientConfig.ofRegion(\"com\"));\nWorldAsyncOperation op = world.generations().create(\n    GenerationCreateParams.builder()\n        .name(\"Forest cabin\")\n        .prompt(\"A modern cabin in the forest\")\n        .build());\nWorldDetail detail = world.waitFor(op.worldId());"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK (Python)",
+            "source": "from manycore.aholo_sdk_world import create_world_client\n\nworld = create_world_client(region='com')\nop = world.generations.create(\n    name='Forest cabin',\n    prompt='A modern cabin in the forest',\n)\ndetail = world.wait_for(op['worldId'])"
+          }
+        ]
+      }
+    },
+    "/global/world/v1/{worldId}": {
+      "get": {
+        "tags": [
+          "World"
+        ],
+        "summary": "Get world details",
+        "description": "Get details by world id. When reconstruction succeeds, splat (ply/spz) URLs may be present; after LOD post-processing, `assets.splats.urls.lodMetaPath` has LOD chunk metadata. For AI-generated (Spatial Gen) worlds, `assets.imagery.panoUrl` returns the panorama download URL once available.",
+        "operationId": "getWorldDetail",
+        "parameters": [
+          {
+            "name": "worldId",
+            "in": "path",
+            "description": "World id (same as `WorldAsyncOperation.worldId` from create)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "A1b2C3d4E5"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "On success, the body is a world detail object.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldDetail"
+                },
+                "examples": {
+                  "reconstructionWorldDetail": {
+                    "summary": "3D reconstruction world detail",
+                    "description": "Reconstruction succeeded with splats and coordinate metadata; no imagery.",
+                    "value": {
+                      "worldId": "A1b2C3d4E5",
+                      "name": "Living room reconstruction",
+                      "cover": "https://cdn.example.com/cover/world-001.jpg",
+                      "scene": "space",
+                      "createTime": 1699339916000,
+                      "updateTime": 1699340120000,
+                      "status": "SUCCEEDED",
+                      "progress": 1,
+                      "assets": {
+                        "splats": {
+                          "urls": {
+                            "plyPath": "https://cdn.example.com/output/world-001.ply",
+                            "spzPath": "https://cdn.example.com/output/world-001.spz",
+                            "lodMetaPath": "https://cdn.example.com/output/world-001-lod-meta.json"
+                          }
+                        },
+                        "semanticsMetadata": {
+                          "upAxis": "Z"
+                        }
+                      }
+                    }
+                  },
+                  "generateWorldDetail": {
+                    "summary": "AI-generated world detail",
+                    "description": "Generation succeeded with panorama `imagery.panoUrl` and splats.",
+                    "value": {
+                      "worldId": "B2c3D4e5F6",
+                      "name": "Modern minimalist living room",
+                      "cover": "https://cdn.example.com/cover/world-gen-001.jpg",
+                      "scene": "ai_gen",
+                      "createTime": 1699339916000,
+                      "updateTime": 1699340120000,
+                      "status": "SUCCEEDED",
+                      "progress": 1,
+                      "assets": {
+                        "imagery": {
+                          "panoUrl": "https://cdn.example.com/output/world-gen-001-pano.jpg"
+                        },
+                        "splats": {
+                          "urls": {
+                            "plyPath": "https://cdn.example.com/output/world-gen-001.ply",
+                            "spzPath": "https://cdn.example.com/output/world-gen-001.spz",
+                            "lodMetaPath": "https://cdn.example.com/output/world-gen-001-lod-meta.json"
+                          }
+                        },
+                        "semanticsMetadata": {
+                          "upAxis": "Z"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Path parameter validation or other business errors (`ApiError`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "Path parameter validation failed",
+                    "description": "Code 10001",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo.ai",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid `Authorization`; authentication failed (`ApiError`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "Not logged in or authentication failed",
+                    "description": "Legacy biz code 10004 (NOT_LOGGED_IN)",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo.ai",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied (`ApiError`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "noPermission": {
+                    "summary": "Forbidden",
+                    "description": "Legacy biz code 12003",
+                    "value": {
+                      "code": 403,
+                      "message": "no permission",
+                      "status": "PERMISSION_DENIED",
+                      "details": {
+                        "reason": "BIZ_12003",
+                        "domain": "api.aholo.ai",
+                        "message": "no permission",
+                        "metaData": {
+                          "bizCode": "12003"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "World not found (`ApiError`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "projectNotExist": {
+                    "summary": "World (project) not found",
+                    "description": "Legacy biz code 12001",
+                    "value": {
+                      "code": 404,
+                      "message": "project not exist",
+                      "status": "NOT_FOUND",
+                      "details": {
+                        "reason": "BIZ_12001",
+                        "domain": "api.aholo.ai",
+                        "message": "project not exist",
+                        "metaData": {
+                          "bizCode": "12001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 20,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK (TypeScript)",
+            "source": "import { createWorldClient } from '@manycore/aholo-sdk-world';\n\nconst world = createWorldClient({ region: 'com' });\nconst detail = await world.retrieve('A1b2C3d4E5');\nconsole.log(detail.status);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK (Java)",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.world.WorldClient;\nimport com.manycoreapis.sdk.world.model.ReconstructionCreateParams;\nimport com.manycoreapis.sdk.world.model.GenerationCreateParams;\nimport com.manycoreapis.sdk.world.model.WorldListParams;\nimport com.manycoreapis.sdk.world.model.WorldAsyncOperation;\nimport com.manycoreapis.sdk.world.model.WorldDetail;\nimport com.manycoreapis.sdk.world.model.WorldPagedList;\n\nWorldClient world = WorldClient.create(AholoClientConfig.ofRegion(\"com\"));\nWorldDetail detail = world.retrieve(\"A1b2C3d4E5\");\ndetail.status().ifPresent(System.out::println);"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK (Python)",
+            "source": "from manycore.aholo_sdk_world import create_world_client\n\nworld = create_world_client(region='com')\ndetail = world.retrieve('A1b2C3d4E5')\nprint(detail.get('status'))"
+          }
+        ]
+      }
+    },
+    "/global/world/v1/list": {
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "summary": "Paginated list of my worlds",
+        "description": "Paginated list of 3DGS worlds for the current account.",
+        "operationId": "getMyWorldList",
+        "requestBody": {
+          "description": "Pagination and filters.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorldListQueryRequest"
+              },
+              "examples": {
+                "listWorldRequest": {
+                  "description": "Example: first page, 20 per page, filter RUNNING and SUCCEEDED.",
+                  "value": {
+                    "pageNum": 0,
+                    "pageSize": 20,
+                    "statusList": [
+                      "RUNNING",
+                      "SUCCEEDED"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "On success, the body is a paged list (`pageNum`, `pageSize`, rows, etc.).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldPagedList"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "OK",
+                    "description": "success",
+                    "value": {
+                      "pageNum": 0,
+                      "pageSize": 20,
+                      "count": 1,
+                      "totalCount": 1,
+                      "hasMore": false,
+                      "result": [
+                        {
+                          "worldId": "A1b2C3d4E5",
+                          "name": "Living room reconstruction",
+                          "cover": "https://cdn.example.com/cover/world-001.jpg",
+                          "scene": "space",
+                          "createTime": 1699339916000,
+                          "updateTime": 1699340120000,
+                          "status": "RUNNING",
+                          "progress": 0.45
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Pagination parameter validation failed (`ApiError`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "Body / parameter validation failed",
+                    "description": "Code 10001",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo.ai",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid `Authorization`; authentication failed (`ApiError`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "Not logged in or authentication failed",
+                    "description": "Legacy biz code 10004 (NOT_LOGGED_IN)",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo.ai",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 30,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK (TypeScript)",
+            "source": "import { createWorldClient } from '@manycore/aholo-sdk-world';\n\nconst world = createWorldClient({ region: 'com' });\nconst page = await world.list({ pageNum: 1, pageSize: 20 });\npage.result?.forEach((w) => console.log(w.worldId, w.status));"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK (Java)",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.world.WorldClient;\nimport com.manycoreapis.sdk.world.model.ReconstructionCreateParams;\nimport com.manycoreapis.sdk.world.model.GenerationCreateParams;\nimport com.manycoreapis.sdk.world.model.WorldListParams;\nimport com.manycoreapis.sdk.world.model.WorldAsyncOperation;\nimport com.manycoreapis.sdk.world.model.WorldDetail;\nimport com.manycoreapis.sdk.world.model.WorldPagedList;\n\nWorldClient world = WorldClient.create(AholoClientConfig.ofRegion(\"com\"));\nWorldPagedList page = world.list(\n    WorldListParams.builder().pageNum(1).pageSize(20).build());\npage.result().ifPresent(items ->\n    items.forEach(w -> System.out.println(w.worldId() + \" \" + w.status())));"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK (Python)",
+            "source": "from manycore.aholo_sdk_world import create_world_client\n\nworld = create_world_client(region='com')\npage = world.list(page_num=1, page_size=20)\nfor w in page.get('result', []):\n    print(w.get('worldId'), w.get('status'))"
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateWorldRequest": {
+        "required": [
+          "resources",
+          "scene",
+          "taskQuality"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "example": "Living room reconstruction"
+          },
+          "cover": {
+            "type": "string",
+            "description": "Cover image URL (optional)",
+            "example": "https://cdn.example.com/cover/custom-cover.jpg"
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "description": "Input resources (≥1). Formats see CreateWorldRequest description (image: .jpg / .jpeg / .png / .webp; video: .mp4 / .mov; insv: .insv). With images, need ≥20 image entries (`type=image` or omit); for video set `type=video`; for Insta360 panoramic video set `type=insv`.",
+            "items": {
+              "$ref": "#/components/schemas/WorldResourceItem"
+            }
+          },
+          "useMask": {
+            "type": "boolean",
+            "description": "Whether to segment uploaded resources. `true` enables matting; omit or `false` to skip.",
+            "example": false
+          },
+          "taskQuality": {
+            "$ref": "#/components/schemas/WorldOpenApiTaskQuality"
+          },
+          "scene": {
+            "$ref": "#/components/schemas/WorldOpenApiProjectScene"
+          }
+        },
+        "description": "Body for **Create 3DGS world reconstruction**. `scene` is `model` or `space`; see `WorldOpenApiTaskQuality` for `taskQuality` (`low` fast preview / `normal` standard / `high` professional).\n**Resource formats**: image: .jpg / .jpeg / .png / .webp; video: .mp4 / .mov; insv: .insv.\n**Counts**: if any image-type resource (`type=image` or omit `type`), need **≥20** image entries; for video or Insta360 panoramic video, set `type=video` or `type=insv` on each (no 20-image rule).\n"
+      },
+      "WorldOpenApiProjectScene": {
+        "type": "string",
+        "description": "Scene type: `model` object scene; `space` indoor.",
+        "example": "space",
+        "enum": [
+          "model",
+          "space"
+        ]
+      },
+      "WorldOpenApiResourceType": {
+        "type": "string",
+        "description": "Input resource type. `image`: images, supports .jpg / .jpeg / .png / .webp; `video`: standard video, supports .mp4 / .mov; `insv`: Insta360 panoramic video, supports .insv.",
+        "example": "image",
+        "enum": [
+          "image",
+          "video",
+          "insv"
+        ]
+      },
+      "WorldOpenApiTaskQuality": {
+        "type": "string",
+        "description": "Reconstruction quality tier: `low` fast preview; `normal` standard; `high` professional.",
+        "example": "high",
+        "enum": [
+          "low",
+          "normal",
+          "high"
+        ]
+      },
+      "WorldResourceItem": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Resource URL; file extension must match `type` (image: .jpg / .jpeg / .png / .webp; video: .mp4 / .mov; insv: .insv).",
+            "example": "https://cdn.example.com/input/room-001.jpg"
+          },
+          "type": {
+            "$ref": "#/components/schemas/WorldOpenApiResourceType"
+          }
+        },
+        "description": "One reconstruction input resource. Omit `type` → image; standard video → `video`; Insta360 panoramic video → `insv`. image: .jpg / .jpeg / .png / .webp; video: .mp4 / .mov; insv: .insv."
+      },
+      "WorldAsyncOperation": {
+        "required": [
+          "worldId"
+        ],
+        "type": "object",
+        "properties": {
+          "worldId": {
+            "type": "string",
+            "description": "World id; use as `{worldId}` in `GET /global/world/v1/{worldId}` to poll status and outputs.",
+            "example": "A1b2C3d4E5"
+          }
+        },
+        "description": "Async create acceptance: returns `worldId` for polling details until a terminal state."
+      },
+      "ApiError": {
+        "required": [
+          "code",
+          "details",
+          "message",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "HTTP status code",
+            "format": "int32",
+            "example": 403
+          },
+          "message": {
+            "type": "string",
+            "description": "Developer-facing error message (English); use `localizedMessage` for user-visible localized text.",
+            "example": "Permission denied to access this resource"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Code"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ErrorDetails"
+          },
+          "localizedMessage": {
+            "$ref": "#/components/schemas/LocalizedMessage"
+          },
+          "help": {
+            "$ref": "#/components/schemas/Help"
+          }
+        },
+        "description": "API error response with status, details, and optional help."
+      },
+      "Code": {
+        "type": "string",
+        "description": "REST API status code per Google API design guidelines.",
+        "example": "PERMISSION_DENIED",
+        "enum": [
+          "OK",
+          "CANCELLED",
+          "UNKNOWN",
+          "INVALID_ARGUMENT",
+          "DEADLINE_EXCEEDED",
+          "NOT_FOUND",
+          "ALREADY_EXISTS",
+          "PERMISSION_DENIED",
+          "UNAUTHENTICATED",
+          "RESOURCE_EXHAUSTED",
+          "FAILED_PRECONDITION",
+          "ABORTED",
+          "OUT_OF_RANGE",
+          "UNIMPLEMENTED",
+          "INTERNAL",
+          "UNAVAILABLE",
+          "DATA_LOSS",
+          "PARTIAL_ELEMENT_UPDATE_FAILED"
+        ]
+      },
+      "ErrorDetails": {
+        "required": [
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
+            "maxLength": 63,
+            "pattern": "[A-Z][A-Z0-9_]+[A-Z0-9]",
+            "type": "string",
+            "description": "Error reason identifier in UPPER_SNAKE_CASE (max 63 characters).",
+            "example": "RESOURCE_NOT_FOUND"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable explanation with error context.",
+            "nullable": true,
+            "example": "The requested design with ID 12345 does not exist"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Error domain, usually the service that produced the error.",
+            "nullable": true,
+            "example": "restapi.qunhe.com"
+          },
+          "metaData": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "description": "Additional metadata as key/value pairs (keys up to 64 chars, pattern /[a-zA-Z0-9-_]/).",
+              "nullable": true,
+              "example": "{\"instanceLimitPerRequest\":\"100\",\"currentInstanceCount\":\"150\"}"
+            },
+            "description": "Additional metadata as key/value pairs (keys up to 64 chars, pattern /[a-zA-Z0-9-_]/).",
+            "nullable": true,
+            "example": {
+              "instanceLimitPerRequest": "100",
+              "currentInstanceCount": "150"
+            }
+          }
+        },
+        "description": "Error details: reason, domain, and metadata."
+      },
+      "Help": {
+        "required": [
+          "desc",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "desc": {
+            "type": "string",
+            "description": "Description of the linked help document.",
+            "example": "How to resolve permission denied errors"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL of the help document",
+            "example": "https://docs.example.com/errors/permission-denied"
+          }
+        },
+        "description": "Help link and description for resolving the error.",
+        "nullable": true
+      },
+      "LocalizedMessage": {
+        "required": [
+          "locale",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "description": "Locale identifier for the message",
+            "example": "zh_CN"
+          },
+          "message": {
+            "type": "string",
+            "description": "Localized error text for end users",
+            "example": "You do not have permission to access this resource"
+          }
+        },
+        "description": "Localized message for a specific locale.",
+        "nullable": true
+      },
+      "WorldListQueryRequest": {
+        "type": "object",
+        "properties": {
+          "pageNum": {
+            "minimum": 0,
+            "type": "integer",
+            "description": "Page index (0-based).",
+            "format": "int32",
+            "example": 0
+          },
+          "pageSize": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer",
+            "description": "Page size (max 100); defaults to 20 when 0 or omitted.",
+            "format": "int32",
+            "example": 20
+          },
+          "statusList": {
+            "type": "array",
+            "description": "Filter by reconstruction status; empty means no status filter.",
+            "items": {
+              "$ref": "#/components/schemas/WorldOpenApiTaskStatus"
+            }
+          }
+        },
+        "description": "List body: `pageNum` from 0, `pageSize` 1–100 (default 20 when 0 or omitted). Returns 3DGS worlds for the current account only."
+      },
+      "WorldOpenApiTaskStatus": {
+        "type": "string",
+        "description": "Task status. **In progress**: `PENDING` queued; `PREPROCESSING` preprocessing; `RUNNING` running. **Terminal**: `SUCCEEDED` succeeded; `FAILED` failed; `CANCELED` canceled; `TIMEOUT` timeout; `REJECTED` rejected.",
+        "example": "SUCCEEDED",
+        "enum": [
+          "PENDING",
+          "PREPROCESSING",
+          "RUNNING",
+          "SUCCEEDED",
+          "FAILED",
+          "CANCELED",
+          "TIMEOUT",
+          "REJECTED"
+        ]
+      },
+      "SplatFileUrls": {
+        "type": "object",
+        "properties": {
+          "plyPath": {
+            "type": "string",
+            "description": "PLY URL (`output.plyPath`).",
+            "example": "https://cdn.example.com/output/world-001.ply"
+          },
+          "spzPath": {
+            "type": "string",
+            "description": "SPZ URL (`output.spzPath`).",
+            "example": "https://cdn.example.com/output/world-001.spz"
+          },
+          "lodMetaPath": {
+            "type": "string",
+            "description": "LOD chunk metadata download URL (`output.lodMetaPath`); present after successful LOD post-processing, else null.",
+            "example": "https://cdn.example.com/output/world-001-lod-meta.json"
+          }
+        },
+        "description": "3DGS splat download URLs: PLY / SPZ and optional LOD metadata (same fields as task output)."
+      },
+      "WorldAssetBundle": {
+        "type": "object",
+        "properties": {
+          "splats": {
+            "$ref": "#/components/schemas/WorldSplatBundle"
+          },
+          "imagery": {
+            "$ref": "#/components/schemas/WorldImagery"
+          },
+          "semanticsMetadata": {
+            "$ref": "#/components/schemas/WorldSemanticsMetadata"
+          }
+        },
+        "description": "World output bundle. On 3D reconstruction success, `splats` is filled (ply/spz/lodMetaPath under `splats.urls`); AI generation additionally returns the panorama URL at `imagery.panoUrl`."
+      },
+      "WorldDetail": {
+        "required": [
+          "worldId"
+        ],
+        "type": "object",
+        "properties": {
+          "worldId": {
+            "type": "string",
+            "description": "World id; create APIs return the same value in `WorldAsyncOperation.worldId`.",
+            "example": "A1b2C3d4E5"
+          },
+          "name": {
+            "type": "string",
+            "description": "World name",
+            "example": "Living room reconstruction"
+          },
+          "cover": {
+            "type": "string",
+            "description": "Cover image URL.",
+            "example": "https://cdn.example.com/cover/world-001.jpg"
+          },
+          "scene": {
+            "$ref": "#/components/schemas/WorldOpenApiProjectScene"
+          },
+          "createTime": {
+            "type": "integer",
+            "description": "Created at, Unix milliseconds.",
+            "format": "int64",
+            "example": 1699339916000
+          },
+          "updateTime": {
+            "type": "integer",
+            "description": "Updated at, Unix milliseconds.",
+            "format": "int64",
+            "example": 1699340120000
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorldOpenApiTaskStatus"
+          },
+          "progress": {
+            "type": "number",
+            "description": "Reconstruction progress in [0.0, 1.0].",
+            "format": "float",
+            "example": 0.65
+          },
+          "assets": {
+            "$ref": "#/components/schemas/WorldAssetBundle"
+          }
+        },
+        "description": "World record: `worldId` is the business world id; `scene`/`status` are convention strings; `createTime` / `updateTime` are Unix milliseconds. When outputs are ready, details may include splat URLs; AI-generated worlds also return the panorama at `assets.imagery.panoUrl`."
+      },
+      "WorldImagery": {
+        "type": "object",
+        "properties": {
+          "panoUrl": {
+            "type": "string",
+            "description": "AI-generated panorama download URL. Present only when the pano subtask succeeds for AI-generated (Spatial Gen) worlds.",
+            "example": "https://cdn.example.com/output/world-001-pano.jpg"
+          }
+        },
+        "description": "Image outputs for AI-generated worlds; currently only the panorama download URL."
+      },
+      "WorldOpenApiUpAxis": {
+        "type": "string",
+        "description": "World coordinate up axis. `Y`: +Y up (glTF/USD default); `Z`: +Z up (3DGS output convention for this service).",
+        "example": "Z",
+        "enum": [
+          "Y",
+          "Z"
+        ]
+      },
+      "WorldPagedList": {
+        "type": "object",
+        "properties": {
+          "pageNum": {
+            "type": "integer",
+            "description": "Page index used for this request (0-based).",
+            "format": "int32",
+            "example": 0
+          },
+          "pageSize": {
+            "type": "integer",
+            "description": "Page size used for this request.",
+            "format": "int32",
+            "example": 20
+          },
+          "count": {
+            "type": "integer",
+            "description": "Rows on this page.",
+            "format": "int32",
+            "example": 20
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "Total matching rows.",
+            "format": "int32",
+            "example": 128
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether another page exists.",
+            "example": false
+          },
+          "result": {
+            "type": "array",
+            "description": "Rows for this page (WorldOpen mapping; list uses withResult=false by default).",
+            "items": {
+              "$ref": "#/components/schemas/WorldDetail"
+            }
+          }
+        },
+        "description": "Paged list with `pageNum` / `pageSize`, current page rows, and totals."
+      },
+      "WorldSemanticsMetadata": {
+        "type": "object",
+        "properties": {
+          "upAxis": {
+            "$ref": "#/components/schemas/WorldOpenApiUpAxis"
+          }
+        },
+        "description": "Semantics metadata (camera pose, scale, offset, coordinate conventions, etc.). When splat outputs are returned, includes `upAxis` to indicate the coordinate system."
+      },
+      "WorldSplatBundle": {
+        "type": "object",
+        "properties": {
+          "urls": {
+            "$ref": "#/components/schemas/SplatFileUrls"
+          }
+        },
+        "description": "3DGS splat output files."
+      },
+      "GenerateWorldRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Project / world display name",
+            "example": "Living room generation"
+          },
+          "cover": {
+            "type": "string",
+            "description": "Cover image URL (optional)。",
+            "example": "https://cdn.example.com/cover/gen-cover.jpg"
+          },
+          "resources": {
+            "type": "array",
+            "description": "Input resources; provide `prompt` and/or resources. Images only, at most one; omit `type` → image. image: .jpg / .jpeg / .png / .webp.",
+            "items": {
+              "$ref": "#/components/schemas/GenerateWorldResourceItem"
+            }
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Text prompt; can combine with `resources`.",
+            "example": "Modern minimalist sunlit living room"
+          }
+        },
+        "description": "Body for world generation: text-only, one image, or both. Indoor scenes are more mature; non-indoor is Beta (see POST operation). Require non-empty `prompt` or at least one image resource (at most one); image: .jpg / .jpeg / .png / .webp."
+      },
+      "GenerateWorldResourceItem": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Image resource URL; extension must be image: .jpg / .jpeg / .png / .webp.",
+            "example": "https://cdn.example.com/input/room.jpg"
+          },
+          "type": {
+            "$ref": "#/components/schemas/WorldOpenApiGenResourceType"
+          }
+        },
+        "description": "One generation input resource (image). Omit `type` → image. image: .jpg / .jpeg / .png / .webp."
+      },
+      "WorldOpenApiGenResourceType": {
+        "type": "string",
+        "description": "Generation input resource type; image only, supports .jpg / .jpeg / .png / .webp.",
+        "example": "image",
+        "enum": [
+          "image"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "AuthorizationHeader": {
+        "type": "apiKey",
+        "description": "Open platform credential. API key auth: set header `Authorization` to your platform **API key** (no `Bearer` prefix).",
+        "name": "Authorization",
+        "in": "header"
+      }
+    }
+  }
+}
