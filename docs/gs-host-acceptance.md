@@ -42,7 +42,7 @@ The host's stock byte-color material clips HDR before blending, while the oracle
 
 - Move, Rotate, uniform/nonuniform Scale, mirror, duplicate, hide/show, lock/unlock and hide the containing layer. Shape/covariance and SH direction must follow the instance; hidden objects must stop drawing. / 测试变换、复制、隐藏、锁定和图层可见性。
 - Switch between two documents and multiple viewports. Each view must use its own camera, sorting and visibility; closing a document/view must release its render resources. / 多文档、多视口应独立，关闭后释放资源。
-- Save/reopen the 3dm. Source PLY is stored outside the 3dm under `Aholo-Rhino/assets/gaussians`, addressed by SHA-256. The file is not embedded. / 保存重开须恢复，外部 PLY 并未嵌入文档。
+- Restart Rhino and reopen the 3dm without first running an Aholo command; the startup conduit should restore the saved GS mode. If Rhino has overridden plug-in loading, run `AholoGsMode` and record the exception. Save/reopen the 3dm. Source PLY is stored outside the 3dm under `Aholo-Rhino/assets/gaussians`, addressed by SHA-256. The file is not embedded. / 保存重开须恢复，外部 PLY 并未嵌入文档。
 - Test missing-resource behavior using a disposable copy of the cache, then restore it and run `AholoGsMode`. A missing or changed asset should retain a visible placeholder plus diagnostics, never silently use center points. / 测试资源缺失后包围盒和提示，再恢复资源并重载。
 - Import a malformed/truncated file and the RGB-only `fixtures/tiny-world.ply` with `AholoImportGs`. It should fail without placing an incomplete GS. / 损坏或缺高斯字段应拒绝，不生成半成品。
 - Changing the target document, units or active command during asynchronous loading must prevent insertion into the wrong context. / 异步期间文档、单位或命令状态变化不得误放。

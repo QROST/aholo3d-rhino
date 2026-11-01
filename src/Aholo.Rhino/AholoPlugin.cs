@@ -8,6 +8,9 @@ namespace Aholo.Rhino;
 [Guid("D1D17217-1169-41BB-B63A-FEE17DFA777F")]
 public sealed class AholoPlugin : PlugIn
 {
+    // Persisted instances are ordinary blocks, so opening a 3dm does not itself request this plug-in.
+    // Register the conduit at startup to restore saved GS views without requiring a panel command.
+    public override PlugInLoadTime LoadTime => PlugInLoadTime.AtStartup;
     internal static string DisplayVersion => typeof(AholoPlugin).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0.1.0";
     internal static AholoClient CreateClient() => new(Path.Combine(Path.GetDirectoryName(typeof(AholoPlugin).Assembly.Location)!, "sidecar"));
     protected override LoadReturnCode OnLoad(ref string errorMessage)
