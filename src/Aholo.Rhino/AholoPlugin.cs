@@ -15,8 +15,8 @@ public sealed class AholoPlugin : PlugIn
     internal static AholoClient CreateClient() => new(Path.Combine(Path.GetDirectoryName(typeof(AholoPlugin).Assembly.Location)!, "sidecar"));
     protected override LoadReturnCode OnLoad(ref string errorMessage)
     {
-        GaussianViewport.Initialize(this);
         global::Rhino.UI.Panels.RegisterPanel(this, typeof(AholoPanel), "Aholo", null!, global::Rhino.UI.PanelType.PerDoc);
+        GaussianViewport.Initialize(this); // Schedules non-fatal GS initialization on the UI idle event.
         global::Rhino.RhinoApp.WriteLine($"Aholo {DisplayVersion} · CuriousArc · qrost。输入 AholoPanel 打开世界生成与 RenderCloud 面板。");
         return LoadReturnCode.Success;
     }

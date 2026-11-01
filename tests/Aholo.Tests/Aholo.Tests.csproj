@@ -16,5 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="../../src/Aholo.Rhino/GaussianModeRegistration.cs" Link="GaussianModeRegistration.cs" />
   </ItemGroup>
 </Project>

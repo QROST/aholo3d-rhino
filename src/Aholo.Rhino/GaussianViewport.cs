@@ -20,6 +20,11 @@ internal sealed class GaussianViewport : DisplayConduit
     private const double UploadBudgetMilliseconds=4;
     private static GaussianViewport? _instance;
     private static Guid _modeId;
+    private static PlugIn? _plugin;
+    private static bool _startupScheduled,_initializing;
+    private static int _startupAttempts;
+    private static Eto.Forms.UITimer? _startupTimer;
+    private static string? _startupError;
     private readonly Dictionary<Guid,ViewState> _views=new();
     private readonly Dictionary<Guid,ViewCandidate> _candidates=new();
     private readonly Dictionary<Guid,ViewDiagnostics> _diagnostics=new();
@@ -80,50 +85,115 @@ internal sealed class GaussianViewport : DisplayConduit
     }
     internal static void Initialize(PlugIn plugin)
     {
-        if(_instance is not null)return;
-        string saved=plugin.Settings.GetString(ModeSetting,string.Empty);
-        DisplayModeDescription? mode=null;
-        if(Guid.TryParse(saved,out var previous))mode=DisplayModeDescription.GetDisplayMode(previous);
-        if(mode is null||mode.EnglishName!=ModeName)
+        _plugin=plugin;
+        if(_instance is not null||_startupScheduled)return;
+        // AtStartup plug-ins may load before the display-mode manager is ready. The panel must load independently.
+        _startupAttempts=0;_startupError=null;_startupScheduled=true;
+        global::Rhino.RhinoApp.Idle+=OnStartupIdle;
+        GaussianLog.Write("viewport_startup_scheduled",$"version={AholoPlugin.DisplayVersion}; waiting for UI idle");
+    }
+    private static void OnStartupIdle(object? sender,EventArgs e)
+    {
+        if(!_startupScheduled||_initializing)return;
+        // Idle starts the first attempt only. A UI timer guarantees subsequent attempts without mouse/key input.
+        global::Rhino.RhinoApp.Idle-=OnStartupIdle;
+        _startupAttempts++;
+        if(TryInitializeRenderer(_startupAttempts==1?"idle":"retry_timer")){CancelStartup();return;}
+        if(_startupAttempts>=3)
         {
-            mode?.Dispose();_modeId=DisplayModeDescription.CopyDisplayMode(DisplayModeDescription.ShadedId,ModeName);
-            if(_modeId==Guid.Empty)throw new InvalidOperationException("无法注册 Aholo GS 实验显示模式。");
-            mode=DisplayModeDescription.GetDisplayMode(_modeId);
+            CancelStartup();
+            global::Rhino.RhinoApp.WriteLine(_startupError+" AholoPanel 仍可使用；输入 AholoGsMode 重试。");
         }
-        else _modeId=mode.Id;
-        using(mode)
+        else if(_startupTimer is null)
         {
-            if(mode is null)throw new InvalidOperationException("无法读取 Aholo GS 显示模式。");
-            mode.InMenu=true;mode.AllowObjectAssignment=false;mode.SupportsShading=true;mode.ShadedPipelineRequired=true;mode.WireframePipelineRequired=false;
-            mode.DisplayAttributes.ShadingEnabled=true;mode.DisplayAttributes.DisableTransparency=false;mode.DisplayAttributes.ShadeVertexColors=true;mode.DisplayAttributes.FrontFlatShaded=false;
-            if(!DisplayModeDescription.UpdateDisplayMode(mode))throw new InvalidOperationException("无法保存 Aholo GS 显示模式。");
+            try
+            {
+                _startupTimer=new Eto.Forms.UITimer{Interval=.25};
+                _startupTimer.Elapsed+=OnStartupIdle;_startupTimer.Start();
+            }
+            catch(Exception ex)
+            {
+                CancelStartup();
+                GaussianLog.Write("viewport_startup_retry_unavailable",$"error={ex.GetType().Name}");
+                global::Rhino.RhinoApp.WriteLine(_startupError+" 输入 AholoGsMode 重试。");
+            }
         }
-        plugin.Settings.SetString(ModeSetting,_modeId.ToString("D"));
-        var conduit=new GaussianViewport();
-        string texture=Path.Combine(Path.GetDirectoryName(typeof(GaussianViewport).Assembly.Location)!,"assets","gaussian-opacity-atlas.png");
-        if(File.Exists(texture))conduit._material=CreateMaterial(texture);
-        else conduit._lastError="缺少 Gaussian opacity atlas；保留可见包围盒。";
-        _instance=conduit;GaussianDocument.Initialize();conduit.RefreshNativeViews();
-        conduit._timer=new Eto.Forms.UITimer{Interval=.016};conduit._timer.Elapsed+=conduit.OnIdle;conduit._timer.Start();
-        RhinoDoc.BeginSaveDocument+=conduit.OnBeginSave;RhinoDoc.EndSaveDocument+=conduit.OnEndSave;
-        DisplayPipeline.DisplayModeChanged+=conduit.OnDisplayModeChanged;
-        conduit.Enabled=true;
-        GaussianLog.Write("viewport_initialize","batch=2048; shared opacity atlas; native model view/save guards enabled");
+    }
+    private static void CancelStartup()
+    {
+        _startupScheduled=false;
+        global::Rhino.RhinoApp.Idle-=OnStartupIdle;
+        var timer=_startupTimer;_startupTimer=null;
+        if(timer is null)return;
+        timer.Elapsed-=OnStartupIdle;
+        ReleaseNative(()=>timer.Stop());ReleaseNative(()=>timer.Dispose());
+    }
+    private static bool TryInitializeRenderer(string trigger)
+    {
+        if(_initializing||_plugin is null)return false;
+        if(_instance is not null)return true;
+        _initializing=true;string stage="mode_registration";
+        try
+        {
+            string saved=_plugin.Settings.GetString(ModeSetting,string.Empty);
+            Guid.TryParse(saved,out var previous);
+            _modeId=GaussianModeRegistration.Ensure(new RhinoGaussianModeStore(_plugin,ModeSetting),previous,ModeName);
+            stage="material";
+            var conduit=new GaussianViewport();_instance=conduit;
+            string texture=Path.Combine(Path.GetDirectoryName(typeof(GaussianViewport).Assembly.Location)!,"assets","gaussian-opacity-atlas.png");
+            if(File.Exists(texture))conduit._material=CreateMaterial(texture);
+            else conduit._lastError="缺少 Gaussian opacity atlas；保留可见包围盒。";
+            stage="document_and_viewport";
+            GaussianDocument.Initialize();conduit.RefreshNativeViews();
+            conduit._timer=new Eto.Forms.UITimer{Interval=.016};conduit._timer.Elapsed+=conduit.OnIdle;conduit._timer.Start();
+            RhinoDoc.BeginSaveDocument+=conduit.OnBeginSave;RhinoDoc.EndSaveDocument+=conduit.OnEndSave;
+            DisplayPipeline.DisplayModeChanged+=conduit.OnDisplayModeChanged;
+            conduit.Enabled=true;_startupError=null;
+            GaussianLog.Write("viewport_initialize",$"version={AholoPlugin.DisplayVersion}; trigger={trigger}; mode={_modeId:D}; batch=2048; shared opacity atlas; native model view/save guards enabled");
+            return true;
+        }
+        catch(Exception ex)
+        {
+            // Keep core commands/panel available, and release partial native state before a bounded or explicit retry.
+            string action=stage switch { "mode_registration"=>"显示模式注册", "material"=>"材质准备", _=>"视口初始化" };
+            _startupError="Aholo GS 初始化未完成："+action+"。";
+            GaussianLog.Write("viewport_startup_failed",$"version={AholoPlugin.DisplayVersion}; trigger={trigger}; attempt={_startupAttempts}; stage={stage}; error={ex.GetType().Name}");
+            try { StopRenderer(); }
+            catch(Exception cleanup){GaussianLog.Write("viewport_startup_cleanup_failed",$"error={cleanup.GetType().Name}");}
+            return false;
+        }
+        finally{_initializing=false;}
     }
     internal static void Shutdown()
     {
-        var conduit=_instance;if(conduit is null)return;
-        conduit._stopping=true;conduit.Enabled=false;
-        if(conduit._timer is not null){conduit._timer.Stop();conduit._timer.Elapsed-=conduit.OnIdle;conduit._timer.Dispose();conduit._timer=null;}
+        CancelStartup();_plugin=null;
+        StopRenderer();
+    }
+    private static void StopRenderer()
+    {
+        var conduit=_instance;_instance=null;if(conduit is null)return;
+        // Detach first: even a native disposal failure must never make the next attempt see a ready instance.
+        conduit._stopping=true;ReleaseNative(()=>conduit.Enabled=false);
+        var timer=conduit._timer;conduit._timer=null;
+        if(timer is not null)
+        {
+            timer.Elapsed-=conduit.OnIdle;
+            ReleaseNative(()=>timer.Stop());ReleaseNative(()=>timer.Dispose());
+        }
         RhinoDoc.BeginSaveDocument-=conduit.OnBeginSave;RhinoDoc.EndSaveDocument-=conduit.OnEndSave;
         DisplayPipeline.DisplayModeChanged-=conduit.OnDisplayModeChanged;
-        conduit._activeWork?.Cancellation.Cancel();
+        ReleaseNative(()=>conduit._activeWork?.Cancellation.Cancel());
         foreach(var state in conduit._views.Values)conduit.Retire(state);
         conduit._views.Clear();conduit._candidates.Clear();conduit._diagnostics.Clear();conduit._nativeViews.Clear();conduit._nativeSizeRetries.Clear();
-        while(conduit._retired.TryDequeue(out var mesh))mesh.Dispose();
-        conduit._material?.Dispose();conduit._material=null;
+        while(conduit._retired.TryDequeue(out var mesh))ReleaseNative(()=>mesh.Dispose());
+        var material=conduit._material;conduit._material=null;ReleaseNative(()=>material?.Dispose());
         while(conduit._results.TryDequeue(out _)) { }
-        _instance=null;GaussianDocument.Shutdown();GaussianLog.Write("viewport_shutdown","workers cancelled; native batches released");
+        ReleaseNative(GaussianDocument.Shutdown);GaussianLog.Write("viewport_shutdown","workers cancelled; native resource cleanup attempted");
+    }
+    private static void ReleaseNative(Action release)
+    {
+        try{release();}
+        catch(Exception ex){GaussianLog.Write("viewport_cleanup_failed",$"error={ex.GetType().Name}");}
     }
     internal static void ForgetDocument(uint serial)
     {
@@ -149,11 +219,13 @@ internal sealed class GaussianViewport : DisplayConduit
     }
     internal static void Activate(RhinoDoc doc)
     {
-        if(_instance is null||_modeId==Guid.Empty)throw new InvalidOperationException("Aholo GS 显示模式尚未初始化。");
+        if(!TryInitializeRenderer("command")||_modeId==Guid.Empty)
+            throw new InvalidOperationException((_startupError??"Aholo GS 显示模式尚未初始化。")+"运行 AholoGsDiagnostics 查看状态，可稍后再次运行 AholoGsMode。");
+        CancelStartup();
         var view=doc.Views.ActiveView??throw new InvalidOperationException("请先激活一个模型视窗。");
         if(view is RhinoPageView)throw new InvalidOperationException("请先切换到原生模型视窗；本版不在布局细节中绘制 GS。");
         using var mode=DisplayModeDescription.GetDisplayMode(_modeId)??throw new InvalidOperationException("Aholo GS 显示模式已被删除，请重新加载插件。");
-        view.ActiveViewport.DisplayMode=mode;GaussianDocument.Reload(doc);_instance.RefreshNativeViews();view.Redraw();
+        view.ActiveViewport.DisplayMode=mode;GaussianDocument.Reload(doc);_instance!.RefreshNativeViews();view.Redraw();
     }
     private static bool IsMode(RhinoViewport viewport)=>viewport.DisplayMode?.Id==_modeId;
     private bool Supported(DrawEventArgs e)=>SupportFailure(e) is null;
@@ -495,7 +567,10 @@ internal sealed class GaussianViewport : DisplayConduit
     }
     internal static string Diagnostics(RhinoDoc doc)
     {
-        var conduit=_instance;var active=doc.Views.ActiveView?.ActiveViewport;ViewState? state=null;
+        var conduit=_instance;
+        if(conduit is null)return $"Aholo {AholoPlugin.DisplayVersion}；GS 初始化：{(_startupScheduled?"等待自动重试":"尚未就绪")}；自动尝试 {_startupAttempts}/3 次。\n"+
+            (_startupError??"显示模式准备中。")+" AholoPanel 可用；输入 AholoGsMode 重试。\n日志："+GaussianLog.FilePath;
+        var active=doc.Views.ActiveView?.ActiveViewport;ViewState? state=null;
         if(active is not null)conduit?._views.TryGetValue(active.Id,out state);
         ViewDiagnostics? diagnostics=null;
         if(active is not null)conduit?._diagnostics.TryGetValue(active.Id,out diagnostics);
