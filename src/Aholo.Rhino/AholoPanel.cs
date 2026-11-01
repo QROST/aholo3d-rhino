@@ -70,7 +70,7 @@ public sealed class AholoPanel : Panel, IPanel
             _scale, _axis, ActionButton("放入当前文档 · GS 实验视口", PlaceSelectedAsync),
             Info("保留完整高斯与原始 PLY / SPZ。后台准备期间显示包围盒；视图停止移动后恢复 GS。实验模式的颜色、遮挡和导航性能需实机验收。"),
             Row(ActionButton("导入本地 GS PLY", ImportLocalGsAsync), LocalButton("切换到 Aholo GS", () => GaussianViewport.Activate(Document()))),
-            Info("离线验收场景：运行 AholoGsProbe；诊断信息：AholoGsDiagnostics。透明 Rhino 材质的交错合成、裁切平面和嵌套块尚不支持。"),
+            Info("离线验收场景：运行 AholoGsProbe；诊断信息：AholoGsDiagnostics。透明 Rhino 材质交错和嵌套块尚不支持；裁切平面的完整行为仍在验收中。"),
             ActionButton("诊断：导入 PLY 中心点", ImportLocalPlyAsync),
             _worldId, ActionButton("从已有 World ID 恢复", ImportExistingWorldAsync)
         ) });

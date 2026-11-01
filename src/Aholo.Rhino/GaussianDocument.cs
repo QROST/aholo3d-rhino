@@ -104,6 +104,8 @@ internal static class GaussianDocument
             catch (ArgumentException) { continue; }
             result.Add(new Placement(obj, asset, new GaussianTransform(linear, new GaussianVector(t.M03,t.M13,t.M23))));
         }
+        // Rhino's object enumeration order is not a stable scene identity or transparency tie-break order.
+        result.Sort((a,b)=>a.Object.Id.CompareTo(b.Object.Id));
         return result;
     }
     internal static void Reload(RhinoDoc doc)

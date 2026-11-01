@@ -21,7 +21,11 @@ internal sealed class GaussianViewport : DisplayConduit
     private static GaussianViewport? _instance;
     private static Guid _modeId;
     private readonly Dictionary<Guid,ViewState> _views=new();
+    private readonly Dictionary<Guid,ViewCandidate> _candidates=new();
+    private readonly Dictionary<Guid,ViewDiagnostics> _diagnostics=new();
     private readonly Dictionary<Guid,NativeView> _nativeViews=new();
+    private readonly Dictionary<Guid,NativeSizeRetry> _nativeSizeRetries=new();
+    private bool _hasNativeInventory;
     private readonly Queue<Mesh> _retired=new();
     private readonly Dictionary<uint,int> _saving=new();
     private readonly ConcurrentQueue<WorkResult> _results=new();
@@ -37,6 +41,14 @@ internal sealed class GaussianViewport : DisplayConduit
     private int _skippedPreviews;
     private DateTime _lastViewRefresh;
     private sealed record NativeView(uint Document,Size ViewportSize,Size ClientSize);
+    private sealed record NativeSizeRetry(Size FrameSize,double Dpi);
+    private sealed record ViewCandidate(GaussianNativeRequest Request,DateTime ChangedAt,string Reason);
+    private sealed class ViewDiagnostics
+    {
+        internal long Restarts,DrawRejects,SuppressedReplacementLogs;
+        internal string LastReplacementReason="none",LastRejectReason="none";
+        internal DateTime LastReplacementLog,LastRejectLog;
+    }
     private sealed record NativeBatch(Mesh Mesh,int[] FaceIndices);
     private sealed record WorkResult(GaussianNativeRequest Request,GaussianNativePreparation? Prepared,string? Error,bool Cancelled);
     private sealed record ActiveWork(GaussianNativeRequest Request,WorkCancellation Cancellation);
@@ -54,6 +66,8 @@ internal sealed class GaussianViewport : DisplayConduit
         internal DateTime ChangedAt=DateTime.UtcNow;
         internal bool Started;
         internal bool Complete;
+        // Set once by PreDrawObjects for this actual pipeline invocation. Never suppress proxies for an old camera.
+        internal bool DrawAccepted;
         internal string? Error;
         internal GaussianNativePreparation? Pending;
         internal readonly List<NativeBatch> Batches=new();
@@ -92,6 +106,7 @@ internal sealed class GaussianViewport : DisplayConduit
         _instance=conduit;GaussianDocument.Initialize();conduit.RefreshNativeViews();
         conduit._timer=new Eto.Forms.UITimer{Interval=.016};conduit._timer.Elapsed+=conduit.OnIdle;conduit._timer.Start();
         RhinoDoc.BeginSaveDocument+=conduit.OnBeginSave;RhinoDoc.EndSaveDocument+=conduit.OnEndSave;
+        DisplayPipeline.DisplayModeChanged+=conduit.OnDisplayModeChanged;
         conduit.Enabled=true;
         GaussianLog.Write("viewport_initialize","batch=2048; shared opacity atlas; native model view/save guards enabled");
     }
@@ -101,9 +116,10 @@ internal sealed class GaussianViewport : DisplayConduit
         conduit._stopping=true;conduit.Enabled=false;
         if(conduit._timer is not null){conduit._timer.Stop();conduit._timer.Elapsed-=conduit.OnIdle;conduit._timer.Dispose();conduit._timer=null;}
         RhinoDoc.BeginSaveDocument-=conduit.OnBeginSave;RhinoDoc.EndSaveDocument-=conduit.OnEndSave;
+        DisplayPipeline.DisplayModeChanged-=conduit.OnDisplayModeChanged;
         conduit._activeWork?.Cancellation.Cancel();
         foreach(var state in conduit._views.Values)conduit.Retire(state);
-        conduit._views.Clear();conduit._nativeViews.Clear();
+        conduit._views.Clear();conduit._candidates.Clear();conduit._diagnostics.Clear();conduit._nativeViews.Clear();conduit._nativeSizeRetries.Clear();
         while(conduit._retired.TryDequeue(out var mesh))mesh.Dispose();
         conduit._material?.Dispose();conduit._material=null;
         while(conduit._results.TryDequeue(out _)) { }
@@ -113,17 +129,23 @@ internal sealed class GaussianViewport : DisplayConduit
     {
         var conduit=_instance;if(conduit is null)return;
         if(conduit._activeWork?.Request.Document==serial)conduit._activeWork.Cancellation.Cancel();
-        foreach(Guid id in conduit._views.Where(p=>p.Value.Request.Document==serial).Select(p=>p.Key).ToArray())conduit.RemoveView(id);
+        foreach(Guid id in conduit._views.Where(p=>p.Value.Request.Document==serial).Select(p=>p.Key)
+            .Concat(conduit._candidates.Where(p=>p.Value.Request.Document==serial).Select(p=>p.Key)).Distinct().ToArray())conduit.RemoveView(id,"document_invalidated");
     }
     internal static void DocumentClosed(uint serial)
     {
         _instance?._saving.Remove(serial);ForgetDocument(serial);
+        var conduit=_instance;if(conduit is null)return;
+        foreach(Guid id in conduit._nativeViews.Where(p=>p.Value.Document==serial).Select(p=>p.Key).ToArray())
+        {conduit._nativeViews.Remove(id);conduit._nativeSizeRetries.Remove(id);conduit._diagnostics.Remove(id);}
     }
     internal static void PruneViews(RhinoDoc doc)
     {
         var conduit=_instance;if(conduit is null)return;
         var live=doc.Views.GetViewList(ViewTypeFilter.Model).Select(v=>v.MainViewport.Id).ToHashSet();
-        foreach(Guid id in conduit._views.Where(p=>p.Value.Request.Document==doc.RuntimeSerialNumber&&!live.Contains(p.Key)).Select(p=>p.Key).ToArray())conduit.RemoveView(id);
+        foreach(Guid id in conduit._views.Where(p=>p.Value.Request.Document==doc.RuntimeSerialNumber).Select(p=>p.Key)
+            .Concat(conduit._candidates.Where(p=>p.Value.Request.Document==doc.RuntimeSerialNumber).Select(p=>p.Key)).Distinct().Where(id=>!live.Contains(id)).ToArray())
+        {conduit.RemoveView(id,"view_closed");conduit._diagnostics.Remove(id);}
     }
     internal static void Activate(RhinoDoc doc)
     {
@@ -134,15 +156,32 @@ internal sealed class GaussianViewport : DisplayConduit
         view.ActiveViewport.DisplayMode=mode;GaussianDocument.Reload(doc);_instance.RefreshNativeViews();view.Redraw();
     }
     private static bool IsMode(RhinoViewport viewport)=>viewport.DisplayMode?.Id==_modeId;
-    private bool Supported(DrawEventArgs e)
+    private bool Supported(DrawEventArgs e)=>SupportFailure(e) is null;
+    private string? SupportFailure(DrawEventArgs e)
     {
-        if(_stopping||_material is null||!IsMode(e.Viewport)||e.Display.IsPrinting||e.Display.IsInViewCapture||e.Display.IsStereoMode||_saving.ContainsKey(e.RhinoDoc.RuntimeSerialNumber))return false;
-        if(e.Display.IsInTiledDraw(out _,out _))return false;
+        if(!IsMode(e.Viewport))return "other_mode";
+        if(_stopping)return "shutdown";
+        if(_material is null)return "missing_material";
+        if(e.Display.IsPrinting)return "printing";
+        if(e.Display.IsInViewCapture)return "view_capture";
+        if(e.Display.IsStereoMode)return "stereo";
+        if(_saving.ContainsKey(e.RhinoDoc.RuntimeSerialNumber))return "save_preview";
+        if(e.Display.IsInTiledDraw(out _,out _))return "tiled_draw";
         // Only sizes captured from real model views OUTSIDE display callbacks are trusted. Thumbnails and GetPreviewBitmap
         // may reuse a viewport ID, so matching that ID alone must never trigger a full rebuild/render.
-        if(!_nativeViews.TryGetValue(e.Viewport.Id,out var native)||native.Document!=e.RhinoDoc.RuntimeSerialNumber)return false;
+        if(!_nativeViews.TryGetValue(e.Viewport.Id,out var native)||native.Document!=e.RhinoDoc.RuntimeSerialNumber)return "not_native_model_view";
         Size size=e.Display.FrameSize;
-        return size.Width>0&&size.Height>0&&(Matches(size,native.ViewportSize,e.Display.DpiScale)||Matches(size,native.ClientSize,e.Display.DpiScale));
+        if(size.Width<=0||size.Height<=0)return "empty_frame";
+        return Matches(size,native.ViewportSize,e.Display.DpiScale)||Matches(size,native.ClientSize,e.Display.DpiScale)?null:"offscreen_size";
+    }
+    private void OnDisplayModeChanged(object? sender,DisplayModeChangedEventArgs e)
+    {
+        // Polling MainViewport.DisplayMode can disagree with an in-progress pipeline. Only an explicit mode-change
+        // event confirmed by the native model view is allowed to retire an otherwise valid frame.
+        if(e.OldDisplayModeId!=_modeId||e.ChangedDisplayModeId==_modeId)return;
+        if(!_nativeViews.TryGetValue(e.Viewport.Id,out var native)||native.Document!=e.RhinoDoc.RuntimeSerialNumber)return;
+        RhinoView? view=e.RhinoDoc.Views.GetViewList(ViewTypeFilter.Model).FirstOrDefault(v=>v.MainViewport.Id==e.Viewport.Id);
+        if(view is not null&&!IsMode(view.MainViewport))RemoveView(e.Viewport.Id,"display_mode_exit");
     }
     private static bool Matches(Size actual,Size logical,double dpi)
     {
@@ -159,35 +198,79 @@ internal sealed class GaussianViewport : DisplayConduit
         if(_saving.TryGetValue(e.DocumentSerialNumber,out int depth))
         {if(depth<=1)_saving.Remove(e.DocumentSerialNumber);else _saving[e.DocumentSerialNumber]=depth-1;}
     }
+    protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e)
+    {
+        // Dynamic geometry must contribute its bounds even when its block proxy is suppressed. This stabilizes the
+        // host's near/far calculation; clipping planes and native depth testing remain completely enabled.
+        if(_stopping||!IsMode(e.Viewport)||!_nativeViews.TryGetValue(e.Viewport.Id,out var native)||native.Document!=e.RhinoDoc.RuntimeSerialNumber)return;
+        try
+        {
+            foreach(var placement in GaussianDocument.Placements(e.RhinoDoc,e.Viewport))
+            {
+                BoundingBox box=placement.Asset.Bounds;box.Transform(placement.Object.InstanceXform);
+                if(box.IsValid)e.IncludeBoundingBox(box);
+            }
+        }
+        catch(Exception ex){_lastError="GS 包围盒计算失败："+AholoHost.FriendlyError(ex);}
+    }
     protected override void PreDrawObjects(DrawEventArgs e)
     {
-        if(!Supported(e)){if(IsMode(e.Viewport))_skippedPreviews++;return;}
+        if(_views.TryGetValue(e.Viewport.Id,out var previous))previous.DrawAccepted=false;
+        string? failure=SupportFailure(e);
+        if(failure is not null)
+        {
+            if(failure!="other_mode"){_skippedPreviews++;LogDrawRejected(e.Viewport.Id,failure,e.Display.FrameSize);}
+            if(failure=="offscreen_size")_nativeSizeRetries[e.Viewport.Id]=new NativeSizeRetry(e.Display.FrameSize,e.Display.DpiScale);
+            return;
+        }
+        _nativeSizeRetries.Remove(e.Viewport.Id);
         _backend=e.Display.IsOpenGL?"OpenGL（当前视窗）":"Non-OpenGL（不能仅据此确认 Metal）";
         try
         {
             GaussianCamera camera=Camera(e.Viewport,e.Display.FrameSize.Width,e.Display.FrameSize.Height);
             var placements=GaussianDocument.Placements(e.RhinoDoc,e.Viewport);
             string key=PlacementKey(placements);
-            if(_views.TryGetValue(e.Viewport.Id,out var previous)&&previous.Request.Camera==camera&&previous.Request.Key==key)return;
-            RemoveView(e.Viewport.Id);
-            // Capture only immutable data and value transforms. The worker never reads RhinoObject/RhinoDoc state.
-            var snapshot=placements.Select(p=>new GaussianNativePlacement(p.Object.Id,p.Asset.Hash,p.Asset.Prepared,p.Transform)).ToArray();
-            var request=new GaussianNativeRequest(e.RhinoDoc.RuntimeSerialNumber,e.Viewport.Id,++_generation,camera,key,snapshot);
-            _views[e.Viewport.Id]=new ViewState{Request=request,InputCount=snapshot.Sum(p=>p.Asset.Count)};
+            bool sameScene=previous is not null&&previous.Request.Key==key;
+            if(sameScene&&GaussianFramePolicy.CanReuse(previous!.Request.Camera,camera))
+            {
+                _candidates.Remove(e.Viewport.Id);
+                previous.DrawAccepted=previous.Complete&&previous.Error is null;
+                if(!previous.DrawAccepted)LogDrawRejected(e.Viewport.Id,previous.Error is not null?"frame_error":previous.Pending is not null?"uploading":"preparing",e.Display.FrameSize);
+                return;
+            }
+            string reason=previous is null?"first_frame":!sameScene?"placements_changed":
+                GaussianFramePolicy.SameProjection(previous.Request.Camera,camera)?"depth_coverage":"projection_changed";
+            if(sameScene&&GaussianFramePolicy.SameProjection(previous!.Request.Camera,camera))
+                camera=GaussianFramePolicy.CoverDepthRange(previous.Request.Camera,camera);
+            if(_candidates.TryGetValue(e.Viewport.Id,out var candidate)&&candidate.Request.Key==key&&GaussianFramePolicy.SameProjection(candidate.Request.Camera,camera))
+            {
+                // Depth observations accumulate coverage without restarting the debounce. A transient DPI callback
+                // cannot destroy the request that is already being prepared or uploaded.
+                var covered=GaussianFramePolicy.CoverDepthRange(candidate.Request.Camera,camera);
+                if(covered!=candidate.Request.Camera)_candidates[e.Viewport.Id]=candidate with{Request=candidate.Request with{Camera=covered}};
+            }
+            else
+            {
+                // Capture only immutable data and value transforms. The worker never reads RhinoObject/RhinoDoc state.
+                var snapshot=placements.Select(p=>new GaussianNativePlacement(p.Object.Id,p.Asset.Hash,p.Asset.Prepared,p.Transform)).ToArray();
+                var request=new GaussianNativeRequest(e.RhinoDoc.RuntimeSerialNumber,e.Viewport.Id,0,camera,key,snapshot);
+                _candidates[e.Viewport.Id]=new ViewCandidate(request,DateTime.UtcNow,reason);
+            }
+            LogDrawRejected(e.Viewport.Id,reason,e.Display.FrameSize);
             _lastError=null;
         }
-        catch(Exception ex){_lastError="GS 准备失败，保留包围盒："+AholoHost.FriendlyError(ex);RemoveView(e.Viewport.Id);}
+        catch(Exception ex){_lastError="GS 准备失败，保留包围盒："+AholoHost.FriendlyError(ex);RemoveView(e.Viewport.Id,"observation_failed");}
     }
     protected override void PreDrawObject(DrawObjectEventArgs e)
     {
-        if(!Supported(e)||!_views.TryGetValue(e.Viewport.Id,out var state)||!state.Complete||state.Error is not null)return;
+        if(!Supported(e)||!_views.TryGetValue(e.Viewport.Id,out var state)||!state.DrawAccepted||!state.Complete||state.Error is not null)return;
         RhinoObject? top=e.Display.ActiveTopLevelObject;
         foreach(var placement in state.Request.Placements)
             if(placement.Id==e.RhinoObject.Id||placement.Id==top?.Id){e.DrawObject=false;return;}
     }
     protected override void PostDrawObjects(DrawEventArgs e)
     {
-        if(!Supported(e)||!_views.TryGetValue(e.Viewport.Id,out var state)||!state.Complete||state.Error is not null)return;
+        if(!Supported(e)||!_views.TryGetValue(e.Viewport.Id,out var state)||!state.DrawAccepted||!state.Complete||state.Error is not null)return;
         bool testing=false,writing=false;var clock=Stopwatch.StartNew();
         try
         {
@@ -209,9 +292,27 @@ internal sealed class GaussianViewport : DisplayConduit
     }
     protected override void DrawForeground(DrawEventArgs e)
     {
-        if(!Supported(e)||!_views.TryGetValue(e.Viewport.Id,out var state)||state.Complete&&state.Error is null)return;
-        string progress=state.Error is not null?"Aholo GS：准备失败，已保留包围盒；运行 AholoGsDiagnostics":state.Pending is not null?$"Aholo GS：上传 {state.Batches.Count:N0}/{state.TotalBatches:N0} 批；完整就绪后显示":state.Started?"Aholo GS：后台投影与排序中；原始资源完整保留":"Aholo GS：视图稳定后准备显示";
+        if(!Supported(e))return;
+        _views.TryGetValue(e.Viewport.Id,out var state);
+        bool candidate=_candidates.ContainsKey(e.Viewport.Id);
+        if(!candidate&&(state is null||state.DrawAccepted&&state.Error is null))return;
+        string progress=candidate?"Aholo GS：视图稳定后准备显示":state!.Error is not null?"Aholo GS：准备失败，已保留包围盒；运行 AholoGsDiagnostics":state.Pending is not null?$"Aholo GS：上传 {state.Batches.Count:N0}/{state.TotalBatches:N0} 批；完整就绪后显示":state.Started?"Aholo GS：后台投影与排序中；原始资源完整保留":"Aholo GS：视图稳定后准备显示";
         e.Display.Draw2dText(progress,Color.FromArgb(45,135,175),new Point2d(18,38),false,14);
+    }
+    private void AcceptStableCandidates()
+    {
+        DateTime now=DateTime.UtcNow;
+        foreach(var pair in _candidates.Where(p=>now-p.Value.ChangedAt>=TimeSpan.FromMilliseconds(75)).ToArray())
+        {
+            Guid id=pair.Key;ViewCandidate candidate=pair.Value;
+            _views.TryGetValue(id,out var previous);
+            if(_activeWork?.Request.Viewport==id)_activeWork.Cancellation.Cancel();
+            if(previous is not null)Retire(previous);
+            var request=candidate.Request with{Generation=++_generation};
+            var state=new ViewState{Request=request,ChangedAt=candidate.ChangedAt,InputCount=request.Placements.Sum(p=>p.Asset.Count)};
+            _views[id]=state;_candidates.Remove(id);
+            LogReplacement(previous,request,candidate.Reason);
+        }
     }
     private void OnIdle(object? sender,EventArgs e)
     {
@@ -220,6 +321,7 @@ internal sealed class GaussianViewport : DisplayConduit
         try
         {
             if(DateTime.UtcNow-_lastViewRefresh>TimeSpan.FromMilliseconds(250))RefreshNativeViews();
+            AcceptStableCandidates();
             while(_results.TryDequeue(out var result))
             {
                 if(!_views.TryGetValue(result.Request.Viewport,out var state)||state.Request.Generation!=result.Request.Generation)continue;
@@ -233,8 +335,7 @@ internal sealed class GaussianViewport : DisplayConduit
             while(_retired.Count>0&&slice.Elapsed.TotalMilliseconds<UploadBudgetMilliseconds)_retired.Dequeue().Dispose();
             foreach(var state in _views.Values.ToArray())
             {
-                if(state.Pending is null||state.Error is not null)continue;
-                int previousBatchCount=state.Batches.Count;
+                if(state.Pending is null||state.Error is not null||_candidates.ContainsKey(state.Request.Viewport))continue;
                 while(state.Batches.Count<state.TotalBatches&&slice.Elapsed.TotalMilliseconds<UploadBudgetMilliseconds)
                 {
                     int index=state.Batches.Count;var batch=state.Pending.Batches[index]!;
@@ -253,13 +354,14 @@ internal sealed class GaussianViewport : DisplayConduit
                 }
                 if(state.Pending is not null&&state.Batches.Count==state.TotalBatches)
                 {state.Pending=null;state.Complete=true;GaussianLog.Write("frame_ready",$"generation={state.Request.Generation}; visible={state.VisibleCount}; batches={state.Batches.Count}; maxUploadMs={state.MaxUploadMilliseconds:F1}");Redraw(state.Request);}
-                else if(state.Batches.Count/16!=previousBatchCount/16)Redraw(state.Request);
+                // Redraw only after atomic publication. Progress redraws used to produce transient clip/DPI callbacks
+                // which cancelled the very upload whose progress they were displaying.
                 if(slice.Elapsed.TotalMilliseconds>=UploadBudgetMilliseconds)break;
             }
             if(_worker is null||_worker.IsCompleted)
             {
                 _worker=null;_activeWork=null;
-                var next=_views.Values.Where(s=>!s.Started&&s.Error is null&&DateTime.UtcNow-s.ChangedAt>=TimeSpan.FromMilliseconds(75)).OrderBy(s=>s.ChangedAt).FirstOrDefault();
+                var next=_views.Values.Where(s=>!s.Started&&s.Error is null&&!_candidates.ContainsKey(s.Request.Viewport)&&DateTime.UtcNow-s.ChangedAt>=TimeSpan.FromMilliseconds(75)).OrderBy(s=>s.ChangedAt).FirstOrDefault();
                 if(next is not null)Start(next);
             }
         }
@@ -268,7 +370,8 @@ internal sealed class GaussianViewport : DisplayConduit
     }
     private void Start(ViewState state)
     {
-        GaussianLog.Write("prepare_start",$"generation={state.Request.Generation}; input={state.InputCount}; size={state.Request.Camera.Width}x{state.Request.Camera.Height}");
+        var diagnostics=GetDiagnostics(state.Request.Viewport);GaussianCamera camera=state.Request.Camera;
+        GaussianLog.Write("prepare_start",FormattableString.Invariant($"generation={state.Request.Generation}; input={state.InputCount}; size={camera.Width}x{camera.Height}; near={camera.Near:R}; far={camera.Far:R}; fx={camera.Fx:R}; fy={camera.Fy:R}; restarts={diagnostics.Restarts}; replaced_reason={diagnostics.LastReplacementReason}"));
         state.Started=true;var cancellation=new WorkCancellation();var token=cancellation.Token;
         var work=new ActiveWork(state.Request,cancellation);_activeWork=work;
         _worker=Task.Run(()=>
@@ -283,30 +386,78 @@ internal sealed class GaussianViewport : DisplayConduit
     }
     private void RefreshNativeViews()
     {
-        _lastViewRefresh=DateTime.UtcNow;var live=new HashSet<Guid>();
+        _lastViewRefresh=DateTime.UtcNow;var live=new HashSet<Guid>();var redraws=new List<RhinoView>();
         foreach(RhinoDoc doc in RhinoDoc.OpenDocuments())
         {
             if(doc.IsClosing)continue;
             foreach(RhinoView view in doc.Views.GetViewList(ViewTypeFilter.Model))
             {
                 Guid id=view.MainViewport.Id;live.Add(id);
-                var observed=new NativeView(doc.RuntimeSerialNumber,view.MainViewport.Size,view.ClientRectangle.Size);
-                bool changed=_nativeViews.TryGetValue(id,out var previous)&&previous!=observed;
-                _nativeViews[id]=observed;
-                if(!IsMode(view.MainViewport))RemoveView(id);
-                else if(changed)view.Redraw();
+                // Inventory only: native logical/client sizes may change representation across DPI callbacks.
+                // Neither a size observation nor a polled display-mode mismatch is a frame invalidation or redraw.
+                bool discovered=!_nativeViews.ContainsKey(id);
+                var native=new NativeView(doc.RuntimeSerialNumber,view.MainViewport.Size,view.ClientRectangle.Size);
+                _nativeViews[id]=native;
+                bool retry=_nativeSizeRetries.TryGetValue(id,out var rejected)&&
+                    (Matches(rejected.FrameSize,native.ViewportSize,rejected.Dpi)||Matches(rejected.FrameSize,native.ClientSize,rejected.Dpi));
+                // A native resize can draw before this inventory catches up. Retry only that explicitly rejected
+                // size once it is independently confirmed; clear before Redraw to prevent recursive retry loops.
+                if(retry)_nativeSizeRetries.Remove(id);
+                if((retry||discovered&&_hasNativeInventory)&&IsMode(view.MainViewport))
+                {
+                    redraws.Add(view);
+                    GaussianLog.Write("native_redraw_once",$"viewport={id:D}; reason={(retry?"confirmed_native_size":"new_native_view")}");
+                }
             }
         }
-        foreach(Guid id in _nativeViews.Keys.Where(id=>!live.Contains(id)).ToArray()){_nativeViews.Remove(id);RemoveView(id);}
+        foreach(Guid id in _nativeViews.Keys.Where(id=>!live.Contains(id)).ToArray())
+        {_nativeViews.Remove(id);_nativeSizeRetries.Remove(id);RemoveView(id,"view_closed");_diagnostics.Remove(id);}
+        _hasNativeInventory=true;
+        foreach(RhinoView view in redraws)view.Redraw();
     }
-    private void RemoveView(Guid id)
+    private void RemoveView(Guid id,string reason)
     {
+        _candidates.Remove(id);_nativeSizeRetries.Remove(id);
         if(_activeWork?.Request.Viewport==id)_activeWork.Cancellation.Cancel();
-        if(_views.Remove(id,out var state))Retire(state);
+        if(_views.Remove(id,out var state))
+        {
+            GaussianLog.Write("frame_removed",$"generation={state.Request.Generation}; replaced_reason={reason}; uploaded={state.Batches.Count}/{state.TotalBatches}");
+            Retire(state);
+        }
     }
+    private ViewDiagnostics GetDiagnostics(Guid id)
+    {
+        if(!_diagnostics.TryGetValue(id,out var result))_diagnostics[id]=result=new ViewDiagnostics();
+        return result;
+    }
+    private void LogDrawRejected(Guid id,string reason,Size size)
+    {
+        // Do not retain arbitrary preview viewport IDs, or log ordinary non-GS view redraws.
+        if(!_nativeViews.ContainsKey(id))return;
+        var diagnostics=GetDiagnostics(id);diagnostics.DrawRejects++;
+        DateTime now=DateTime.UtcNow;
+        bool report=now-diagnostics.LastRejectLog>=TimeSpan.FromSeconds(5)||diagnostics.LastRejectReason!=reason&&now-diagnostics.LastRejectLog>=TimeSpan.FromSeconds(1);
+        diagnostics.LastRejectReason=reason;
+        if(!report)return;
+        diagnostics.LastRejectLog=now;
+        GaussianLog.Write("draw_rejected",$"viewport={id:D}; reason={reason}; size={size.Width}x{size.Height}; count={diagnostics.DrawRejects}");
+    }
+    private void LogReplacement(ViewState? previous,GaussianNativeRequest request,string reason)
+    {
+        var diagnostics=GetDiagnostics(request.Viewport);if(previous is not null)diagnostics.Restarts++;
+        DateTime now=DateTime.UtcNow;
+        bool report=now-diagnostics.LastReplacementLog>=TimeSpan.FromSeconds(1);
+        diagnostics.LastReplacementReason=reason;
+        if(!report){diagnostics.SuppressedReplacementLogs++;return;}
+        diagnostics.LastReplacementLog=now;
+        GaussianCamera camera=request.Camera;GaussianCamera? old=previous?.Request.Camera;
+        GaussianLog.Write("frame_replaced",FormattableString.Invariant($"viewport={request.Viewport:D}; generation={request.Generation}; replaced_reason={reason}; restarts={diagnostics.Restarts}; suppressed={diagnostics.SuppressedReplacementLogs}; oldSize={old?.Width??0}x{old?.Height??0}; size={camera.Width}x{camera.Height}; oldNear={old?.Near??0:R}; near={camera.Near:R}; oldFar={old?.Far??0:R}; far={camera.Far:R}; deltaFxNormalized={(old is null?0:camera.Fx/camera.Width-old.Fx/old.Width):R}; deltaFyNormalized={(old is null?0:camera.Fy/camera.Height-old.Fy/old.Height):R}; deltaCxNormalized={(old is null?0:(camera.Cx+.5)/camera.Width-(old.Cx+.5)/old.Width):R}; deltaCyNormalized={(old is null?0:(camera.Cy+.5)/camera.Height-(old.Cy+.5)/old.Height):R}; deltaEye={(old is null?0:(camera.Eye-old.Eye).Length):R}; deltaBasisMax={(old is null?0:Math.Max(BasisDelta(camera.Right,old.Right),Math.Max(BasisDelta(camera.Up,old.Up),BasisDelta(camera.Forward,old.Forward)))):R}"));
+        diagnostics.SuppressedReplacementLogs=0;
+    }
+    private static double BasisDelta(GaussianVector a,GaussianVector b)=>Math.Max(Math.Abs(a.X-b.X),Math.Max(Math.Abs(a.Y-b.Y),Math.Abs(a.Z-b.Z)));
     private void Retire(ViewState state)
     {
-        state.Pending=null;state.Complete=false;
+        state.Pending=null;state.Complete=false;state.DrawAccepted=false;
         foreach(var batch in state.Batches)_retired.Enqueue(batch.Mesh);
         state.Batches.Clear();
     }
@@ -346,10 +497,14 @@ internal sealed class GaussianViewport : DisplayConduit
     {
         var conduit=_instance;var active=doc.Views.ActiveView?.ActiveViewport;ViewState? state=null;
         if(active is not null)conduit?._views.TryGetValue(active.Id,out state);
-        string status=state is null?"等待原生模型视窗":state.Error is not null?"准备失败，包围盒保留":state.Complete?"全量可见 GS 已就绪":state.Pending is not null?$"上传 {state.Batches.Count:N0}/{state.TotalBatches:N0} 批":"后台投影/排序中";
+        ViewDiagnostics? diagnostics=null;
+        if(active is not null)conduit?._diagnostics.TryGetValue(active.Id,out diagnostics);
+        bool candidate=active is not null&&conduit?._candidates.ContainsKey(active.Id)==true;
+        string status=candidate?"视角变化，等待稳定后准备":state is null?"等待原生模型视窗":state.Error is not null?"准备失败，包围盒保留":state.Complete?"全量可见 GS 已就绪":state.Pending is not null?$"上传 {state.Batches.Count:N0}/{state.TotalBatches:N0} 批":"后台投影/排序中";
         return "Aholo GS 批量实验版；"+(conduit?._backend??"未初始化")+"。\n"+GaussianDocument.Diagnostics(doc)+"\n"+
             $"状态：{status}；输入：{state?.InputCount??0:N0}；投影可见：{state?.VisibleCount??0:N0}；本帧批数：{state?.Batches.Count??0:N0}；每批最多 {GaussianNativeBatchBuilder.SplatsPerBatch} 个 GS（无总数上限）。\n"+
             $"后台准备 {state?.PreparationMilliseconds??0:F1} ms；最长单批上传 {state?.MaxUploadMilliseconds??0:F1} ms；最近绘制 {state?.LastDrawMilliseconds??0:F1} ms；已跳过缩略图/非原生尺寸绘制 {conduit?._skippedPreviews??0:N0} 次。\n"+
+            $"重启准备 {diagnostics?.Restarts??0:N0} 次；最近原因：{diagnostics?.LastReplacementReason??"none"}；绘制暂缓 {diagnostics?.DrawRejects??0:N0} 次，最近原因：{diagnostics?.LastRejectReason??"none"}。\n"+
             "原始高斯完整保留；8 位 RGB/HDR 截断与 256 级 opacity atlas 为显示精度限制。透明体交错、Raytraced、布局/打印/捕获/缩略图和大场景实时速度仍待后续支持或验收。顶点 RGB+atlas alpha 及原生遮挡需手动宿主验证。\n"+(state?.Error??conduit?._lastError??"未自动判定视觉通过。")+"\n日志："+GaussianLog.FilePath;
     }
 }
