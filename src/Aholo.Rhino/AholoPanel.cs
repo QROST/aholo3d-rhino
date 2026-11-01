@@ -66,10 +66,12 @@ public sealed class AholoPanel : Panel, IPanel
             _worldDetail,
             Row(ActionButton("下载 PLY", () => DownloadSelectedAsync("world", "ply")), ActionButton("下载 SPZ", () => DownloadSelectedAsync("world", "spz"))),
             Row(ActionButton("下载全景图", () => DownloadSelectedAsync("world", "image")), LocalButton("打开全景图", () => OpenSelectedImage("world"))),
-            Info("点云预览比例：1 个世界单位对应以下文档单位（" + (doc?.ModelUnitSystem.ToString() ?? "当前文档") + "）"),
-            _scale, _axis, ActionButton("放入当前文档 · 彩色点云预览", PlaceSelectedAsync),
-            Info("预览保留中心点和基础颜色，不是完整高斯泼溅渲染，也不是可编辑曲面。原始 PLY / SPZ 会保留。"),
-            ActionButton("导入本地 PLY 预览", ImportLocalPlyAsync),
+            Info("GS 导入比例：1 个世界单位对应以下文档单位（" + (doc?.ModelUnitSystem.ToString() ?? "当前文档") + "）"),
+            _scale, _axis, ActionButton("放入当前文档 · GS 实验视口", PlaceSelectedAsync),
+            Info("保留高斯尺度、旋转、透明度和视角颜色。当前为小场景实验原型，实际宿主遮挡与性能仍待验收；原始 PLY / SPZ 保留。"),
+            Row(ActionButton("导入本地 GS PLY", ImportLocalGsAsync), LocalButton("切换到 Aholo GS", () => GaussianViewport.Activate(Document()))),
+            Info("离线验收场景：运行 AholoGsProbe；诊断信息：AholoGsDiagnostics。透明 Rhino 材质的交错合成、裁切平面和嵌套块尚不支持。"),
+            ActionButton("诊断：导入 PLY 中心点", ImportLocalPlyAsync),
             _worldId, ActionButton("从已有 World ID 恢复", ImportExistingWorldAsync)
         ) });
         _tabs.Pages.Add(new TabPage { Text = "RenderCloud", Content = Column(
@@ -81,7 +83,7 @@ public sealed class AholoPanel : Panel, IPanel
             Row(ActionButton("读取历史", () => ReloadAsync()), ActionButton("查询选中任务", () => RefreshSelectedAsync("render"))),
             _renderDetail,
             Row(ActionButton("下载渲染图", () => DownloadSelectedAsync("render", "image")), LocalButton("打开本地渲染图", () => OpenSelectedImage("render"))),
-            Info("此版本使用离线渲染接口；实时流式渲染尚未接入。失败或结果未知时，不会自动重复创建付费任务。")
+            Info("此页使用离线渲染接口。实时协议已有实验基础，但云视口与 World GS 入库桥接尚未开放。失败或结果未知时，不会自动重复创建付费任务。")
         ) });
         _tabs.Pages.Add(new TabPage { Text = "连接", Content = Column(
             _connection, Info("当前版本连接 Aholo 国际区。生成与渲染使用区域 API Key；此插件未接入 OAuth。"),
@@ -302,15 +304,24 @@ public sealed class AholoPanel : Panel, IPanel
         CancellationToken ct = Token;
         if (task.PlyPath is null || !File.Exists(task.PlyPath)) task = await _client.DownloadAsync(new DownloadRequest(task.Id, "ply"), ct);
         if (task.PlyPath is null) throw new InvalidOperationException("原任务尚未提供 PLY，请先查询生成状态。");
-        AholoHost.Ui(() => _operationName = "读取 PLY 并准备彩色点云");
+        AholoHost.Ui(() => _operationName = "读取完整 GS 并准备原生视口");
         string axis = axisChoice == 2 ? "Y" : axisChoice == 1 ? "Z" : string.Equals(task.UpAxis, "Y", StringComparison.OrdinalIgnoreCase) ? "Y" : "Z";
-        string message = await AholoHost.ImportAsync(task.PlyPath, target, scale, axis, task.Id, ct);
+        string message = await GaussianDocument.ImportAsync(task.PlyPath, target, scale, axis, task.Id, ct);
         AholoHost.Ui(() => ObserveTask(task));
+        AholoHost.Ui(() => Feedback(message));
+    }
+    private async Task ImportLocalGsAsync()
+    {
+        using var dialog = new OpenFileDialog { Title = "选择完整 3DGS PLY", MultiSelect = false };
+        dialog.Filters.Add(new FileFilter("Gaussian PLY", ".ply"));
+        if (dialog.ShowDialog(this) != DialogResult.Ok) return;
+        var target = AholoHost.CaptureTarget(Document());
+        string message = await GaussianDocument.ImportAsync(dialog.FileName, target, ImportScale(), ImportAxis(null), null, Token);
         AholoHost.Ui(() => Feedback(message));
     }
     private async Task ImportLocalPlyAsync()
     {
-        using var dialog = new OpenFileDialog { Title = "选择本地 PLY 点云", MultiSelect = false };
+        using var dialog = new OpenFileDialog { Title = "诊断：仅导入 PLY 中心点和基础颜色", MultiSelect = false };
         dialog.Filters.Add(new FileFilter("PLY 点云", ".ply"));
         if (dialog.ShowDialog(this) != DialogResult.Ok) return;
         var target = AholoHost.CaptureTarget(Document());

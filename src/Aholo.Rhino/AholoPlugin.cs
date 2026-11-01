@@ -12,9 +12,15 @@ public sealed class AholoPlugin : PlugIn
     internal static AholoClient CreateClient() => new(Path.Combine(Path.GetDirectoryName(typeof(AholoPlugin).Assembly.Location)!, "sidecar"));
     protected override LoadReturnCode OnLoad(ref string errorMessage)
     {
+        GaussianViewport.Initialize(this);
         global::Rhino.UI.Panels.RegisterPanel(this, typeof(AholoPanel), "Aholo", null!, global::Rhino.UI.PanelType.PerDoc);
         global::Rhino.RhinoApp.WriteLine($"Aholo {DisplayVersion} · CuriousArc · qrost。输入 AholoPanel 打开世界生成与 RenderCloud 面板。");
         return LoadReturnCode.Success;
+    }
+    protected override void OnShutdown()
+    {
+        GaussianViewport.Shutdown();
+        base.OnShutdown();
     }
 }
 
@@ -35,12 +41,12 @@ public sealed class AholoImportPlyCommand : Command
     public override string EnglishName => "AholoImportPly";
     protected override Result RunCommand(global::Rhino.RhinoDoc doc, RunMode mode)
     {
-        using var dialog = new Eto.Forms.OpenFileDialog { Title = "导入 PLY 点云预览（Z 向上，1 PLY 单位 = 1 文档单位）", MultiSelect = false };
+        using var dialog = new Eto.Forms.OpenFileDialog { Title = "诊断：导入 PLY 中心点（Z 向上，1 PLY 单位 = 1 文档单位）", MultiSelect = false };
         dialog.Filters.Add(new Eto.Forms.FileFilter("PLY 点云", ".ply"));
         if (dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc)) != Eto.Forms.DialogResult.Ok) return Result.Cancel;
         var target = AholoHost.CaptureTarget(doc);
         _ = ImportAsync(dialog.FileName, target);
-        global::Rhino.RhinoApp.WriteLine("正在读取 PLY 点云。此命令预览中心点和颜色；调整比例/轴向请使用 AholoPanel。");
+        global::Rhino.RhinoApp.WriteLine("正在读取 PLY 点云。此命令预览中心点和颜色；完整 GS 请使用 AholoImportGs 或 AholoPanel。");
         return Result.Success;
     }
     private static async Task ImportAsync(string path, ImportTarget target)
