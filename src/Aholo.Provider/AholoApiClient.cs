@@ -8,7 +8,7 @@ using System.Text.Json;
 namespace Aholo.Provider;
 
 /// <summary>International Aholo REST API. Creates are submitted once; API keys never go to OUS or a CDN.</summary>
-public sealed class AholoApiClient
+public sealed partial class AholoApiClient
 {
     private static readonly Uri ApiOrigin = new("https://api.aholo.ai/global/");
     private readonly HttpClient _apiHttp;
