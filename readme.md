@@ -4,13 +4,13 @@ World generation and RenderCloud rendering inside Rhino 8, by **CuriousArc · qr
 
 [简体中文](readme.zh-CN.md)
 
-**0.1.0-beta.5 — local development preview.** This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
+**0.1.0 — first version, with the local Apple Silicon Mac workflow user-tested.** This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
 
 ## What works in this version
 
 - Generate a world from text, one reference image, or both using Aholo's World API.
 - Follow persisted jobs, reconnect to an existing world by its ID, and download original PLY/SPZ or the available panorama.
-- Import a full 3DGS PLY as a normal Rhino block reference and draw anisotropic Gaussian ellipses with opacity and SH 0–3 view-dependent colors in **Aholo GS (Experimental)**. Source files and parameters are retained. Scale, axis conversion, transforms and Undo are implemented; actual host behavior remains to be verified.
+- Import a full 3DGS PLY as a normal Rhino block reference and draw anisotropic Gaussian ellipses with opacity and SH 0–3 view-dependent colors in **Aholo GS (Experimental)**. Source files and parameters are retained. Scale, axis conversion, transforms and Undo are implemented; detailed document-lifecycle checks remain open.
 - Run `AholoGsProbe` for an offline native-viewport experiment, `AholoImportGs` for a local GS PLY, and `AholoGsDiagnostics` for status. `AholoImportPly` is a separate center-point diagnostic only.
 - Upload selected Mesh/Brep/Extrusion objects, preserve basic diffuse colors, and submit an offline RenderCloud job using the active perspective camera. Download and open the resulting image.
 - Store an API Key in macOS Keychain or Windows current-user DPAPI if requested; otherwise keep it only in the background process.
@@ -20,13 +20,13 @@ World generation and RenderCloud rendering inside Rhino 8, by **CuriousArc · qr
 
 This is an **experimental renderer**. Beta.3 replaces the per-Gaussian native resource path that caused a severe memory/navigation failure in beta.2. Projection and global depth sorting run on a cancellable background worker; native meshes are transferred in small UI slices, with up to 2,048 splats per mesh and one shared opacity atlas/material. The batch size is a transfer unit, not a geometry limit: all visible splats are retained. While a changed camera is being prepared, the block shows a bounding box; the complete GS frame returns after preparation. Saving a 3dm does not render GS into its thumbnail. See the [freeze repair](docs/gs-freeze-repair.md) and [display stability repair](docs/gs-visibility-stability.md).
 
-On the local Apple Silicon Mac, the user confirmed beta.3 red/teal probe colors, colored world display and substantially faster navigation. Some views still repeatedly restarted preparation instead of displaying a complete frame; beta.4 addresses that scheduling instability. Detailed alpha/depth/sorting and Windows acceptance remain pending. Arbitrary interleaving with transparent Rhino objects, nested blocks, layout details, printing/view capture, stereo and Raytraced integration are not supported. Display RGB is 8-bit and clips HDR before blending; opacity uses 256 atlas levels (at most 0.5/255 opacity rounding), without altering the source. The CPU oracle retains floating-point data and is not a claim of pixel-identical host rendering. Basic clipping-plane interaction was observed by the user on Mac; multi-plane/edge behavior is still experimental.
+The user confirmed red/teal probe colors, colored world display, faster navigation and basic clipping-plane interaction on the local Apple Silicon Mac. After the visibility and startup fixes in beta.4/beta.5, the user confirmed the retest passed on 2026-11-02 and approved version 0.1.0. Detailed alpha/depth/sorting and Windows acceptance remain pending. Arbitrary interleaving with transparent Rhino objects, nested blocks, layout details, printing/view capture, stereo and Raytraced integration are not supported. Display RGB is 8-bit and clips HDR before blending; opacity uses 256 atlas levels (at most 0.5/255 opacity rounding), without altering the source. The CPU oracle retains floating-point data and is not a claim of pixel-identical host rendering. Basic clipping-plane interaction was observed by the user on Mac; multi-plane/edge behavior is still experimental.
 
-Realtime RenderCloud REST/WebSocket transport and mock-tested session cleanup are implemented as a library foundation. **There is no realtime cloud viewport yet.** The published stream returns JPEG without depth, alpha or camera-associated frame IDs; World GS assets also need a validated bridge to cloud mesh IDs. Full-scene cloud rendering remains a planned stage, with explicit capability gates. Video/multi-image reconstruction and full Rhino PBR/textures/lights remain outside this candidate. World generation is best suited to indoor scenes according to the official documentation.
+Realtime RenderCloud REST/WebSocket transport and mock-tested session cleanup are implemented as a library foundation. **There is no realtime cloud viewport yet.** The published stream returns JPEG without depth, alpha or camera-associated frame IDs; World GS assets also need a validated bridge to cloud mesh IDs. Full-scene cloud rendering remains a planned stage, with explicit capability gates. Video/multi-image reconstruction and full Rhino PBR/textures/lights remain outside this version. World generation is best suited to indoor scenes according to the official documentation.
 
 See the [staged plan and evidence](docs/decisions/0001-native-gaussian-viewport.md) and [GS acceptance procedure](docs/gs-host-acceptance.md).
 
-Beta.5 also repairs a startup failure reported after installing beta.4: an existing GS mode is checked and reused, GS initialization is deferred to UI idle, and a GS failure no longer blocks the panel. Run `AholoGsMode` to retry locally if initialization remains unavailable. Restart/loading and the earlier visibility fix still require host retesting.
+Existing GS modes are checked and reused, initialization waits for UI idle, and a GS failure does not block the panel. Run `AholoGsMode` to retry locally if initialization is unavailable. Version 0.1.0 retains the tested beta.5 implementation; this finalization changes version metadata and documentation only.
 
 ## Requirements and validation status
 
@@ -35,7 +35,7 @@ Beta.5 also repairs a startup failure reported after installing beta.4: an exist
 | Rhino | Rhino 8.32 or later; host assembly targets .NET 7 |
 | Background runtime | .NET 8 Runtime matching the host architecture |
 | Service | International Aholo API Key with World/RenderCloud access and sufficient service credits |
-| macOS | Apple Silicon: user confirmed World generation/download/import in beta.2; GS rendering failed performance/color checks. Beta.3 colors/navigation improved; beta.4 startup failed; beta.5 startup/display stability retest pending |
+| macOS | Apple Silicon: user confirmed World generation/import, GS colors/navigation/basic clipping, and passed the beta.5 startup/display retest; detailed matrix remains open |
 | Windows | Cross-platform source and Windows credential storage included; Windows build, installer execution and Rhino host acceptance pending |
 | Intel Mac | Not yet host-tested |
 
@@ -49,7 +49,7 @@ Create/manage the Key in the official Aholo platform, following the [official qu
 
 Generating a world or starting a render can consume your Aholo service credits. Clicking the corresponding submit button authorizes that flow, including the selected file/geometry upload and mesh processing for rendering. Closing the panel or stopping local waiting does **not** cancel a cloud task or refund credits. Offline render `requestId` is a tracing ID, **not an idempotency key**.
 
-## Try the local candidate
+## Install locally
 
 There is no public Yak listing for this project yet. Obtain the local `.yak` produced by `scripts/build-package.sh`, install it with Rhino's bundled Yak CLI (`yak install /absolute/path/to/package.yak`), then restart Rhino manually. On Windows use Rhino's `Yak.exe` with the absolute package path. Do not use a macOS-tagged package on Windows.
 

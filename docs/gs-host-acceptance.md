@@ -1,6 +1,6 @@
 # GS viewport acceptance / 原生 GS 视口验收
 
-Maintainer: CuriousArc · qrost. Candidate: 0.1.0-beta.5. Status: **Mac beta.3 colors/navigation improvement reported; beta.5 startup/stability retest pending**.
+Maintainer: CuriousArc · qrost. Version: 0.1.0. Status: **local Mac startup/GS retest passed by user report; detailed matrix and other platforms remain open**.
 
 This document separates offline mathematical evidence from real Rhino rendering. A successful build, a mode name or visible proxy box is not a visual acceptance result. No account or API Key is needed for the local tests below. / 本文严格区分数学验证与 Rhino 实机表现；显示模式名称和包围盒不代表渲染通过。以下本地测试无需账户或 Key。
 
@@ -8,9 +8,7 @@ This document separates offline mathematical evidence from real Rhino rendering.
 
 On 2026-11-01, the user reported that beta.3 displayed the red/teal probe correctly, restored colored display of the generated world and greatly improved navigation. Basic clipping-plane interaction also worked in that scene. Some camera angles nevertheless entered a repeated preparation loop; complete display stability was not accepted. / 用户确认 beta.3 颜色和导航改善，并观察到基础裁切交互；仍有视角显示不稳定，不能视为整体验收完成。
 
-First restart into beta.5 and verify there is no plug-in loading error. Confirm `AholoPanel` remains usable; `AholoGsMode` retries GS initialization if required. Restart once more to check mode persistence without duplicate modes. / 先验证重启无加载错误、面板可用，再次重启检查模式持久化与无重复。
-
-For beta.5, revisit the affected angles and stop moving the camera for several seconds. One complete GS frame should settle and remain visible; the log must not keep restarting preparation at the same viewpoint. Resize/switch viewports and toggle a clipping plane; real camera/object changes must still update the scene. / beta.5 优先复测问题角度停稳后的持续显示，再测窗口尺寸、多视口与裁切；不必重新生成世界。
+On 2026-11-02, the user confirmed the beta.5 retest passed and approved version 0.1.0. This closes the reported local Mac startup and GS display regression for the tested workflow. No runtime behavior changed during finalization. The detailed appearance/depth, lifecycle and other-platform checks below remain unclaimed unless individually recorded. / 2026-11-02 用户确认 beta.5 复测通过，定版 0.1.0；本机已测流程的启动与显示回归已通过。此次未改运行逻辑，不能将该反馈外推为下方所有测试或其他平台通过。
 
 ## First manual test / 首次手动测试
 

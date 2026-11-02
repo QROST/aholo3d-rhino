@@ -1,6 +1,6 @@
 # GS display stability investigation
 
-Maintainer: CuriousArc · qrost. Candidate: 0.1.0-beta.5 (includes beta.4 visibility changes). Date: 2026-11-01.
+Maintainer: CuriousArc · qrost. Version: 0.1.0 (retains beta.4/beta.5 repairs). Updated: 2026-11-02.
 
 ## Evidence
 
@@ -24,7 +24,7 @@ No model is resubmitted or regenerated, and no input-count cap, point-cloud conv
 
 ## Acceptance
 
-The beta.4 offline suite passed 221 tests. Twelve new regression cases cover alternating DPI passes, clip-range contraction/expansion, simulated upload completion and real pose/projection changes. The 256-observation simulation completes all 104 batches after one depth expansion; it does not execute native Rhino callbacks. The Release solution builds without warnings or errors. Host retest remains required at the reported angles. The previous probe/world-color result is user-reported host evidence, not an automated screenshot comparison. Basic clipping observed in one scene does not establish all clipping-plane combinations or exact Gaussian-volume clipping.
+The beta.4 offline suite passed 221 tests. Twelve new regression cases cover alternating DPI passes, clip-range contraction/expansion, simulated upload completion and real pose/projection changes. The 256-observation simulation completes all 104 batches after one depth expansion; it does not execute native Rhino callbacks. The Release solution builds without warnings or errors. At beta.4, the reported angles still required host retesting; the subsequent user result is recorded below. The previous probe/world-color result is user-reported host evidence, not an automated screenshot comparison. Basic clipping observed in one scene does not establish all clipping-plane combinations or exact Gaussian-volume clipping.
 
 ## Restart failure and beta.5 repair
 
@@ -36,4 +36,8 @@ The panel loads independently. Renderer initialization starts on UI idle, with a
 
 The full offline suite passes 244 tests, including 23 registration-policy cases. Native startup timing and resource cleanup are compile-checked, not fault-injected in a running Rhino host.
 
-Acceptance requires a successful Rhino restart, `AholoPanel` and original-world display, followed by another restart to verify stable mode identity and persistence. The beta.4 view-stability retest was blocked by the startup error and remains pending in beta.5.
+Acceptance requires a successful Rhino restart, `AholoPanel` and original-world display, followed by another restart to verify stable mode identity and persistence. The beta.4 view-stability retest was initially blocked by the startup error; the subsequent user result is recorded below.
+
+## User acceptance and 0.1.0
+
+On 2026-11-02, the user confirmed the beta.5 retest passed and approved finalizing version 0.1.0. The reported local startup and GS display regressions are accepted for the tested Mac workflow. Runtime implementation is unchanged from beta.5. This does not establish every detailed rendering/lifecycle case or another platform; see the [validation record](validation.md).
