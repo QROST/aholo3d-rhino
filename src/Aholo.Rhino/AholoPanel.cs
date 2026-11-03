@@ -30,6 +30,9 @@ public sealed class AholoPanel : Panel, IPanel
     private readonly TextBox _worldId = new() { PlaceholderText = "已有的 Aholo World ID" };
     private readonly TextBox _scale = new() { Text = "1" };
     private readonly DropDown _axis = new() { DataStore = new[] { "使用世界元数据（缺失时 Z 向上）", "Z 向上", "Y 向上" }, SelectedIndex = 0 };
+    private readonly DropDown _gsExportScope = new() { DataStore = new[] { "选中的顶层 GS", "全部顶层 GS（含隐藏和锁定）" }, SelectedIndex = 0 };
+    private CancellationTokenSource? _localGsOperation;
+    private readonly Button _cancelGs = new() { Text = "取消本地 GS 操作", Enabled = false };
     private readonly ListBox _worldTasks = new() { Height = 125 };
     private readonly ListBox _renderTasks = new() { Height = 125 };
     private readonly TextArea _worldDetail = new() { ReadOnly = true, Wrap = true, Height = 105 };
@@ -49,6 +52,7 @@ public sealed class AholoPanel : Panel, IPanel
     {
         _serial = documentSerialNumber;
         var doc = RhinoDoc.FromRuntimeSerialNumber(_serial);
+        _cancelGs.Click += (_, _) => _localGsOperation?.Cancel();
         _generate = ActionButton("生成世界 · 消耗服务额度", GenerateAsync);
         _render = ActionButton("上传选区并渲染 · 消耗服务额度", RenderAsync);
         _generate.Enabled = _render.Enabled = false;
@@ -69,7 +73,10 @@ public sealed class AholoPanel : Panel, IPanel
             Info("GS 导入比例：1 个世界单位对应以下文档单位（" + (doc?.ModelUnitSystem.ToString() ?? "当前文档") + "）"),
             _scale, _axis, ActionButton("放入当前文档 · GS 实验视口", PlaceSelectedAsync),
             Info("保留完整高斯与原始 PLY / SPZ。后台准备期间显示包围盒；视图停止移动后恢复 GS。实验模式的颜色、遮挡和导航性能需实机验收。"),
-            Row(ActionButton("导入本地 GS PLY", ImportLocalGsAsync), LocalButton("切换到 Aholo GS", () => GaussianViewport.Activate(Document()))),
+            Row(ActionButton("导入本地 GS · PLY / USD / USDZ", ImportLocalGsAsync), LocalButton("切换到 Aholo GS", () => GaussianViewport.Activate(Document()))),
+            Info("本地 USD 采用文件单位并乘以上方比例；轴向遵循上方选择，自动时读取文件。普通网格 USD 不属于 GS。"),
+            _gsExportScope, ActionButton("导出 GS · USD / USDZ", ExportLocalGsAsync), _cancelGs,
+            Info("导出使用点击时的 GS、位置与文档单位。仅支持顶层 GS；不导出普通几何、嵌套块和隐藏状态。保留全量 SH；官方 USD 高斯字段采用 float32。"),
             Info("离线验收场景：运行 AholoGsProbe；诊断信息：AholoGsDiagnostics。透明 Rhino 材质交错和嵌套块尚不支持；裁切平面的完整行为仍在验收中。"),
             ActionButton("诊断：导入 PLY 中心点", ImportLocalPlyAsync),
             _worldId, ActionButton("从已有 World ID 恢复", ImportExistingWorldAsync)
@@ -312,12 +319,39 @@ public sealed class AholoPanel : Panel, IPanel
     }
     private async Task ImportLocalGsAsync()
     {
-        using var dialog = new OpenFileDialog { Title = "选择完整 3DGS PLY", MultiSelect = false };
-        dialog.Filters.Add(new FileFilter("Gaussian PLY", ".ply"));
+        using var dialog = new OpenFileDialog { Title = "选择完整 3DGS PLY / USD / USDZ", MultiSelect = false };
+        dialog.Filters.Add(new FileFilter("Gaussian Splat 场景", ".ply", ".usd", ".usda", ".usdc", ".usdz"));
         if (dialog.ShowDialog(this) != DialogResult.Ok) return;
         var target = AholoHost.CaptureTarget(Document());
-        string message = await GaussianDocument.ImportAsync(dialog.FileName, target, ImportScale(), ImportAxis(null), null, Token);
-        AholoHost.Ui(() => Feedback(message));
+        double scale = ImportScale();
+        string axis = _axis.SelectedIndex == 2 ? "Y" : _axis.SelectedIndex == 1 ? "Z" : "Auto";
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Token);
+        _localGsOperation = cancellation; _cancelGs.Enabled = true;
+        try
+        {
+            var progress = new Progress<string>(message => AholoHost.Ui(() => { if (!_disposed && ReferenceEquals(_localGsOperation, cancellation)) _operationName = message; }));
+            string message = await GaussianDocument.ImportSceneAsync(dialog.FileName, target, scale, axis, true, cancellation.Token, progress).ConfigureAwait(false);
+            AholoHost.Ui(() => Feedback(message));
+        }
+        catch (OperationCanceledException) { AholoHost.Ui(() => Feedback("本地 GS 导入已取消；源文件保留。")); }
+        finally { await AholoHost.OnUi(() => { _localGsOperation = null; if (!_disposed) _cancelGs.Enabled = false; return true; }).ConfigureAwait(false); }
+    }
+    private async Task ExportLocalGsAsync()
+    {
+        var snapshot = GaussianDocument.CaptureExport(Document(), selectedOnly: _gsExportScope.SelectedIndex == 0);
+        using var dialog = GaussianExportDialogs.CreateSaveDialog();
+        if (dialog.ShowDialog(this) != DialogResult.Ok) return;
+        string path = GaussianExportDialogs.NormalizePath(dialog);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Token);
+        _localGsOperation = cancellation; _cancelGs.Enabled = true;
+        Feedback($"准备导出 {snapshot.Parts.Length:N0} 个 GS 实例；使用点击时的位置与单位。完成前保留原目标文件。");
+        try
+        {
+            string message = await GaussianDocument.ExportAsync(path, snapshot, cancellation.Token).ConfigureAwait(false);
+            AholoHost.Ui(() => Feedback(message));
+        }
+        catch (OperationCanceledException) { AholoHost.Ui(() => Feedback("本地 GS 导出已取消；原目标文件保留。")); }
+        finally { await AholoHost.OnUi(() => { _localGsOperation = null; if (!_disposed) _cancelGs.Enabled = false; return true; }).ConfigureAwait(false); }
     }
     private async Task ImportLocalPlyAsync()
     {

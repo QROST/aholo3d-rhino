@@ -5,7 +5,7 @@ Maintainer: CuriousArc · qrost. API review date: 2026-11-01.
 ## Boundaries
 
 - **Aholo.Rhino**, .NET 7: Eto UI, document identity checks, tessellation, camera capture, native Gaussian block references and an experimental DisplayConduit mode. Only Rhino's UI thread mutates the document.
-- **Aholo.Core**, .NET 7: transport contracts/client, atomic local task journal, streaming point/strict Gaussian PLY readers, full Gaussian parameters, independent SH/projection/CPU compositing, GLB writer and USDA scene builder. It has no service credentials or Rhino dependency.
+- **Aholo.Core**, .NET 7: transport contracts/client, atomic local task journal, streaming point/strict Gaussian PLY readers, full Gaussian parameters, independent SH/projection/CPU compositing, GLB writer, cloud USDA scene builder, and static GS USD/USDZ scene import/export through an isolated OpenUSD process. It has no service credentials or Rhino dependency.
 - **Aholo.Provider**, .NET 8: HTTP clients, exact service-specific envelopes, upload token separation, OS credential protection and experimental REST/WebSocket realtime session lifecycle. API Keys stay here/the sidecar after entry.
 - **Aholo.Sidecar**, .NET 8: private pipe dispatcher, workflow progression, durable submission intent and public-only asset download transport.
 
@@ -69,3 +69,7 @@ The Provider library has injected REST/WebSocket transports and serial scene pat
 Stream credentials are ephemeral, omitted from normal JSON/diagnostic formatting and never replace the API Key at the gateway. WSS connections use TLS/443, actual-socket public DNS pinning, no redirects/proxy/cookies and no gateway Key. Status and JPEG message byte limits bound protocol reassembly, not scene geometry. JPEG framing checks are not a full image-decoder validation.
 
 The published protocol exposes no depth, alpha, object IDs or camera/frame association. Frames explicitly report no camera association. Whole-scene cloud rendering also requires a validated World GS→meshId bridge, a supported geometry policy and stale-frame handling; none is inferred from successful mock tests.
+
+## Local GS exchange
+
+Local USD interchange uses the pinned OpenUSD Gaussian schema, separate from cloud RenderCloud USDA submission. The panel captures complete top-level GS block references, current transforms and document units on Rhino’s UI thread. Background work reads immutable hash-verified assets and preserves all instances, SH and affine transforms; export writes atomically. Import writes every part in one Undo transaction. See [the exchange contract](usd-exchange.md). No API Key is needed for this local path.

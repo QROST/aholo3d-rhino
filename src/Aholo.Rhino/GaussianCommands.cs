@@ -15,18 +15,22 @@ public sealed class AholoImportGsCommand : Command
     public override string EnglishName => "AholoImportGs";
     protected override Result RunCommand(RhinoDoc doc,RunMode mode)
     {
-        using var dialog=new Eto.Forms.OpenFileDialog { Title="导入完整 Gaussian Splat PLY（实验视窗；Z 向上，1:1 文档单位）",MultiSelect=false };
-        dialog.Filters.Add(new Eto.Forms.FileFilter("Gaussian Splat PLY",".ply"));
-        if(dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc))!=Eto.Forms.DialogResult.Ok)return Result.Cancel;
-        ImportTarget target=AholoHost.CaptureTarget(doc);
-        global::Rhino.RhinoApp.WriteLine("GS 实验视窗会在后台准备完整高斯，准备期间显示包围盒。请保持目标文档单位不变。");
-        _=ImportAsync(dialog.FileName,target); return Result.Success;
+        try
+        {
+            using var dialog=new Eto.Forms.OpenFileDialog { Title="导入完整 GS · PLY / USD / USDZ（自动单位和轴向）",MultiSelect=false };
+            dialog.Filters.Add(new Eto.Forms.FileFilter("Gaussian Splat 场景",".ply",".usd",".usda",".usdc",".usdz"));
+            if(dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc))!=Eto.Forms.DialogResult.Ok)return Result.Cancel;
+            ImportTarget target=AholoHost.CaptureTarget(doc);
+            global::Rhino.RhinoApp.WriteLine("GS 实验视窗会在后台准备完整高斯，准备期间显示包围盒。请保持目标文档单位不变。");
+            _=ImportAsync(dialog.FileName,target); return Result.Success;
+        }
+        catch (Exception ex) { global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(ex)); return Result.Failure; }
     }
     private static async Task ImportAsync(string path,ImportTarget target)
     {
         try
         {
-            string result=await GaussianDocument.ImportAsync(path,target,1,"Z",null,CancellationToken.None).ConfigureAwait(false);
+            string result=await GaussianDocument.ImportSceneAsync(path,target,1,"Auto",true,CancellationToken.None).ConfigureAwait(false);
             AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(result));
         }
         catch(Exception ex){AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine("GS 导入未完成："+AholoHost.FriendlyError(ex)));}
@@ -122,5 +126,33 @@ public sealed class AholoGsProbeCommand : Command
         }
         string path=Path.Combine(TaskStore.DefaultRoot,"inputs","aholo-gs-occlusion-probe.ply");
         TaskStore.WriteAtomic(path,Encoding.ASCII.GetBytes(data.ToString()));return path;
+    }
+}
+
+[Guid("675D674B-5A08-4D85-86C0-57099AB2F528")]
+public sealed class AholoExportGsCommand : Command
+{
+    public override string EnglishName => "AholoExportGs";
+    protected override Result RunCommand(RhinoDoc doc, RunMode mode)
+    {
+        try
+        {
+            GaussianDocument.ExportSnapshot snapshot = GaussianDocument.CaptureExport(doc, selectedOnly: true);
+            using var dialog = GaussianExportDialogs.CreateSaveDialog();
+            if (dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc)) != Eto.Forms.DialogResult.Ok) return Result.Cancel;
+            global::Rhino.RhinoApp.WriteLine("正在后台导出选中 GS；使用当前文档坐标与单位。如需全部导出或取消功能，请从 AholoPanel 发起。");
+            _ = ExportAsync(GaussianExportDialogs.NormalizePath(dialog), snapshot);
+            return Result.Success;
+        }
+        catch (Exception ex) { global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(ex)); return Result.Failure; }
+    }
+    private static async Task ExportAsync(string path, GaussianDocument.ExportSnapshot snapshot)
+    {
+        try
+        {
+            string result = await GaussianDocument.ExportAsync(path, snapshot, CancellationToken.None).ConfigureAwait(false);
+            AholoHost.Ui(() => global::Rhino.RhinoApp.WriteLine(result));
+        }
+        catch (Exception ex) { AholoHost.Ui(() => global::Rhino.RhinoApp.WriteLine("GS 导出未完成：" + AholoHost.FriendlyError(ex))); }
     }
 }

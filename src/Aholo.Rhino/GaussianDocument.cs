@@ -8,7 +8,7 @@ using Color = System.Drawing.Color;
 namespace Aholo.Rhino;
 
 /// <summary>GS data stays in an immutable PLY; a normal Rhino block stores placement and undo state.</summary>
-internal static class GaussianDocument
+internal static partial class GaussianDocument
 {
     internal const string Marker = "Aholo.GS.Version";
     internal const string HashKey = "Aholo.GS.Sha256";
@@ -43,11 +43,15 @@ internal static class GaussianDocument
         RhinoDoc.CloseDocument -= OnClose;
         foreach (var assets in Documents.Values) foreach (var entry in assets.Values) entry.Cancellation?.Cancel();
         Documents.Clear();
+        foreach (var pending in Imports.Values) foreach (var operation in pending) operation.Cancel();
+        Imports.Clear();
     }
     private static void OnClose(object? sender, global::Rhino.DocumentEventArgs e)
     {
         if (Documents.Remove(e.DocumentSerialNumber, out var assets))
             foreach (var entry in assets.Values) entry.Cancellation?.Cancel();
+        if (Imports.Remove(e.DocumentSerialNumber, out var pending))
+            foreach (var operation in pending) operation.Cancel();
         GaussianViewport.DocumentClosed(e.DocumentSerialNumber);
     }
     private static void OnIdle(object? sender, EventArgs e)

@@ -69,3 +69,7 @@ The REST/WebSocket/session library has offline protocol tests. A mode named “A
 真实 GS 入库、协议与相机、场景类型和陈旧帧处理均通过后，再进入原生云视口。当前编译/mock 通过不代替这些条件。
 
 Record each actual host/service result with version, device and scene before changing a Pending entry. / 只有实际测试结果才能将 Pending 改为通过。
+
+## USD exchange preview
+
+Version 0.1.1-beta.1 adds local USD-family GS import/export. Follow the separate [USD exchange acceptance](usd-exchange.md#manual-acceptance) before treating this new UI as host-verified. The prior 0.1.0 startup/display acceptance does not automatically cover these operations.

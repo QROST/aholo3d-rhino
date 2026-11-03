@@ -4,7 +4,7 @@
 
 [English](readme.md)
 
-**0.1.0，首个定版版本，本机 Apple Silicon Mac 使用流程已由用户测试通过。** 本项目是独立集成，不是 Manycore、Aholo 或 McNeel 官方产品。插件标识、命令、凭据和缓存均独立，不替换 Lux3D for Rhino。
+**0.1.1-beta.1，本地预览版，新增 GS USD/USDZ 双向交换。** 之前 0.1.0 的生成与显示流程已在本机 Apple Silicon Mac 由用户测试通过；本次新增界面仍待手动验收。 本项目是独立集成，不是 Manycore、Aholo 或 McNeel 官方产品。插件标识、命令、凭据和缓存均独立，不替换 Lux3D for Rhino。
 
 ## 当前功能
 
@@ -26,7 +26,7 @@
 
 详见[阶段方案与依据](docs/decisions/0001-native-gaussian-viewport.md)及 [GS 验收步骤](docs/gs-host-acceptance.md)。
 
-插件先检查并复用已有 GS 模式，在界面空闲时初始化；GS 初始化失败也不阻断主面板。若仍未就绪，可运行 `AholoGsMode` 在本机重试。0.1.0 保留已经测试的 beta.5 实现，此次定版只调整版本信息和文档。
+插件先检查并复用已有 GS 模式，在界面空闲时初始化；GS 初始化失败也不阻断主面板。若仍未就绪，可运行 `AholoGsMode` 在本机重试。0.1.0 保留已经测试的 beta.5 实现；0.1.1-beta.1 在该基础上新增本地 GS 交换，保留云任务流程。
 
 ## 环境与验证状态
 
@@ -39,7 +39,7 @@
 | Windows | 已有跨平台源码及 Windows 凭据实现；Windows 构建、安装执行和 Rhino 宿主验收待进行 |
 | Intel Mac | 尚未完成宿主验收 |
 
-普通安装用户不需要 SDK 或 Python。开发构建需要 .NET 8 SDK；打包与包校验脚本还需要 Python 3.9+ 及 Rhino 附带的 Yak CLI。
+普通安装用户不需要 SDK；USD 导入/导出还需下文的可选独立 Python/OpenUSD 运行时。开发构建需要 .NET 8 SDK；打包与包校验脚本还需要 Python 3.9+ 及 Rhino 附带的 Yak CLI。
 
 ## 登录、Key 与费用
 
@@ -69,6 +69,21 @@
 Rhino 几何按默认网格参数离散，再转换为 glTF 的米/Y 向上坐标。渲染服务读取 USDA 中引用的已上传资产，不直接读取内嵌 USD 顶点数组；插件通过变换恢复渲染端要求的毫米/Z 向上坐标。**快速 GLB 入库是否完整保留这套坐标约定，还需要真实账户验证。** 首次请用已知尺寸的立方体和相机检查尺度、朝向和构图。
 
 相机保留视口水平视场角，使用所选输出图的宽高比。不支持正交相机及偏移视锥时会明确拒绝。仅导出基本漫反射颜色，不导出完整材质图、贴图、场景灯光、块实例或点云；不支持的选中对象会报错。
+
+## 本地 GS USD / USDZ 导入导出
+
+本地交换不需要 API Key，不调用网络服务。`AholoImportGs` 和面板本地导入支持完整 Gaussian PLY，以及官方 OpenUSD 静态 GS `.usd`、`.usda`、`.usdc`、`.usdz` 场景，保留多部分、完整变换、单位及向上轴；原云任务的 PLY 放置流程保留。
+
+选中顶层 GS 块后运行 **`AholoExportGs`**，或点击面板导出。面板可明确选择选中的 GS 或全部顶层 GS；全部导出将隐藏/锁定的 GS 也作为可见资产写入。空选择及混选非 GS 对象会报错，不自动扩大导出范围。`.usdz` 是自包含便携包，`.usd`/`.usdc` 为二进制，`.usda` 为文本。保留全部高斯、SH0–3、透明度与完整对象变换，使用当前 Rhino 单位和 Z 向上。官方几何字段为 float32；双精度变换和局部原点重定位减少大坐标损失，但不能宣称任意 double 值逐位无损。导出前请设定标准长度单位。普通网格 USDZ、任意厂商 GS 结构、动画及 Rhino 嵌套块不在本次 GS 交换范围内。
+
+USD 功能需用 Python 3.11–3.14 安装一次独立运行时：
+
+```sh
+python3.12 scripts/setup-usd.py
+python3.12 scripts/setup-usd.py --check
+```
+
+Windows 可用 `py -3.12`。脚本把固定的 `usd-core==26.11` 安装到 macOS 的 `~/Library/Application Support/Aholo-Rhino/usd-runtime` 或 Windows 的 `%LOCALAPPDATA%\Aholo-Rhino\usd-runtime`，不修改系统 Python。支持 `--wheel-dir 目录` 离线安装，或在启动 Rhino 前设置 `AHOLO_USD_PYTHON` 指向已有环境；安装之后导入导出完全在本机完成。详见 [USD 交换范围及验收](docs/usd-exchange.md)。
 
 ## 数据与隐私
 

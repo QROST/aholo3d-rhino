@@ -4,14 +4,14 @@ World generation and RenderCloud rendering inside Rhino 8, by **CuriousArc · qr
 
 [简体中文](readme.zh-CN.md)
 
-**0.1.0 — first version, with the local Apple Silicon Mac workflow user-tested.** This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
+**0.1.1-beta.1 — local preview adding GS USD/USDZ interchange.** The preceding 0.1.0 generation/display workflow was user-tested on Apple Silicon Mac; this new import/export UI still needs native acceptance. This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
 
 ## What works in this version
 
 - Generate a world from text, one reference image, or both using Aholo's World API.
 - Follow persisted jobs, reconnect to an existing world by its ID, and download original PLY/SPZ or the available panorama.
 - Import a full 3DGS PLY as a normal Rhino block reference and draw anisotropic Gaussian ellipses with opacity and SH 0–3 view-dependent colors in **Aholo GS (Experimental)**. Source files and parameters are retained. Scale, axis conversion, transforms and Undo are implemented; detailed document-lifecycle checks remain open.
-- Run `AholoGsProbe` for an offline native-viewport experiment, `AholoImportGs` for a local GS PLY, and `AholoGsDiagnostics` for status. `AholoImportPly` is a separate center-point diagnostic only.
+- Run `AholoGsProbe` for an offline native-viewport experiment, `AholoImportGs` for a local GS PLY or USD/USDZ scene, and `AholoGsDiagnostics` for status. `AholoImportPly` is a separate center-point diagnostic only.
 - Upload selected Mesh/Brep/Extrusion objects, preserve basic diffuse colors, and submit an offline RenderCloud job using the active perspective camera. Download and open the resulting image.
 - Store an API Key in macOS Keychain or Windows current-user DPAPI if requested; otherwise keep it only in the background process.
 - Preserve task IDs and uncertain submission records rather than automatically repeating a request that might already have been charged.
@@ -26,7 +26,7 @@ Realtime RenderCloud REST/WebSocket transport and mock-tested session cleanup ar
 
 See the [staged plan and evidence](docs/decisions/0001-native-gaussian-viewport.md) and [GS acceptance procedure](docs/gs-host-acceptance.md).
 
-Existing GS modes are checked and reused, initialization waits for UI idle, and a GS failure does not block the panel. Run `AholoGsMode` to retry locally if initialization is unavailable. Version 0.1.0 retains the tested beta.5 implementation; this finalization changes version metadata and documentation only.
+Existing GS modes are checked and reused, initialization waits for UI idle, and a GS failure does not block the panel. Run `AholoGsMode` to retry locally if initialization is unavailable. Version 0.1.0 retained the tested beta.5 implementation. Version 0.1.1-beta.1 adds local GS exchange while keeping the cloud task workflow.
 
 ## Requirements and validation status
 
@@ -39,7 +39,7 @@ Existing GS modes are checked and reused, initialization waits for UI idle, and 
 | Windows | Cross-platform source and Windows credential storage included; Windows build, installer execution and Rhino host acceptance pending |
 | Intel Mac | Not yet host-tested |
 
-Installing the package does not require the .NET SDK or Python. Building from source requires the .NET 8 SDK; packaging/verification scripts additionally use Python 3.9+ and Rhino's Yak CLI.
+Installing the package does not require the .NET SDK. USD import/export additionally requires the optional private Python/OpenUSD runtime described below. Building from source requires the .NET 8 SDK; packaging/verification scripts additionally use Python 3.9+ and Rhino's Yak CLI.
 
 ## Authentication and cost
 
@@ -63,6 +63,21 @@ There is no public Yak listing for this project yet. Obtain the local `.yak` pro
 For the first offline GS test, use an empty document and run `AholoGsProbe`. It adds synthetic Gaussians, a Brep and a mesh without contacting Aholo; two Undo operations remove the test. `AholoImportGs` can load `fixtures/gaussian-anisotropic.ply` or `fixtures/gaussian-sh3.ply`. Use `AholoGsMode` to activate/reload the mode. [GS acceptance steps](docs/gs-host-acceptance.md) describe the expected result and current limits. `fixtures/tiny-world.ply` is only for the explicit `AholoImportPly` center-point diagnostic.
 
 If submission is marked `SubmissionUnknown`, inspect Aholo's task history before creating another job. World IDs can be added to local history. Render requests with a lost operation ID cannot currently be reconciled automatically. A saved operation ID is safe to poll.
+
+## Local GS USD / USDZ import and export
+
+No API Key or network call is needed for local GS exchange. `AholoImportGs` and the panel's local import action accept full Gaussian PLY and static official OpenUSD `.usd`, `.usda`, `.usdc`, `.usdz` scenes. Stage units, up axis, multiple parts and full transforms are respected; the original cloud task PLY placement remains available.
+
+Select top-level GS blocks and run **`AholoExportGs`**, or use the panel's export action. The panel offers selected GS or all top-level GS, including hidden/locked blocks as visible exported assets. Empty selection and mixed non-GS selection are rejected. `.usdz` is self-contained; `.usd`/`.usdc` are binary, `.usda` is text. Export preserves all splats, complete SH0–3, opacity and full object transforms in current Rhino units/Z-up. Official geometry fields use float32 precision; double transforms and local-origin shifting reduce large-coordinate loss, but arbitrary double inputs are not bit-exact. Set a standard length unit first. Ordinary mesh USDZ, arbitrary vendor GS schemas, animation and nested Rhino blocks are not included in this local GS interchange.
+
+Install the optional pinned runtime once using Python 3.11–3.14:
+
+```sh
+python3.12 scripts/setup-usd.py
+python3.12 scripts/setup-usd.py --check
+```
+
+On Windows use `py -3.12`. The script installs `usd-core==26.11` in `~/Library/Application Support/Aholo-Rhino/usd-runtime` on macOS or `%LOCALAPPDATA%\Aholo-Rhino\usd-runtime` on Windows, without modifying system Python. `--wheel-dir DIRECTORY` supports offline installation; `AHOLO_USD_PYTHON` can override the Python path before Rhino starts. After setup, exchange is entirely local. See [exchange details and acceptance steps](docs/usd-exchange.md).
 
 ## Rendering conventions and current limits
 

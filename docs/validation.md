@@ -1,6 +1,17 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Version: 0.1.0. Date: 2026-11-02.
+Maintainer: CuriousArc · qrost. Version: 0.1.1-beta.1. Date: 2026-11-02.
+
+## USD exchange preview verification
+
+The 0.1.1-beta.1 preview adds local GS USD/USDZ interchange while retaining the 0.1.0 service and display baseline. New UI behavior requires manual host acceptance.
+
+- Complete Release solution build: zero warnings/errors. **295 .NET tests passed**, zero failures/skips, including the original workflow/provider/realtime suite and new scene/cache/USD reader/writer checks.
+- The private OpenUSD 26.11 runtime passed **18 actual import/export tests**, including four formats, official USDZ packaging, full SH0–3, opacity endpoints, names/antialias metadata, units, reflection/shear and large-coordinate rebasing. Run `fixtures/usd-verify.py` with that runtime's Python to reproduce. Expected missing-dependency warnings belong to negative fixtures.
+- Production GSRhino → Aholo → GSRhino exchange passed all four extensions (eight conversions). Full instance counts, units, names, AA, world centers/covariance and directional SH colors were checked. The common reader/writer and bridge implementations were compared after namespace/runtime adaptation.
+- A private local **212,864-splat** PLY exported to USDZ and imported through Aholo retained the complete count, all SH coefficients and all activated opacity values within float32 tolerance. Maximum local-position component error was **2.384185791015625e-7 source units**; the full offline read/export/read cycle was approximately **23.1 seconds** on this machine. Private model files are not shipped.
+- The shared conversion process was checked for mid-conversion cancellation, child-process cleanup, failure preservation of an existing output and successful atomic replacement.
+- No authenticated service call or desktop UI automation was performed for this iteration. Windows execution, the new native UI and external viewer bounds/render support remain pending. Previous Mac acceptance below applies to the original workflow, not automatically to this preview.
 
 ## User-reported Mac acceptance and version finalization
 
@@ -8,7 +19,7 @@ On 2026-11-02, the user confirmed the beta.5 retest passed and approved finalizi
 
 Version 0.1.0 changes version metadata and documentation only; the runtime source remains the tested beta.5 implementation. This is user-reported acceptance of that workflow, not a recorded pass for every matrix row, Windows/Intel Mac, repeated cold starts, all document lifecycle operations or cloud rendering. Full `hostAcceptance`/`serviceAcceptance` fields in packaging receipts remain pending for those broader gates.
 
-## Verified locally
+## Earlier 0.1.0 verification
 
 - Release solution build on Apple Silicon macOS with .NET SDK 8.0.129: zero warnings/errors; RhinoCommon 8.32.26160.13001 compile target.
 - Offline automated suite: 244 passing tests, zero failures. Coverage includes raw World/RenderCloud/mesh envelopes, lossless task IDs, uncertainty after failed create replies, API/upload credential separation, single/multipart uploads, all supported PLY encodings, malformed/truncated input, more than one million streamed points, GLB/USD coordinate conversion, task-journal recovery and failed downloads.
