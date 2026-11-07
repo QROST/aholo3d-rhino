@@ -16,6 +16,6 @@ public static class CredentialStoreFactory
     {
         if (OperatingSystem.IsMacOS()) return new MacKeychainCredentialStore(DefaultService);
         if (OperatingSystem.IsWindows()) return new WindowsDpapiCredentialStore(DefaultService);
-        throw new PlatformNotSupportedException("Aholo 凭证存储仅支持 macOS 钥匙串和 Windows 当前用户 DPAPI。");
+        throw new PlatformNotSupportedException("Aholo credential storage supports macOS Keychain and Windows current-user DPAPI only.");
     }
 }

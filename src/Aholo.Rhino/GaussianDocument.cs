@@ -142,11 +142,11 @@ internal static partial class GaussianDocument
                 if (!File.Exists(path))
                 {
                     if (string.IsNullOrWhiteSpace(savedPath) || !System.IO.Path.IsPathFullyQualified(savedPath) || savedPath.StartsWith("\\\\", StringComparison.Ordinal))
-                        throw new IOException("找不到此 GS 的原始资源；请重新导入原始 PLY，包围盒仍保留。");
+                        throw new IOException(global::Aholo.Core.UiText.Get("The original GS asset cannot be found. Re-import the original PLY; bounds are retained."));
                     path = savedPath;
                 }
                 if (!string.Equals(Hash(path, ct), hash, StringComparison.OrdinalIgnoreCase))
-                    throw new IOException("GS 资源内容与文档记录的哈希不一致；保留包围盒，请重新导入。");
+                    throw new IOException(global::Aholo.Core.UiText.Get("The GS asset hash does not match the document record. Bounds are retained; re-import the asset."));
                 return ReadAsset(path, hash, ct);
             }, ct).ConfigureAwait(false);
             await AholoHost.OnUi(() =>
@@ -165,7 +165,7 @@ internal static partial class GaussianDocument
             {
                 if (!IsCurrent(serial, hash, entry)) return false;
                 entry.Error = AholoHost.FriendlyError(ex); entry.Loading = false;
-                global::Rhino.RhinoApp.WriteLine("Aholo GS：资源未加载，保留包围盒。" + entry.Error);
+                global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("Aholo GS: asset not loaded; bounds are retained. ") + entry.Error);
                 RhinoDoc.FromRuntimeSerialNumber(serial)?.Views.Redraw(); return true;
             }).ConfigureAwait(false);
         }
@@ -186,16 +186,16 @@ internal static partial class GaussianDocument
         => ImportCoreAsync(path, target.Serial, target.Units, scale, upAxis, taskId, ct);
     private static async Task<string> ImportCoreAsync(string path, uint targetSerial, global::Rhino.UnitSystem? expectedUnits, double scale, string upAxis, Guid? taskId, CancellationToken ct)
     {
-        if (!double.IsFinite(scale) || scale <= 0) throw new ArgumentException("GS 比例必须大于零且有限。");
-        if (upAxis is not ("Y" or "Z")) throw new ArgumentException("GS 向上轴必须是 Y 或 Z。");
+        if (!double.IsFinite(scale) || scale <= 0) throw new ArgumentException(global::Aholo.Core.UiText.Get("GS scale must be finite and greater than zero."));
+        if (upAxis is not ("Y" or "Z")) throw new ArgumentException(global::Aholo.Core.UiText.Get("The GS up axis must be Y or Z."));
         var units = await AholoHost.OnUi(() => RequireTarget(targetSerial).ModelUnitSystem).ConfigureAwait(false);
-        if (expectedUnits.HasValue && units != expectedUnits.Value) throw new InvalidOperationException("下载期间文档单位改变，请重新确认 GS 比例。");
+        if (expectedUnits.HasValue && units != expectedUnits.Value) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Document units changed during download. Confirm the GS scale again."));
         AssetData data = await Task.Run(() => Snapshot(path, ct), ct).ConfigureAwait(false);
         return await AholoHost.OnUi(() =>
         {
             ct.ThrowIfCancellationRequested(); RhinoDoc doc = RequireTarget(targetSerial);
-            if (doc.ModelUnitSystem != units) throw new InvalidOperationException("读取期间文档单位改变，请重新确认 GS 比例。");
-            if (doc.IsCommandRunning || doc.UndoRecordingIsActive) throw new InvalidOperationException("请先结束当前 Rhino 命令再导入 GS。");
+            if (doc.ModelUnitSystem != units) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Document units changed while reading. Confirm the GS scale again."));
+            if (doc.IsCommandRunning || doc.UndoRecordingIsActive) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Finish the current Rhino command before importing GS."));
             if (taskId.HasValue)
             {
                 InstanceObject? existing = Instances(doc, null, true).FirstOrDefault(o => o.Attributes.GetUserString("Aholo.TaskId") == taskId.Value.ToString("D"));
@@ -203,38 +203,38 @@ internal static partial class GaussianDocument
                 {
                     doc.Objects.Select(existing.Id);
                     doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(existing.Geometry.GetBoundingBox(true)); GaussianViewport.Activate(doc);
-                    return "此任务已有 GS 实例，已定位。可使用 Rhino 的 Move/Rotate/Scale 调整。";
+                    return global::Aholo.Core.UiText.Get("This task already has a GS instance; the view is focused on it. Use Rhino Move/Rotate/Scale to adjust it.");
                 }
             }
             Transform transform = Transform.Scale(Point3d.Origin, scale);
             if (upAxis == "Y") transform = transform * Transform.Rotation(Math.PI / 2, Vector3d.XAxis, Point3d.Origin);
             BoundingBox box = data.Bounds; box.Transform(transform);
-            if (!box.IsValid) throw new InvalidOperationException("GS 变换后的包围盒超出有效数值范围，尚未修改文档。");
-            uint undo = doc.BeginUndoRecord("导入 Aholo Gaussian Splat");
-            if (undo == 0) throw new InvalidOperationException("无法建立 GS 撤销记录，尚未修改文档。");
+            if (!box.IsValid) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Transformed GS bounds exceed the valid numeric range. The document has not been modified."));
+            uint undo = doc.BeginUndoRecord(global::Aholo.Core.UiText.Get("Import Aholo Gaussian Splat"));
+            if (undo == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create the GS Undo record. The document has not been modified."));
             Guid added;
             try { added = AddBlock(doc, data, transform, path, scale, upAxis, taskId); }
             finally { doc.EndUndoRecord(undo); }
-            if (added == Guid.Empty) throw new InvalidOperationException("Rhino 未能建立 GS 块实例。");
+            if (added == Guid.Empty) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Rhino could not create the GS block instance."));
             if (!Documents.TryGetValue(targetSerial, out var assets)) Documents.Add(targetSerial, assets = new());
             assets[data.Hash] = new AssetEntry { Data = data };
             GaussianViewport.ForgetDocument(targetSerial);
             doc.Objects.UnselectAll(); doc.Objects.Select(added);
             doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(box); GaussianViewport.Activate(doc);
-            return $"已放入 {data.Splats.Length:N0} 个完整 GS 的块实例。原始 PLY 已保留，可 Undo；后台准备和分批上传期间显示包围盒，完整就绪后显示 GS。透明物体交错和实时速度尚未验收。";
+            return global::Aholo.Core.UiText.Format("Placed a block instance with {0:N0} complete GS. The original PLY is retained and Undo is available. Bounds appear during preparation and batch upload; GS appears when fully ready. Transparency interleaving and real-time performance are not yet accepted.", data.Splats.Length);
         }).ConfigureAwait(false);
     }
     private static RhinoDoc RequireTarget(uint serial)
     {
-        RhinoDoc doc = RhinoDoc.FromRuntimeSerialNumber(serial) ?? throw new InvalidOperationException("原目标文档已关闭。");
-        if (RhinoDoc.ActiveDoc?.RuntimeSerialNumber != serial || doc.IsClosing || doc.IsReadOnly) throw new InvalidOperationException("请激活可写的目标 Rhino 文档。");
-        if (doc.Views.ActiveView is global::Rhino.Display.RhinoPageView { PageIsActive: true }) throw new InvalidOperationException("请先激活模型视口。");
+        RhinoDoc doc = RhinoDoc.FromRuntimeSerialNumber(serial) ?? throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The original target document has closed."));
+        if (RhinoDoc.ActiveDoc?.RuntimeSerialNumber != serial || doc.IsClosing || doc.IsReadOnly) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Activate a writable target Rhino document."));
+        if (doc.Views.ActiveView is global::Rhino.Display.RhinoPageView { PageIsActive: true }) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Activate a model viewport first."));
         return doc;
     }
     private static AssetData Snapshot(string path, CancellationToken ct)
     {
         path = System.IO.Path.GetFullPath(path);
-        if (!string.Equals(System.IO.Path.GetExtension(path), ".ply", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("实验 GS 视窗当前需要保留完整高斯字段的 PLY。");
+        if (!string.Equals(System.IO.Path.GetExtension(path), ".ply", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException(global::Aholo.Core.UiText.Get("The experimental GS viewport currently requires a PLY with complete Gaussian fields."));
         Directory.CreateDirectory(CacheRoot);
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(CacheRoot, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         string temp = System.IO.Path.Combine(CacheRoot, Guid.NewGuid().ToString("N") + ".tmp");
@@ -256,7 +256,7 @@ internal static partial class GaussianDocument
                 try { File.Move(temp, destination); }
                 catch (IOException) when (File.Exists(destination)) { } // Another import can publish the identical snapshot.
             }
-            if (Hash(destination, ct) != hash) throw new IOException("本地 GS 缓存校验失败，原始文件未修改。");
+            if (Hash(destination, ct) != hash) throw new IOException(global::Aholo.Core.UiText.Get("Local GS cache verification failed. The original file is unchanged."));
             return data with { Path = destination };
         }
         finally { if (File.Exists(temp)) File.Delete(temp); }
@@ -281,7 +281,7 @@ internal static partial class GaussianDocument
             bounds.Union(new BoundingBox(new Point3d(splat.Center.X-x,splat.Center.Y-y,splat.Center.Z-z), new Point3d(splat.Center.X+x,splat.Center.Y+y,splat.Center.Z+z)));
             splats.Add(splat);
         }
-        if (splats.Count == 0 || !bounds.IsValid) throw new InvalidDataException("PLY 没有有效的完整 Gaussian Splat 数据。");
+        if (splats.Count == 0 || !bounds.IsValid) throw new InvalidDataException(global::Aholo.Core.UiText.Get("The PLY contains no valid complete Gaussian Splat data."));
         if (bounds.Diagonal.Length == 0) bounds.Inflate(1);
         var source = splats.ToArray();
         return new(source, GaussianPreparedAsset.Prepare(source, ct), bounds, hash, path);
@@ -297,7 +297,7 @@ internal static partial class GaussianDocument
         {
             foreach (var a in proxyAttributes) a.SetUserString(ProxyKey, data.Hash);
             definition = doc.InstanceDefinitions.Add("AholoGS_" + data.Hash[..10] + "_" + Guid.NewGuid().ToString("N")[..6], "Aholo GS reference; bounding box is a placeholder, not converted geometry.", Point3d.Origin, geometry, proxyAttributes);
-            if (definition < 0) throw new InvalidOperationException("无法建立 GS 块定义。");
+            if (definition < 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create the GS block definition."));
             using var attrs = new ObjectAttributes { Name = "Aholo GS · " + System.IO.Path.GetFileNameWithoutExtension(sourcePath), LayerIndex = layer };
             attrs.SetUserString(Marker,"1"); attrs.SetUserString(HashKey,data.Hash); attrs.SetUserString(PathKey,data.Path);
             attrs.SetUserString("Aholo.GS.SourceName",System.IO.Path.GetFileName(sourcePath));
@@ -318,13 +318,13 @@ internal static partial class GaussianDocument
         var current=doc.Layers.CurrentLayer;
         if(current.IsVisible && !current.IsLocked) return current.Index;
         int index=doc.Layers.Add("Aholo GS "+Guid.NewGuid().ToString("N")[..6],Color.FromArgb(105,170,200));
-        if(index<0) throw new InvalidOperationException("无法创建可见 GS 图层。");
+        if(index<0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create a visible GS layer."));
         return index;
     }
     internal static string Diagnostics(RhinoDoc doc)
     {
         int instances=Instances(doc,null,true).Count();
-        if(!Documents.TryGetValue(doc.RuntimeSerialNumber,out var assets)) return $"GS 块实例：{instances}；资源尚未加载。";
-        return $"GS 块实例：{instances}；已加载资源：{assets.Values.Count(a=>a.Data is not null)}；加载中：{assets.Values.Count(a=>a.Loading)}；资源错误：{assets.Values.Count(a=>a.Error is not null)}。";
+        if(!Documents.TryGetValue(doc.RuntimeSerialNumber,out var assets)) return global::Aholo.Core.UiText.Format("GS block instances: {0}; assets are not loaded yet.", instances);
+        return global::Aholo.Core.UiText.Format("GS block instances: {0}; loaded assets: {1}; loading: {2}; asset errors: {3}.", instances, assets.Values.Count(a=>a.Data is not null), assets.Values.Count(a=>a.Loading), assets.Values.Count(a=>a.Error is not null));
     }
 }

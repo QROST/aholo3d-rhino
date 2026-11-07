@@ -18,8 +18,8 @@ public static class GaussianReferenceAsset
         string? source = reference.AssetPath;
         if (string.IsNullOrWhiteSpace(source) || !Path.IsPathFullyQualified(source) || source.StartsWith("\\\\", StringComparison.Ordinal) ||
             source.StartsWith("//", StringComparison.Ordinal) || !string.Equals(Path.GetExtension(source), ".ply", StringComparison.OrdinalIgnoreCase))
-            throw new IOException("找不到此 GS 的本地 PLY 引用；请恢复原缓存，或用 AholoPanel 重新导入原始文件。包围盒仍保留。");
-        if (!File.Exists(source)) throw new FileNotFoundException("GS 引用的 PLY 缓存不存在；请恢复原缓存，或用 AholoPanel 重新导入。包围盒仍保留。");
+            throw new IOException("This GS has no local PLY reference. Restore its cache or re-import the original file with AholoPanel. Bounds are retained.");
+        if (!File.Exists(source)) throw new FileNotFoundException("The GS reference PLY cache is missing. Restore the cache or re-import with AholoPanel. Bounds are retained.");
         Directory.CreateDirectory(cacheDirectory);
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(cacheDirectory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         string temporary = Path.Combine(cacheDirectory, Guid.NewGuid().ToString("N") + ".tmp");
@@ -40,7 +40,7 @@ public static class GaussianReferenceAsset
             try { File.Move(temporary, destination); }
             catch (IOException) when (File.Exists(destination))
             {
-                if (Digest(destination, ct) != hash) throw new IOException("GS 本地缓存与文档记录的哈希不一致；原始资产未修改。");
+                if (Digest(destination, ct) != hash) throw new IOException("The local GS cache hash does not match the document record. Original assets are unchanged.");
             }
             return data with { Path = destination };
         }
@@ -49,9 +49,9 @@ public static class GaussianReferenceAsset
 
     private static GaussianReferenceData ReadVerified(string path, string hash, bool copied, CancellationToken ct)
     {
-        if (Digest(path, ct) != hash) throw new IOException("GS 资源内容与文档记录的哈希不一致；保留包围盒，请恢复原缓存或重新导入。");
+        if (Digest(path, ct) != hash) throw new IOException("The GS asset hash does not match the document record. Bounds are retained; restore the cache or re-import.");
         GaussianSplat[] splats = PlyReader.ReadGaussians(path, ct).ToArray();
-        if (splats.Length == 0) throw new InvalidDataException("GS 引用的 PLY 没有完整高斯数据。");
+        if (splats.Length == 0) throw new InvalidDataException("The referenced PLY has no complete Gaussian data.");
         return new(path, splats, copied);
     }
 

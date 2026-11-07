@@ -29,9 +29,9 @@ while (true)
     RpcResponse response;
     try
     {
-        var request = JsonSerializer.Deserialize<RpcRequest>(line, AholoJson.Options) ?? throw new ArgumentException("无效请求。");
+        var request = JsonSerializer.Deserialize<RpcRequest>(line, AholoJson.Options) ?? throw new ArgumentException("Invalid request.");
         id = request.Id;
-        if (request.Version != 1 || id == Guid.Empty) throw new ArgumentException("后台协议版本不匹配。");
+        if (request.Version != 1 || id == Guid.Empty) throw new ArgumentException("Background protocol version mismatch.");
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(15));
         var ct = deadline.Token;
         var payload = request.Payload;
@@ -41,7 +41,7 @@ while (true)
             case "connection":
                 await LoadKeyAsync(ct); result = State(); break;
             case "connect":
-                var input = payload.Deserialize<ConnectRequest>(AholoJson.Options) ?? throw new ArgumentException("无效连接请求。");
+                var input = payload.Deserialize<ConnectRequest>(AholoJson.Options) ?? throw new ArgumentException("Invalid connection request.");
                 var candidate = new ApiKeyCredential(input.ApiKey);
                 await api.ValidateKeyAsync(candidate, ct);
                 if (input.Remember) await credentials.SetAsync(Account, input.ApiKey, ct);
@@ -55,7 +55,7 @@ while (true)
             case "refresh": result = await workflow.RefreshAsync(await RequireKeyAsync(ct), payload.GetProperty("id").GetGuid(), ct); break;
             case "download": result = await workflow.DownloadAsync(await RequireKeyAsync(ct), Read<DownloadRequest>(payload), ct); break;
             case "importWorld": result = await workflow.ImportWorldAsync(await RequireKeyAsync(ct), payload.GetProperty("worldId").GetString() ?? "", ct); break;
-            default: throw new ArgumentException("未知后台操作。");
+            default: throw new ArgumentException("Unknown background operation.");
         }
         response = new RpcResponse(1, id, AholoJson.Element(result), null);
     }
@@ -64,11 +64,11 @@ while (true)
         string message = error switch
         {
             ProviderException => error.Message,
-            ArgumentException => "输入无效，请检查文件、参数或 API Key。",
+            ArgumentException => "Invalid input. Check the file, parameters or API Key.",
             InvalidOperationException => error.Message,
-            OperationCanceledException => "操作等待超时。任务历史已保留；请勿重复提交结果未知的任务。",
-            IOException => "文件或后台操作失败。请检查本地空间、文件权限，或其他 Aholo 面板是否正在操作。",
-            _ => "后台操作失败。任务历史已保留；可重新打开面板重试查询。"
+            OperationCanceledException => "Operation timed out. Task history is retained; do not resubmit tasks with unknown results.",
+            IOException => "File or background operation failed. Check local disk space, permissions or activity in other Aholo panels.",
+            _ => "Background operation failed. Task history is retained; reopen the panel and retry the query."
         };
         response = new RpcResponse(1, id, null, message);
     }
@@ -77,7 +77,7 @@ while (true)
 }
 return;
 
-T Read<T>(JsonElement payload) => payload.Deserialize<T>(AholoJson.Options) ?? throw new ArgumentException("请求缺少参数。");
+T Read<T>(JsonElement payload) => payload.Deserialize<T>(AholoJson.Options) ?? throw new ArgumentException("The request is missing parameters.");
 ConnectionState State() => new(key is not null, key?.ConnectionId, remembered);
 async Task LoadKeyAsync(CancellationToken ct)
 {
@@ -88,5 +88,5 @@ async Task LoadKeyAsync(CancellationToken ct)
 }
 async Task<ApiKeyCredential> RequireKeyAsync(CancellationToken ct)
 {
-    await LoadKeyAsync(ct); return key ?? throw new InvalidOperationException("请先连接国际站 API Key。");
+    await LoadKeyAsync(ct); return key ?? throw new InvalidOperationException("Connect an international API Key first.");
 }

@@ -1,0 +1,1578 @@
+[
+  {
+    "English": "The upload client must not include API authorization.",
+    "Chinese": "上传客户端不能包含 API 授权。"
+  },
+  {
+    "English": "Enter a world description or choose a reference image.",
+    "Chinese": "请输入世界描述或选择参考图。"
+  },
+  {
+    "English": "The render scene cannot be empty.",
+    "Chinese": "渲染场景不能为空。"
+  },
+  {
+    "English": "The upload file cannot be empty.",
+    "Chinese": "上传文件不能为空。"
+  },
+  {
+    "English": "The upload address is outside the verified international upload service.",
+    "Chinese": "上传地址不在已核实的国际上传服务范围内。"
+  },
+  {
+    "English": "File upload failed. Retry the upload.",
+    "Chinese": "文件上传失败，请重试上传。"
+  },
+  {
+    "English": "File upload has not finished. Retry the upload later.",
+    "Chinese": "文件上传尚未完成，请稍后重试上传。"
+  },
+  {
+    "English": "The upload service rejected the request.",
+    "Chinese": "上传服务拒绝了请求。"
+  },
+  {
+    "English": "The international API Key is invalid or expired.",
+    "Chinese": "国际区域 API Key 无效或已失效。"
+  },
+  {
+    "English": "Service request failed (HTTP {0}).",
+    "Chinese": "服务请求失败 (HTTP {0})。"
+  },
+  {
+    "English": "The service request failed or its response format is invalid.",
+    "Chinese": "服务请求失败或响应格式无效。"
+  },
+  {
+    "English": "The render service reported failure. Check the task on the official platform.",
+    "Chinese": "渲染服务报告任务失败，请在官方平台核对任务。"
+  },
+  {
+    "English": "The service rejected the task. Check account permissions, balance and parameters.",
+    "Chinese": "服务拒绝了任务，请核对账户权限、余额与参数。"
+  },
+  {
+    "English": "Service assets must use a valid HTTPS address.",
+    "Chinese": "服务资源必须是有效的 HTTPS 地址。"
+  },
+  {
+    "English": "The service response is missing required fields or its task identity does not match.",
+    "Chinese": "服务响应缺少有效字段或任务身份不匹配。"
+  },
+  {
+    "English": "The task may have been created, but submission is unconfirmed. Check task history before submitting again.",
+    "Chinese": "任务可能已创建，但提交结果不明确。请先核对任务记录，勿重复提交。"
+  },
+  {
+    "English": "Aholo credential storage supports macOS Keychain and Windows current-user DPAPI only.",
+    "Chinese": "Aholo 凭证存储仅支持 macOS 钥匙串和 Windows 当前用户 DPAPI。"
+  },
+  {
+    "English": "Invalid Windows credential file size. Sign in again.",
+    "Chinese": "Windows 凭证文件大小无效，请重新登录。"
+  },
+  {
+    "English": "The Windows credential file changed while being read.",
+    "Chinese": "Windows 凭证文件在读取时发生变化。"
+  },
+  {
+    "English": "The credential contains invalid text encoding.",
+    "Chinese": "凭证包含无效文本编码。"
+  },
+  {
+    "English": "Credentials must be between 1 byte and 1 MiB. Oversized credentials are neither truncated nor saved.",
+    "Chinese": "凭证必须介于 1 字节和 1 MiB 之间；不会截断或保存超限凭证。"
+  },
+  {
+    "English": "write",
+    "Chinese": "写入"
+  },
+  {
+    "English": "Windows LocalAppData is unavailable.",
+    "Chinese": "Windows LocalAppData 目录不可用。"
+  },
+  {
+    "English": "Windows credentials require a local user directory. Network-redirected directories are unsupported.",
+    "Chinese": "Windows 凭证需要本地用户目录，暂不支持网络重定向目录。"
+  },
+  {
+    "English": "check storage volume",
+    "Chinese": "检查存储卷"
+  },
+  {
+    "English": "The Windows credential filesystem does not support persistent ACLs; credentials cannot be saved safely.",
+    "Chinese": "Windows 凭证目录所在文件系统不支持持久 ACL，不能安全保存凭证。"
+  },
+  {
+    "English": "Cannot determine the current Windows user identity.",
+    "Chinese": "无法确定 Windows 当前用户身份。"
+  },
+  {
+    "English": "The Windows credential path contains a link or unexpected file type. Access was stopped.",
+    "Chinese": "Windows 凭证路径包含链接或不符合预期的文件类型，已停止访问。"
+  },
+  {
+    "English": "Invalid Windows credential format. Sign in again.",
+    "Chinese": "Windows 凭证格式无效，请重新登录。"
+  },
+  {
+    "English": "Invalid Windows credential length. Sign in again.",
+    "Chinese": "Windows 凭证长度无效，请重新登录。"
+  },
+  {
+    "English": "Windows credential integrity check failed. Sign in again.",
+    "Chinese": "Windows 凭证完整性检查失败，请重新登录。"
+  },
+  {
+    "English": "encrypt",
+    "Chinese": "加密"
+  },
+  {
+    "English": "decrypt (the Windows user or profile may have changed)",
+    "Chinese": "解密（可能已更换 Windows 用户或用户配置文件）"
+  },
+  {
+    "English": "Windows DPAPI returned an invalid data length.",
+    "Chinese": "Windows DPAPI 返回了无效数据长度。"
+  },
+  {
+    "English": "DPAPI credential storage is available only on Windows.",
+    "Chinese": "DPAPI 凭证存储仅可在 Windows 使用。"
+  },
+  {
+    "English": "Invalid credential service or account identifier.",
+    "Chinese": "凭证服务或账户标识无效。"
+  },
+  {
+    "English": "Windows secure credential storage access failed ({0}). Check user permissions or sign in again.",
+    "Chinese": "Windows 安全凭证存储访问失败 ({0})；请检查当前用户权限或重新登录。"
+  },
+  {
+    "English": "Windows credential operation {0} failed (Win32 {1}).",
+    "Chinese": "Windows 凭证{0}失败 (Win32 {1})。"
+  },
+  {
+    "English": "The current credential store uses macOS Keychain.",
+    "Chinese": "当前凭证存储使用 macOS 钥匙串。"
+  },
+  {
+    "English": "macOS Keychain access failed (OSStatus {0}).",
+    "Chinese": "macOS 钥匙串访问失败 (OSStatus {0})。"
+  },
+  {
+    "English": "Enter the original international API Key.",
+    "Chinese": "请输入国际区域 API Key 原文。"
+  },
+  {
+    "English": "Export complete Gaussian Splat scene",
+    "Chinese": "导出完整 Gaussian Splat 场景"
+  },
+  {
+    "English": "USDZ · Portable single-file scene",
+    "Chinese": "USDZ · 单文件便携场景"
+  },
+  {
+    "English": "USD · Binary scene",
+    "Chinese": "USD · 二进制场景"
+  },
+  {
+    "English": "USDC · Binary scene",
+    "Chinese": "USDC · 二进制场景"
+  },
+  {
+    "English": "USDA · Text scene",
+    "Chinese": "USDA · 文本场景"
+  },
+  {
+    "English": "Use a .usd, .usda, .usdc or .usdz file extension.",
+    "Chinese": "请使用 .usd、.usda、.usdc 或 .usdz 文件扩展名。"
+  },
+  {
+    "English": "Import complete GS · PLY / USD / USDZ (automatic units and up axis)",
+    "Chinese": "导入完整 GS · PLY / USD / USDZ（自动单位和轴向）"
+  },
+  {
+    "English": "Gaussian Splat scene",
+    "Chinese": "Gaussian Splat 场景"
+  },
+  {
+    "English": "The experimental GS viewport prepares all Gaussians in the background and shows bounds while loading. Keep the target document units unchanged.",
+    "Chinese": "GS 实验视窗会在后台准备完整高斯，准备期间显示包围盒。请保持目标文档单位不变。"
+  },
+  {
+    "English": "GS import did not finish: ",
+    "Chinese": "GS 导入未完成："
+  },
+  {
+    "English": "Aholo GS (Experimental) enabled. Opaque-geometry occlusion still requires native acceptance; transparency interleaving is unsupported. Missing source assets appear as bounds.",
+    "Chinese": "已启用 Aholo GS (Experimental)。仅承诺不透明几何遮挡的待验收原型；透明物体交错尚未支持。原始资源缺失时显示包围盒。"
+  },
+  {
+    "English": "Creating an offline GS occlusion probe: two complete Gaussian groups, one opaque Brep cube and one Mesh. This adds local test objects without cloud access and supports Undo. Orbit the camera to check occlusion and soft transparent edges.",
+    "Chinese": "正在创建离线 GS 遮挡试验：两组完整高斯、一个不透明 Brep 立方体和一个 Mesh。此命令不访问云端，会添加试验对象，可 Undo 撤销。运行后请旋转相机检查前后遮挡与柔和透明边缘。"
+  },
+  {
+    "English": "The probe target document has closed.",
+    "Chinese": "试验目标文档已关闭。"
+  },
+  {
+    "English": "The target document changed. GS was imported, but occlusion test geometry was not added.",
+    "Chinese": "目标文档状态改变。已导入 GS；遮挡测试几何未添加。"
+  },
+  {
+    "English": "Add GS occlusion test geometry",
+    "Chinese": "添加 GS 遮挡测试几何"
+  },
+  {
+    "English": "Cannot create the test geometry Undo record.",
+    "Chinese": "无法建立测试几何撤销记录。"
+  },
+  {
+    "English": "Cannot add the Brep occlusion test geometry.",
+    "Chinese": "无法添加 Brep 遮挡试验几何。"
+  },
+  {
+    "English": "Cannot add the Mesh occlusion test geometry. Use Undo to remove geometry already added.",
+    "Chinese": "无法添加 Mesh 遮挡试验几何。已添加的几何可 Undo 撤销。"
+  },
+  {
+    "English": "Use Undo twice: first remove the occlusion geometry, then the GS blocks. Visual acceptance is not automatic; run AholoGsDiagnostics for status.",
+    "Chinese": "试验采用两次 Undo：先移除遮挡几何，再移除 GS 块。此处未自动判断视觉通过；可运行 AholoGsDiagnostics 查看状态。"
+  },
+  {
+    "English": "GS probe did not finish: ",
+    "Chinese": "GS 试验未完成："
+  },
+  {
+    "English": "Exporting selected GS in the background using current document coordinates and units. Use AholoPanel to export all GS or to cancel.",
+    "Chinese": "正在后台导出选中 GS；使用当前文档坐标与单位。如需全部导出或取消功能，请从 AholoPanel 发起。"
+  },
+  {
+    "English": "GS export did not finish: ",
+    "Chinese": "GS 导出未完成："
+  },
+  {
+    "English": "Start export from the Rhino interface.",
+    "Chinese": "请从 Rhino 界面发起导出。"
+  },
+  {
+    "English": "The target document has closed.",
+    "Chinese": "目标文档已关闭。"
+  },
+  {
+    "English": "Set standard document length units before exporting USD. Units will not be guessed.",
+    "Chinese": "请先为文档设置明确的标准长度单位，再导出 USD；不会猜测单位。"
+  },
+  {
+    "English": "Document units cannot be converted to meters.",
+    "Chinese": "文档单位不能转换为米。"
+  },
+  {
+    "English": "Select top-level GS blocks to export, or choose all top-level GS in the panel.",
+    "Chinese": "请先选择需要导出的顶层 GS 块，或在面板选择全部顶层 GS。"
+  },
+  {
+    "English": "The selection contains non-GS objects or nested blocks. This export supports top-level GS blocks only; adjust the selection.",
+    "Chinese": "选中内容包含非 GS 对象或嵌套块；此导出仅支持顶层 GS 块，请调整选择。"
+  },
+  {
+    "English": "The current document has no exportable top-level GS blocks.",
+    "Chinese": "当前文档没有可导出的顶层 GS 块。"
+  },
+  {
+    "English": "Invalid GS reference.",
+    "Chinese": "GS 引用无效。"
+  },
+  {
+    "English": "A GS block has an invalid or non-affine transform. Export was stopped.",
+    "Chinese": "GS 块包含无效或非仿射变换，导出已停止。"
+  },
+  {
+    "English": "Preparing complete GS assets {0:N0} / {1:N0}…",
+    "Chinese": "准备完整 GS 资源 {0:N0} / {1:N0}…"
+  },
+  {
+    "English": "Building and packaging the USD scene; large scenes may take several minutes…",
+    "Chinese": "正在生成 USD 场景并封装；大场景可能需要几分钟…"
+  },
+  {
+    "English": "Exported {0:N0} GS blocks and {1:N0} Gaussians.\n{2}\n",
+    "Chinese": "已导出 {0:N0} 个 GS 块、{1:N0} 个高斯。\n{2}\n"
+  },
+  {
+    "English": "Used document coordinates and units captured at export start; complete SH and object transforms are preserved. USD geometry fields use standard float32 precision.",
+    "Chinese": "使用点击导出时的文档坐标与单位；保留完整 SH 和对象变换。USD 几何字段采用标准 float32 精度。"
+  },
+  {
+    "English": " Hidden/locked top-level GS blocks are also exported as visible assets.",
+    "Chinese": " 隐藏/锁定的顶层 GS 也作为可见资产导出。"
+  },
+  {
+    "English": "GS scale must be finite and greater than zero.",
+    "Chinese": "GS 比例必须大于零且有限。"
+  },
+  {
+    "English": "The up axis must be Auto, Y or Z.",
+    "Chinese": "向上轴必须是 Auto、Y 或 Z。"
+  },
+  {
+    "English": "Document units changed. Confirm the import settings again.",
+    "Chinese": "文档单位已改变，请重新确认导入设置。"
+  },
+  {
+    "English": "Complete assets are ready; writing to the target document…",
+    "Chinese": "完整资源已准备；正在写入目标文档…"
+  },
+  {
+    "English": "Archiving the original file…",
+    "Chinese": "正在存档原始文件…"
+  },
+  {
+    "English": "Reading the complete Gaussian Splat scene…",
+    "Chinese": "正在读取完整 Gaussian Splat 场景…"
+  },
+  {
+    "English": "The source scene changed while being read. Import stopped; save the file and retry.",
+    "Chinese": "读取期间源场景文件改变，导入已停止；请保存文件后重试。"
+  },
+  {
+    "English": "The file contains no Gaussian Splat data.",
+    "Chinese": "文件中没有 Gaussian Splat 数据。"
+  },
+  {
+    "English": "Skipped {0:N0} empty parts; no GS data was removed.",
+    "Chinese": "已略过 {0:N0} 个空部分；没有删除任何 GS。"
+  },
+  {
+    "English": "Preparing part {0:N0}/{1:N0} · {2:N0} GS…",
+    "Chinese": "准备部分 {0:N0}/{1:N0} · {2:N0} 个 GS…"
+  },
+  {
+    "English": "Document units changed while reading. Confirm the import scale again.",
+    "Chinese": "读取期间文档单位改变，请重新确认导入比例。"
+  },
+  {
+    "English": "Finish the current Rhino command before importing GS.",
+    "Chinese": "请先结束当前 Rhino 命令再导入 GS。"
+  },
+  {
+    "English": "The scene up axis is not supported Y or Z. Choose an up axis and retry.",
+    "Chinese": "场景向上轴不是受支持的 Y 或 Z；请选择轴向后重试。"
+  },
+  {
+    "English": "The target document has no convertible standard length units. Set standard length units and retry.",
+    "Chinese": "目标文档没有可换算的标准长度单位；请先将文档设为标准长度单位后重试。"
+  },
+  {
+    "English": "The source units and scale do not produce a valid positive scale.",
+    "Chinese": "源单位与比例组合后不是有效的正数。"
+  },
+  {
+    "English": "A part transform is invalid. The document has not been modified.",
+    "Chinese": "部分的变换无效，尚未修改文档。"
+  },
+  {
+    "English": "The transformed GS bounds exceed the valid numeric range. The document has not been modified.",
+    "Chinese": "变换后的 GS 包围盒超出有效数值范围，尚未修改文档。"
+  },
+  {
+    "English": "Import Aholo Gaussian Splat",
+    "Chinese": "导入 Aholo Gaussian Splat"
+  },
+  {
+    "English": "Cannot create the import Undo record. The document has not been modified.",
+    "Chinese": "无法建立导入撤销记录，尚未修改文档。"
+  },
+  {
+    "English": "Import did not finish and Rhino could not fully roll back the new objects. Use Undo to reverse this import. ",
+    "Chinese": "导入未完成，Rhino 未能完全撤回本次对象；请使用 Undo 撤销本次导入。"
+  },
+  {
+    "English": "Imported {0:N0} GS in {1:N0} parts; one Undo reverses the import. Up axis {2}, effective scale {3:G8}.",
+    "Chinese": "已导入 {0:N0} 个 GS，共 {1:N0} 个部分，可一次 Undo 撤销。轴向 {2}，有效比例 {3:G8}。"
+  },
+  {
+    "English": "The original file was archived and the complete local GS cache retained. Bounds are shown during preparation; full GS returns when the view is stationary.",
+    "Chinese": "原始文件已存档；完整本地 GS 缓存保留。显示准备期间显示包围盒，静止后恢复完整 GS。"
+  },
+  {
+    "English": "This scene declares antialiased mode. The viewport does not yet implement its compensation formula, so appearance may differ.",
+    "Chinese": "此场景声明了 antialiased 模式；当前视口尚未实现该模式的补偿公式，视觉结果可能不同。"
+  },
+  {
+    "English": "The model is in the document, but the display mode is not ready. Bounds are retained. ",
+    "Chinese": "模型已写入，显示模式尚未就绪；包围盒保留。"
+  },
+  {
+    "English": "Choose a PLY, USD, USDA, USDC or USDZ file.",
+    "Chinese": "请选择 PLY、USD、USDA、USDC 或 USDZ 文件。"
+  },
+  {
+    "English": "Local cache verification failed. The original file is unchanged.",
+    "Chinese": "本地缓存校验失败，原始文件未修改。"
+  },
+  {
+    "English": "GS bounds exceed the valid numeric range.",
+    "Chinese": "GS 包围盒超出有效数值范围。"
+  },
+  {
+    "English": "This part has no valid complete Gaussian Splat data.",
+    "Chinese": "此部分没有有效的完整 Gaussian Splat 数据。"
+  },
+  {
+    "English": "Cannot create the GS block definition.",
+    "Chinese": "无法建立 GS 块定义。"
+  },
+  {
+    "English": "Rhino could not create the GS block instance.",
+    "Chinese": "Rhino 未能建立 GS 块实例。"
+  },
+  {
+    "English": "The display mode name cannot be empty.",
+    "Chinese": "显示模式名称不能为空。"
+  },
+  {
+    "English": "Cannot register the experimental Aholo GS display mode.",
+    "Chinese": "无法注册 Aholo GS 实验显示模式。"
+  },
+  {
+    "English": "Cannot read the newly created Aholo GS display mode.",
+    "Chinese": "无法读取新建的 Aholo GS 显示模式。"
+  },
+  {
+    "English": "Aholo GS display mode settings have not been saved. Retry later.",
+    "Chinese": "Aholo GS 显示模式设置尚未保存，请稍后重试。"
+  },
+  {
+    "English": "The original GS asset cannot be found. Re-import the original PLY; bounds are retained.",
+    "Chinese": "找不到此 GS 的原始资源；请重新导入原始 PLY，包围盒仍保留。"
+  },
+  {
+    "English": "The GS asset hash does not match the document record. Bounds are retained; re-import the asset.",
+    "Chinese": "GS 资源内容与文档记录的哈希不一致；保留包围盒，请重新导入。"
+  },
+  {
+    "English": "Aholo GS: asset not loaded; bounds are retained. ",
+    "Chinese": "Aholo GS：资源未加载，保留包围盒。"
+  },
+  {
+    "English": "The GS up axis must be Y or Z.",
+    "Chinese": "GS 向上轴必须是 Y 或 Z。"
+  },
+  {
+    "English": "Document units changed during download. Confirm the GS scale again.",
+    "Chinese": "下载期间文档单位改变，请重新确认 GS 比例。"
+  },
+  {
+    "English": "Document units changed while reading. Confirm the GS scale again.",
+    "Chinese": "读取期间文档单位改变，请重新确认 GS 比例。"
+  },
+  {
+    "English": "This task already has a GS instance; the view is focused on it. Use Rhino Move/Rotate/Scale to adjust it.",
+    "Chinese": "此任务已有 GS 实例，已定位。可使用 Rhino 的 Move/Rotate/Scale 调整。"
+  },
+  {
+    "English": "Transformed GS bounds exceed the valid numeric range. The document has not been modified.",
+    "Chinese": "GS 变换后的包围盒超出有效数值范围，尚未修改文档。"
+  },
+  {
+    "English": "Cannot create the GS Undo record. The document has not been modified.",
+    "Chinese": "无法建立 GS 撤销记录，尚未修改文档。"
+  },
+  {
+    "English": "Placed a block instance with {0:N0} complete GS. The original PLY is retained and Undo is available. Bounds appear during preparation and batch upload; GS appears when fully ready. Transparency interleaving and real-time performance are not yet accepted.",
+    "Chinese": "已放入 {0:N0} 个完整 GS 的块实例。原始 PLY 已保留，可 Undo；后台准备和分批上传期间显示包围盒，完整就绪后显示 GS。透明物体交错和实时速度尚未验收。"
+  },
+  {
+    "English": "The original target document has closed.",
+    "Chinese": "原目标文档已关闭。"
+  },
+  {
+    "English": "Activate a writable target Rhino document.",
+    "Chinese": "请激活可写的目标 Rhino 文档。"
+  },
+  {
+    "English": "Activate a model viewport first.",
+    "Chinese": "请先激活模型视口。"
+  },
+  {
+    "English": "The experimental GS viewport currently requires a PLY with complete Gaussian fields.",
+    "Chinese": "实验 GS 视窗当前需要保留完整高斯字段的 PLY。"
+  },
+  {
+    "English": "Local GS cache verification failed. The original file is unchanged.",
+    "Chinese": "本地 GS 缓存校验失败，原始文件未修改。"
+  },
+  {
+    "English": "The PLY contains no valid complete Gaussian Splat data.",
+    "Chinese": "PLY 没有有效的完整 Gaussian Splat 数据。"
+  },
+  {
+    "English": "Cannot create a visible GS layer.",
+    "Chinese": "无法创建可见 GS 图层。"
+  },
+  {
+    "English": "GS block instances: {0}; assets are not loaded yet.",
+    "Chinese": "GS 块实例：{0}；资源尚未加载。"
+  },
+  {
+    "English": "GS block instances: {0}; loaded assets: {1}; loading: {2}; asset errors: {3}.",
+    "Chinese": "GS 块实例：{0}；已加载资源：{1}；加载中：{2}；资源错误：{3}。"
+  },
+  {
+    "English": "Aholo {0} · CuriousArc · qrost. Run AholoPanel to open world generation and RenderCloud.",
+    "Chinese": "Aholo {0} · CuriousArc · qrost。输入 AholoPanel 打开世界生成与 RenderCloud 面板。"
+  },
+  {
+    "English": "Diagnostic: import PLY centers (Z-up, 1 PLY unit = 1 document unit)",
+    "Chinese": "诊断：导入 PLY 中心点（Z 向上，1 PLY 单位 = 1 文档单位）"
+  },
+  {
+    "English": "PLY point cloud",
+    "Chinese": "PLY 点云"
+  },
+  {
+    "English": "Reading the PLY point cloud. This command previews centers and colors; use AholoImportGs or AholoPanel for complete GS.",
+    "Chinese": "正在读取 PLY 点云。此命令预览中心点和颜色；完整 GS 请使用 AholoImportGs 或 AholoPanel。"
+  },
+  {
+    "English": "Aholo import did not finish: ",
+    "Chinese": "Aholo 导入未完成："
+  },
+  {
+    "English": "Not drawn yet; backend not detected",
+    "Chinese": "尚未绘制；后端未检测"
+  },
+  {
+    "English": " AholoPanel remains available; run AholoGsMode to retry.",
+    "Chinese": " AholoPanel 仍可使用；输入 AholoGsMode 重试。"
+  },
+  {
+    "English": " Run AholoGsMode to retry.",
+    "Chinese": " 输入 AholoGsMode 重试。"
+  },
+  {
+    "English": "Gaussian opacity atlas is missing; visible bounds are retained.",
+    "Chinese": "缺少 Gaussian opacity atlas；保留可见包围盒。"
+  },
+  {
+    "English": "display mode registration",
+    "Chinese": "显示模式注册"
+  },
+  {
+    "English": "material preparation",
+    "Chinese": "材质准备"
+  },
+  {
+    "English": "viewport initialization",
+    "Chinese": "视口初始化"
+  },
+  {
+    "English": "Aholo GS initialization did not finish: ",
+    "Chinese": "Aholo GS 初始化未完成："
+  },
+  {
+    "English": "The Aholo GS display mode is not initialized yet.",
+    "Chinese": "Aholo GS 显示模式尚未初始化。"
+  },
+  {
+    "English": "Run AholoGsDiagnostics for status, or retry AholoGsMode later.",
+    "Chinese": "运行 AholoGsDiagnostics 查看状态，可稍后再次运行 AholoGsMode。"
+  },
+  {
+    "English": "Activate a model viewport first.",
+    "Chinese": "请先激活一个模型视窗。"
+  },
+  {
+    "English": "Switch to a native model viewport. GS rendering in layout details is not supported in this version.",
+    "Chinese": "请先切换到原生模型视窗；本版不在布局细节中绘制 GS。"
+  },
+  {
+    "English": "The Aholo GS display mode was deleted. Reload the plugin.",
+    "Chinese": "Aholo GS 显示模式已被删除，请重新加载插件。"
+  },
+  {
+    "English": "GS bounds calculation failed: ",
+    "Chinese": "GS 包围盒计算失败："
+  },
+  {
+    "English": "OpenGL (current viewport)",
+    "Chinese": "OpenGL（当前视窗）"
+  },
+  {
+    "English": "Non-OpenGL (this alone does not confirm Metal)",
+    "Chinese": "Non-OpenGL（不能仅据此确认 Metal）"
+  },
+  {
+    "English": "GS preparation failed; bounds are retained: ",
+    "Chinese": "GS 准备失败，保留包围盒："
+  },
+  {
+    "English": "GS batch drawing failed; bounds are retained. Run AholoGsMode to retry: ",
+    "Chinese": "GS 批量绘制失败；保留包围盒，运行 AholoGsMode 重试："
+  },
+  {
+    "English": "Aholo GS: waiting for a stable view before preparing display",
+    "Chinese": "Aholo GS：视图稳定后准备显示"
+  },
+  {
+    "English": "Aholo GS: preparation failed; bounds retained. Run AholoGsDiagnostics",
+    "Chinese": "Aholo GS：准备失败，已保留包围盒；运行 AholoGsDiagnostics"
+  },
+  {
+    "English": "Aholo GS: uploading {0:N0}/{1:N0} batches; display starts when fully ready",
+    "Chinese": "Aholo GS：上传 {0:N0}/{1:N0} 批；完整就绪后显示"
+  },
+  {
+    "English": "Aholo GS: projecting and sorting in the background; complete source data retained",
+    "Chinese": "Aholo GS：后台投影与排序中；原始资源完整保留"
+  },
+  {
+    "English": "Rhino could not accept GS normals, UVs or vertex colors.",
+    "Chinese": "Rhino 未能接受 GS 法线、UV 或顶点色。"
+  },
+  {
+    "English": "GS upload failed; bounds are retained: ",
+    "Chinese": "GS 上传失败，保留包围盒："
+  },
+  {
+    "English": "GS scheduling did not finish: ",
+    "Chinese": "GS 调度未完成："
+  },
+  {
+    "English": "GS background preparation failed; bounds are retained: ",
+    "Chinese": "GS 后台准备失败，保留包围盒："
+  },
+  {
+    "English": "Cannot set the Gaussian opacity atlas.",
+    "Chinese": "无法设置 Gaussian opacity atlas。"
+  },
+  {
+    "English": "Cannot read viewport dimensions or camera frustum.",
+    "Chinese": "无法读取视窗尺寸或相机视锥。"
+  },
+  {
+    "English": "Aholo {0}; GS initialization: {1}; automatic attempt {2}/3.\n",
+    "Chinese": "Aholo {0}；GS 初始化：{1}；自动尝试 {2}/3 次。\n"
+  },
+  {
+    "English": "waiting for automatic retry",
+    "Chinese": "等待自动重试"
+  },
+  {
+    "English": "not ready",
+    "Chinese": "尚未就绪"
+  },
+  {
+    "English": "Preparing display mode.",
+    "Chinese": "显示模式准备中。"
+  },
+  {
+    "English": " AholoPanel is available; run AholoGsMode to retry.\nLog: ",
+    "Chinese": " AholoPanel 可用；输入 AholoGsMode 重试。\n日志："
+  },
+  {
+    "English": "View changed; waiting for stability before preparation",
+    "Chinese": "视角变化，等待稳定后准备"
+  },
+  {
+    "English": "Waiting for a native model viewport",
+    "Chinese": "等待原生模型视窗"
+  },
+  {
+    "English": "Preparation failed; bounds retained",
+    "Chinese": "准备失败，包围盒保留"
+  },
+  {
+    "English": "All visible GS is ready",
+    "Chinese": "全量可见 GS 已就绪"
+  },
+  {
+    "English": "Uploading {0:N0}/{1:N0} batches",
+    "Chinese": "上传 {0:N0}/{1:N0} 批"
+  },
+  {
+    "English": "Background projection/sorting",
+    "Chinese": "后台投影/排序中"
+  },
+  {
+    "English": "Aholo GS batch experiment; ",
+    "Chinese": "Aholo GS 批量实验版；"
+  },
+  {
+    "English": "Not initialized",
+    "Chinese": "未初始化"
+  },
+  {
+    "English": "Status: {0}; input: {1:N0}; projected visible: {2:N0}; batches this frame: {3:N0}; up to {4} GS per batch (no total-count cap).\n",
+    "Chinese": "状态：{0}；输入：{1:N0}；投影可见：{2:N0}；本帧批数：{3:N0}；每批最多 {4} 个 GS（无总数上限）。\n"
+  },
+  {
+    "English": "Background preparation {0:F1} ms; longest batch upload {1:F1} ms; latest draw {2:F1} ms; skipped thumbnail/non-native-size draws {3:N0}.\n",
+    "Chinese": "后台准备 {0:F1} ms；最长单批上传 {1:F1} ms；最近绘制 {2:F1} ms；已跳过缩略图/非原生尺寸绘制 {3:N0} 次。\n"
+  },
+  {
+    "English": "Preparation restarts {0:N0}; latest reason: {1}; deferred draws {2:N0}, latest reason: {3}.\n",
+    "Chinese": "重启准备 {0:N0} 次；最近原因：{1}；绘制暂缓 {2:N0} 次，最近原因：{3}。\n"
+  },
+  {
+    "English": "Original Gaussians are fully preserved; 8-bit RGB/HDR clipping and the 256-level opacity atlas limit display precision. Transparency interleaving, Raytraced, layout/print/capture/thumbnail support and large-scene real-time speed remain pending. Vertex RGB, atlas alpha and native occlusion require manual host validation.\n",
+    "Chinese": "原始高斯完整保留；8 位 RGB/HDR 截断与 256 级 opacity atlas 为显示精度限制。透明体交错、Raytraced、布局/打印/捕获/缩略图和大场景实时速度仍待后续支持或验收。顶点 RGB+atlas alpha 及原生遮挡需手动宿主验证。\n"
+  },
+  {
+    "English": "Visual acceptance is not determined automatically.",
+    "Chinese": "未自动判定视觉通过。"
+  },
+  {
+    "English": "\nLog: ",
+    "Chinese": "\n日志："
+  },
+  {
+    "English": "Save in secure local storage",
+    "Chinese": "保存到本机安全存储"
+  },
+  {
+    "English": "Not connected · International API Key",
+    "Chinese": "尚未连接 · 国际区 API Key"
+  },
+  {
+    "English": "Task name (optional)",
+    "Chinese": "任务名称（可选）"
+  },
+  {
+    "English": "Optional: PNG / JPEG / WebP image",
+    "Chinese": "可选：PNG / JPEG / WebP 图片"
+  },
+  {
+    "English": "Existing Aholo World ID",
+    "Chinese": "已有的 Aholo World ID"
+  },
+  {
+    "English": "Use world metadata (Z-up if unavailable)",
+    "Chinese": "使用世界元数据（缺失时 Z 向上）"
+  },
+  {
+    "English": "Z-up",
+    "Chinese": "Z 向上"
+  },
+  {
+    "English": "Y-up",
+    "Chinese": "Y 向上"
+  },
+  {
+    "English": "Selected top-level GS",
+    "Chinese": "选中的顶层 GS"
+  },
+  {
+    "English": "All top-level GS (including hidden and locked)",
+    "Chinese": "全部顶层 GS（含隐藏和锁定）"
+  },
+  {
+    "English": "Cancel local GS operation",
+    "Chinese": "取消本地 GS 操作"
+  },
+  {
+    "English": "Auto-refresh active tasks (every 8 seconds)",
+    "Chinese": "自动查询进行中的任务（每 8 秒）"
+  },
+  {
+    "English": "Ready",
+    "Chinese": "就绪"
+  },
+  {
+    "English": "World generates worlds; RenderCloud renders the Rhino selection. Results and tasks are stored locally.",
+    "Chinese": "World 生成世界，RenderCloud 渲染 Rhino 选区。结果和任务保存在本机。"
+  },
+  {
+    "English": "Generate world · Uses service credits",
+    "Chinese": "生成世界 · 消耗服务额度"
+  },
+  {
+    "English": "Upload selection and render · Uses service credits",
+    "Chinese": "上传选区并渲染 · 消耗服务额度"
+  },
+  {
+    "English": " s",
+    "Chinese": " 秒"
+  },
+  {
+    "English": "Generate a 3D Gaussian Splatting world from text or one image. The current API works best for indoor scenes.",
+    "Chinese": "从文字或一张图片生成 3D Gaussian Splatting 世界。当前接口更适合室内场景。"
+  },
+  {
+    "English": "Choose image",
+    "Chinese": "选择图片"
+  },
+  {
+    "English": "Clear",
+    "Chinese": "清除"
+  },
+  {
+    "English": "World history (World entries among the latest 100 local tasks)",
+    "Chinese": "世界历史（本地最近 100 条任务中的 World 项）"
+  },
+  {
+    "English": "Load history",
+    "Chinese": "读取历史"
+  },
+  {
+    "English": "Refresh selected task",
+    "Chinese": "查询选中任务"
+  },
+  {
+    "English": "Download PLY",
+    "Chinese": "下载 PLY"
+  },
+  {
+    "English": "Download SPZ",
+    "Chinese": "下载 SPZ"
+  },
+  {
+    "English": "Download panorama",
+    "Chinese": "下载全景图"
+  },
+  {
+    "English": "Open panorama",
+    "Chinese": "打开全景图"
+  },
+  {
+    "English": "GS import scale: 1 world unit equals these document units (",
+    "Chinese": "GS 导入比例：1 个世界单位对应以下文档单位（"
+  },
+  {
+    "English": "Current document",
+    "Chinese": "当前文档"
+  },
+  {
+    "English": "Place in current document · Experimental GS viewport",
+    "Chinese": "放入当前文档 · GS 实验视口"
+  },
+  {
+    "English": "Complete Gaussians and original PLY / SPZ are retained. Bounds appear during background preparation; GS returns after view motion stops. Experimental color, occlusion and navigation performance require native acceptance.",
+    "Chinese": "保留完整高斯与原始 PLY / SPZ。后台准备期间显示包围盒；视图停止移动后恢复 GS。实验模式的颜色、遮挡和导航性能需实机验收。"
+  },
+  {
+    "English": "Import local GS · PLY / USD / USDZ",
+    "Chinese": "导入本地 GS · PLY / USD / USDZ"
+  },
+  {
+    "English": "Switch to Aholo GS",
+    "Chinese": "切换到 Aholo GS"
+  },
+  {
+    "English": "Local USD uses file units multiplied by the scale above. The up-axis selection applies; Auto reads the file. Ordinary mesh USD is not GS.",
+    "Chinese": "本地 USD 采用文件单位并乘以上方比例；轴向遵循上方选择，自动时读取文件。普通网格 USD 不属于 GS。"
+  },
+  {
+    "English": "Export GS · USD / USDZ",
+    "Chinese": "导出 GS · USD / USDZ"
+  },
+  {
+    "English": "Export uses GS, placements and document units at the time of the click. Only top-level GS is supported; ordinary geometry, nested blocks and hidden state are not exported. Complete SH is retained; official USD Gaussian fields use float32.",
+    "Chinese": "导出使用点击时的 GS、位置与文档单位。仅支持顶层 GS；不导出普通几何、嵌套块和隐藏状态。保留全量 SH；官方 USD 高斯字段采用 float32。"
+  },
+  {
+    "English": "Offline acceptance scene: AholoGsProbe. Diagnostics: AholoGsDiagnostics. Transparent Rhino material interleaving and nested blocks are unsupported; full clipping-plane behavior still needs acceptance.",
+    "Chinese": "离线验收场景：运行 AholoGsProbe；诊断信息：AholoGsDiagnostics。透明 Rhino 材质交错和嵌套块尚不支持；裁切平面的完整行为仍在验收中。"
+  },
+  {
+    "English": "Diagnostic: import PLY centers",
+    "Chinese": "诊断：导入 PLY 中心点"
+  },
+  {
+    "English": "Restore from an existing World ID",
+    "Chinese": "从已有 World ID 恢复"
+  },
+  {
+    "English": "Select Rhino meshes, surfaces/polysurfaces or extrusions and activate a standard perspective view before rendering.",
+    "Chinese": "选中 Rhino 网格、曲面/多重曲面或挤出，激活标准透视视图，再提交渲染。"
+  },
+  {
+    "English": "Selected geometry and base colors will be uploaded with the current camera. Textures, lights, procedural materials and block instances are not converted in this version.",
+    "Chinese": "将上传所选几何和基础颜色，并提交当前相机。当前版不转换纹理、灯光、程序材质或块实例。"
+  },
+  {
+    "English": "Output preserves the camera's horizontal field of view; vertical framing follows the output aspect ratio.",
+    "Chinese": "输出保留当前相机的水平视角；上下范围按输出画幅调整。"
+  },
+  {
+    "English": "Render history (RenderCloud entries among the latest 100 local tasks)",
+    "Chinese": "渲染历史（本地最近 100 条任务中的 RenderCloud 项）"
+  },
+  {
+    "English": "Download render",
+    "Chinese": "下载渲染图"
+  },
+  {
+    "English": "Open local render",
+    "Chinese": "打开本地渲染图"
+  },
+  {
+    "English": "This page uses offline rendering. Realtime protocol groundwork is experimental; cloud viewports and World GS ingestion are not exposed yet. Failed or unconfirmed submissions never automatically create another paid task.",
+    "Chinese": "此页使用离线渲染接口。实时协议已有实验基础，但云视口与 World GS 入库桥接尚未开放。失败或结果未知时，不会自动重复创建付费任务。"
+  },
+  {
+    "English": "Connection",
+    "Chinese": "连接"
+  },
+  {
+    "English": "This version connects to Aholo international. Generation and rendering require a regional API Key; OAuth is not integrated.",
+    "Chinese": "当前版本连接 Aholo 国际区。生成与渲染使用区域 API Key；此插件未接入 OAuth。"
+  },
+  {
+    "English": "International API Key",
+    "Chinese": "国际区 API Key"
+  },
+  {
+    "English": "Validate and connect",
+    "Chinese": "验证并连接"
+  },
+  {
+    "English": "Read connection status",
+    "Chinese": "读取连接状态"
+  },
+  {
+    "English": "Disconnect and clear credentials",
+    "Chinese": "断开并清除凭证"
+  },
+  {
+    "English": "Validation only queries existing tasks; it does not generate, render or guarantee available credits. The key is never stored in Rhino documents or task history.",
+    "Chinese": "验证只查询已有任务，不生成世界、不渲染，也不保证剩余额度。Key 不会写入 Rhino 文档或任务历史。"
+  },
+  {
+    "English": "Open local asset folder",
+    "Chinese": "打开本地资产目录"
+  },
+  {
+    "English": "Closing the panel stops local waiting, not remote tasks. Reopen it to query history; verify server records before retrying an unconfirmed submission.",
+    "Chinese": "关闭面板会停止本地等待，不代表远程任务取消。重新打开后可查询历史；创建结果未知时先核对服务端记录。"
+  },
+  {
+    "English": "\nCuriousArc · qrost\nIndependent Aholo integration plugin.",
+    "Chinese": "\nCuriousArc · qrost\n独立开发的 Aholo 集成插件。"
+  },
+  {
+    "English": "Worlds and rendering · ",
+    "Chinese": "世界与渲染 · "
+  },
+  {
+    "English": "The target document has closed. Reopen the panel in the target document.",
+    "Chinese": "目标文档已关闭，请在目标文档重新打开面板。"
+  },
+  {
+    "English": "Operation completed.",
+    "Chinese": "操作已完成。"
+  },
+  {
+    "English": "Operation did not finish",
+    "Chinese": "操作未完成"
+  },
+  {
+    "English": "Action required: ",
+    "Chinese": "需要处理："
+  },
+  {
+    "English": "International · Connected",
+    "Chinese": "国际区 · 已连接"
+  },
+  {
+    "English": " · Credentials saved securely",
+    "Chinese": " · 凭证已安全保存"
+  },
+  {
+    "English": " · This session only",
+    "Chinese": " · 仅本次会话"
+  },
+  {
+    "English": "International · Not connected",
+    "Chinese": "国际区 · 尚未连接"
+  },
+  {
+    "English": "Connected. Submit tasks from World or RenderCloud. Service credits are determined by your Aholo account.",
+    "Chinese": "已连接。可在 World 或 RenderCloud 页提交任务。服务额度仍由 Aholo 账户决定。"
+  },
+  {
+    "English": "Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.",
+    "Chinese": "已断开并清除本机保存的凭证。远程任务不会因此取消。"
+  },
+  {
+    "English": "Choose a world-generation reference image",
+    "Chinese": "选择世界生成参考图"
+  },
+  {
+    "English": "Images",
+    "Chinese": "图片"
+  },
+  {
+    "English": "Enter a scene description or choose a reference image.",
+    "Chinese": "请填写场景描述或选择一张参考图。"
+  },
+  {
+    "English": "World from image",
+    "Chinese": "图片生成世界"
+  },
+  {
+    "English": "World task recorded. When generation finishes, download PLY and click Place in current document.",
+    "Chinese": "世界任务已记录。生成完成后下载 PLY，再点击“放入当前文档”。"
+  },
+  {
+    "English": "Enter an existing World ID.",
+    "Chinese": "请输入已有的 World ID。"
+  },
+  {
+    "English": "Loaded the original world task; no new generation was submitted.",
+    "Chinese": "已读取原世界任务；没有重新生成。"
+  },
+  {
+    "English": "Preparing selection geometry",
+    "Chinese": "准备选区几何"
+  },
+  {
+    "English": "Uploading selection and submitting render",
+    "Chinese": "上传选区并提交渲染"
+  },
+  {
+    "English": "Selection render task recorded. Query the original task for mesh processing and rendering; download the render when finished.",
+    "Chinese": "选区渲染任务已记录。网格处理与渲染可继续从原任务查询；完成后下载渲染图。"
+  },
+  {
+    "English": "Select a task first.",
+    "Chinese": "请先选择一条任务。"
+  },
+  {
+    "English": "No task selected.",
+    "Chinese": "尚无选中任务。"
+  },
+  {
+    "English": " · Progress ",
+    "Chinese": " · 进度 "
+  },
+  {
+    "English": "\nMesh processing ID: ",
+    "Chinese": "\n网格处理 ID："
+  },
+  {
+    "English": "\nRender operation ID: ",
+    "Chinese": "\n渲染操作 ID："
+  },
+  {
+    "English": "\nLocal assets: ",
+    "Chinese": "\n本地资产："
+  },
+  {
+    "English": "PLY not downloaded",
+    "Chinese": "PLY 未下载"
+  },
+  {
+    "English": "PLY downloaded",
+    "Chinese": "PLY 已下载"
+  },
+  {
+    "English": "SPZ not downloaded",
+    "Chinese": "SPZ 未下载"
+  },
+  {
+    "English": "SPZ downloaded",
+    "Chinese": "SPZ 已下载"
+  },
+  {
+    "English": "\nRender image: ",
+    "Chinese": "\n渲染图："
+  },
+  {
+    "English": "Not downloaded",
+    "Chinese": "未下载"
+  },
+  {
+    "English": "Downloaded",
+    "Chinese": "已下载"
+  },
+  {
+    "English": "Original task status: ",
+    "Chinese": "原任务当前状态："
+  },
+  {
+    "English": " saved to the local task asset folder.",
+    "Chinese": " 已保存到本机任务资产目录。"
+  },
+  {
+    "English": "Enter an import scale greater than zero, such as 1 or 1000.",
+    "Chinese": "请填写大于零的导入比例，例如 1 或 1000。"
+  },
+  {
+    "English": "The original task has no PLY yet. Refresh generation status first.",
+    "Chinese": "原任务尚未提供 PLY，请先查询生成状态。"
+  },
+  {
+    "English": "Reading complete GS and preparing native viewport",
+    "Chinese": "读取完整 GS 并准备原生视口"
+  },
+  {
+    "English": "Choose complete 3DGS PLY / USD / USDZ",
+    "Chinese": "选择完整 3DGS PLY / USD / USDZ"
+  },
+  {
+    "English": "Local GS import cancelled; the source file is retained.",
+    "Chinese": "本地 GS 导入已取消；源文件保留。"
+  },
+  {
+    "English": "Preparing to export {0:N0} GS instances using captured placements and units. The existing destination is retained until completion.",
+    "Chinese": "准备导出 {0:N0} 个 GS 实例；使用点击时的位置与单位。完成前保留原目标文件。"
+  },
+  {
+    "English": "Local GS export cancelled; the existing destination is retained.",
+    "Chinese": "本地 GS 导出已取消；原目标文件保留。"
+  },
+  {
+    "English": "Diagnostic: import only PLY centers and base colors",
+    "Chinese": "诊断：仅导入 PLY 中心点和基础颜色"
+  },
+  {
+    "English": "Download this task's result image first.",
+    "Chinese": "请先下载该任务的结果图片。"
+  },
+  {
+    "English": "The render image is outside the plugin asset directory.",
+    "Chinese": "渲染图不在插件资产目录中。"
+  },
+  {
+    "English": "The asset directory does not exist yet. Load history or download a result first.",
+    "Chinese": "资产目录尚未创建，请先读取历史或下载结果。"
+  },
+  {
+    "English": "Querying original task",
+    "Chinese": "查询原任务"
+  },
+  {
+    "English": "Reading connection and history",
+    "Chinese": "读取连接与历史"
+  },
+  {
+    "English": "Not enough memory to finish the preview. The original PLY and remote task are retained. Free memory and retry.",
+    "Chinese": "内存不足，未完成预览。原始 PLY 和远程任务仍保留，可释放内存后重试。"
+  },
+  {
+    "English": "Local waiting stopped; the remote task may still be running. Query history instead of submitting again.",
+    "Chinese": "本地等待已停止；远程任务可能仍在运行，可从历史查询，勿重复提交。"
+  },
+  {
+    "English": "Start this operation from the Rhino interface.",
+    "Chinese": "请从 Rhino 界面发起此操作。"
+  },
+  {
+    "English": "Activate the document associated with this panel first.",
+    "Chinese": "请先激活面板对应的文档。"
+  },
+  {
+    "English": "The target document is not writable.",
+    "Chinese": "目标文档当前不可写。"
+  },
+  {
+    "English": "Switch to a model view or activate a model detail viewport in the layout.",
+    "Chinese": "请切换到模型视图，或激活布局中的模型细节视口。"
+  },
+  {
+    "English": "Import scale must be finite and greater than zero.",
+    "Chinese": "导入比例必须是大于零的有限数字。"
+  },
+  {
+    "English": "Choose Y-up or Z-up.",
+    "Chinese": "请选择 Y 或 Z 向上。"
+  },
+  {
+    "English": "Scaled PLY coordinates are invalid. Check the scale.",
+    "Chinese": "缩放后的 PLY 坐标无效，请检查比例。"
+  },
+  {
+    "English": "The PLY contains no importable points.",
+    "Chinese": "PLY 中没有可导入的点。"
+  },
+  {
+    "English": "The original target document has closed. Restart import in the intended document.",
+    "Chinese": "原目标文档已关闭。请在需要的文档重新发起导入。"
+  },
+  {
+    "English": "Document units changed while reading. Confirm the scale and import again.",
+    "Chinese": "文档单位在读取期间改变，请确认比例后重新导入。"
+  },
+  {
+    "English": "Finish the current Rhino command before retrying import.",
+    "Chinese": "请先结束当前 Rhino 命令，再重试导入。"
+  },
+  {
+    "English": "This task is already in the document; the view is focused on its point cloud. Use Rhino Scale to change its scale.",
+    "Chinese": "此任务已在文档中，已定位现有点云。若需改变比例，可使用 Rhino 的缩放命令。"
+  },
+  {
+    "English": "Rhino cannot accept this point cloud. The document has not been modified.",
+    "Chinese": "Rhino 无法接受此点云；文档尚未修改。"
+  },
+  {
+    "English": "Point-cloud bounds are invalid. The document has not been modified.",
+    "Chinese": "点云包围盒无效；文档尚未修改。"
+  },
+  {
+    "English": "Import Aholo point-cloud preview",
+    "Chinese": "导入 Aholo 点云预览"
+  },
+  {
+    "English": "Cannot create an Undo record; nothing was imported.",
+    "Chinese": "无法创建撤销记录，尚未导入。"
+  },
+  {
+    "English": "Rhino could not add the point cloud.",
+    "Chinese": "Rhino 未能添加点云。"
+  },
+  {
+    "English": "Placed {0:N0} colored centers and focused the view. One Undo reverses the import. The original PLY is retained; this preview has no Gaussian opacity, scale or view-dependent effects.",
+    "Chinese": "已放入 {0:N0} 个彩色中心点并定位视图。可用一次 Undo 撤销。原始 PLY 保留；此预览不包含高斯透明度、尺寸和视角相关效果。"
+  },
+  {
+    "English": "Cannot create a visible preview layer.",
+    "Chinese": "无法创建可见的预览图层。"
+  },
+  {
+    "English": "Activate a perspective view first.",
+    "Chinese": "请先激活一个透视视图。"
+  },
+  {
+    "English": "RenderCloud requires a perspective view in this version. Switch to Perspective and retry.",
+    "Chinese": "当前版本 RenderCloud 需要透视视图，请切换到 Perspective 后重试。"
+  },
+  {
+    "English": "Cannot read the current view camera.",
+    "Chinese": "无法读取当前视图的相机。"
+  },
+  {
+    "English": "The camera uses an offset frustum. Switch to a standard perspective view; lens shift is not exported in this version.",
+    "Chinese": "当前相机使用偏移视锥。请切换到标准透视视图；本版暂不导出镜头偏移。"
+  },
+  {
+    "English": "Set explicit length units for the Rhino document first.",
+    "Chinese": "请先为 Rhino 文档设置明确的长度单位。"
+  },
+  {
+    "English": "Cannot convert document units.",
+    "Chinese": "无法换算文档单位。"
+  },
+  {
+    "English": "Select the meshes, surfaces or solids to render in Rhino first.",
+    "Chinese": "请先在 Rhino 中选中要渲染的网格、曲面或实体。"
+  },
+  {
+    "English": "The selection contains unsupported objects. This version supports meshes, surfaces/polysurfaces and extrusions. Deselect other objects; use Explode on blocks first if needed.",
+    "Chinese": "选区包含暂不支持的对象。本版支持网格、曲面/多重曲面和挤出；请先取消其他对象的选择，块可先 Explode。"
+  },
+  {
+    "English": "A selected object cannot be converted to a mesh. Nothing has been uploaded.",
+    "Chinese": "选中的对象无法转换为网格，尚未上传。"
+  },
+  {
+    "English": "The selection contains empty or invalid meshes. Repair them in Rhino first.",
+    "Chinese": "选区包含空网格或无效网格，请先在 Rhino 中修复。"
+  },
+  {
+    "English": "Invalid camera direction.",
+    "Chinese": "相机方向无效。"
+  },
+  {
+    "English": "Invalid camera focal length.",
+    "Chinese": "相机焦距无效。"
+  },
+  {
+    "English": "Rhino selection render",
+    "Chinese": "Rhino 选区渲染"
+  },
+  {
+    "English": " · Selection render",
+    "Chinese": " · 选区渲染"
+  },
+  {
+    "English": "Selection coordinates exceed the GLB numeric range. Check model units or coordinates first.",
+    "Chinese": "选区坐标超出 GLB 可表示范围，请先检查模型单位或坐标。"
+  },
+  {
+    "English": "The service returned an unsafe download address.",
+    "Chinese": "服务返回了不安全的下载地址。"
+  },
+  {
+    "English": "Invalid download type.",
+    "Chinese": "下载类型无效。"
+  },
+  {
+    "English": "Asset download failed (HTTP {0}); refresh the task and retry the download.",
+    "Chinese": "资产下载失败 (HTTP {0})；可刷新任务后再次下载。"
+  },
+  {
+    "English": "Asset download is incomplete.",
+    "Chinese": "资产下载不完整。"
+  },
+  {
+    "English": "The asset file is empty.",
+    "Chinese": "资产文件为空。"
+  },
+  {
+    "English": "The returned asset is not a PLY file.",
+    "Chinese": "返回的资产不是 PLY 文件。"
+  },
+  {
+    "English": "The render result is not a supported image format.",
+    "Chinese": "渲染结果不是支持的图片格式。"
+  },
+  {
+    "English": "Asset download connection failed. The original task is retained; retry the download later.",
+    "Chinese": "资产下载连接失败；原任务保留，可稍后重试下载。"
+  },
+  {
+    "English": "Enter a world description or choose a reference image.",
+    "Chinese": "请输入世界描述或选择一张参考图片。"
+  },
+  {
+    "English": "Cloud model processing failed. The original task is retained.",
+    "Chinese": "云端模型解析失败。原任务已保留。"
+  },
+  {
+    "English": "Cloud model processing finished without returning an asset identifier.",
+    "Chinese": "云端模型解析完成但未返回资产标识。"
+  },
+  {
+    "English": "The render camera record is missing. Submission stopped.",
+    "Chinese": "渲染相机记录缺失，已停止提交。"
+  },
+  {
+    "English": "This download type is not supported.",
+    "Chinese": "不支持该下载类型。"
+  },
+  {
+    "English": "The task has not succeeded yet; no result is available to download.",
+    "Chinese": "任务尚未成功，暂时没有可下载的结果。"
+  },
+  {
+    "English": "The service has not provided this result format yet. Refresh the task later.",
+    "Chinese": "服务尚未提供该格式的结果；请稍后刷新任务。"
+  },
+  {
+    "English": "World generation did not succeed. Check the Aholo console for details; generation will not restart automatically.",
+    "Chinese": "世界生成未成功。可在 Aholo 控制台查看详情；不会自动重新生成。"
+  },
+  {
+    "English": "Rendering finished without returning an image.",
+    "Chinese": "渲染完成但未返回图片。"
+  },
+  {
+    "English": "The request was sent but its result is unknown. Check Aholo history; automatic resubmission is prohibited.",
+    "Chinese": "请求已发出但结果未知。请核对 Aholo 历史；禁止自动重复提交。"
+  },
+  {
+    "English": "Preparation or network operation failed. The original task is retained.",
+    "Chinese": "准备或网络操作失败。原任务已保留。"
+  },
+  {
+    "English": "This task belongs to another API Key. Connect the original key before refreshing or downloading.",
+    "Chinese": "此任务属于另一把 API Key。请连接原 Key 后再刷新或下载。"
+  },
+  {
+    "English": "Invalid request.",
+    "Chinese": "无效请求。"
+  },
+  {
+    "English": "Background protocol version mismatch.",
+    "Chinese": "后台协议版本不匹配。"
+  },
+  {
+    "English": "Invalid connection request.",
+    "Chinese": "无效连接请求。"
+  },
+  {
+    "English": "Unknown background operation.",
+    "Chinese": "未知后台操作。"
+  },
+  {
+    "English": "Invalid input. Check the file, parameters or API Key.",
+    "Chinese": "输入无效，请检查文件、参数或 API Key。"
+  },
+  {
+    "English": "Operation timed out. Task history is retained; do not resubmit tasks with unknown results.",
+    "Chinese": "操作等待超时。任务历史已保留；请勿重复提交结果未知的任务。"
+  },
+  {
+    "English": "File or background operation failed. Check local disk space, permissions or activity in other Aholo panels.",
+    "Chinese": "文件或后台操作失败。请检查本地空间、文件权限，或其他 Aholo 面板是否正在操作。"
+  },
+  {
+    "English": "Background operation failed. Task history is retained; reopen the panel and retry the query.",
+    "Chinese": "后台操作失败。任务历史已保留；可重新打开面板重试查询。"
+  },
+  {
+    "English": "The request is missing parameters.",
+    "Chinese": "请求缺少参数。"
+  },
+  {
+    "English": "Connect an international API Key first.",
+    "Chinese": "请先连接国际站 API Key。"
+  },
+  {
+    "English": "The task record is corrupt.",
+    "Chinese": "任务记录损坏。"
+  },
+  {
+    "English": "The task record identity does not match.",
+    "Chinese": "任务记录标识不匹配。"
+  },
+  {
+    "English": "Unreadable task record",
+    "Chinese": "无法读取的任务记录"
+  },
+  {
+    "English": "The local record cannot be read; the file is retained. Check cloud history to avoid duplicate submissions.",
+    "Chinese": "本地记录无法读取，文件已保留。请核对云端历史，避免重复提交。"
+  },
+  {
+    "English": "Submission was interrupted and the result is unknown. Check Aholo history; no automatic resubmission will occur.",
+    "Chinese": "提交期间中断，结果未知。请核对 Aholo 历史；不会自动重复提交。"
+  },
+  {
+    "English": "Input preparation was interrupted. No generation or rendering was submitted.",
+    "Chinese": "输入准备中断，尚未提交生成或渲染。"
+  },
+  {
+    "English": "Unsupported input file format.",
+    "Chinese": "输入文件格式不支持。"
+  },
+  {
+    "English": "The input file is empty.",
+    "Chinese": "输入文件为空。"
+  },
+  {
+    "English": "File contents do not match the extension.",
+    "Chinese": "文件内容与扩展名不匹配。"
+  },
+  {
+    "English": "The request is too long.",
+    "Chinese": "请求过长。"
+  },
+  {
+    "English": "The Aholo background process stopped. Recover the task from history; do not resubmit generations with unknown results.",
+    "Chinese": "Aholo 后台进程已停止。任务可从历史恢复，请勿重复提交未知结果的生成。"
+  },
+  {
+    "English": "Invalid background response.",
+    "Chinese": "无效后台响应。"
+  },
+  {
+    "English": "Background protocol mismatch.",
+    "Chinese": "后台协议不匹配。"
+  },
+  {
+    "English": "The background response is empty.",
+    "Chinese": "后台响应为空。"
+  },
+  {
+    "English": "Aholo background files are missing. Reinstall the complete plugin package.",
+    "Chinese": "Aholo 后台文件缺失，请重新安装完整插件包。"
+  },
+  {
+    "English": "Cannot start the Aholo background process.",
+    "Chinese": "无法启动 Aholo 后台进程。"
+  },
+  {
+    "English": "Cannot start the Aholo background process. Check file permissions and install the matching .NET 8 Runtime.",
+    "Chinese": "无法启动 Aholo 后台进程。请检查安装文件权限及适用于本机的 .NET 8 Runtime。"
+  },
+  {
+    "English": "This GS has no local PLY reference. Restore its cache or re-import the original file with AholoPanel. Bounds are retained.",
+    "Chinese": "找不到此 GS 的本地 PLY 引用；请恢复原缓存，或用 AholoPanel 重新导入原始文件。包围盒仍保留。"
+  },
+  {
+    "English": "The GS reference PLY cache is missing. Restore the cache or re-import with AholoPanel. Bounds are retained.",
+    "Chinese": "GS 引用的 PLY 缓存不存在；请恢复原缓存，或用 AholoPanel 重新导入。包围盒仍保留。"
+  },
+  {
+    "English": "The local GS cache hash does not match the document record. Original assets are unchanged.",
+    "Chinese": "GS 本地缓存与文档记录的哈希不一致；原始资产未修改。"
+  },
+  {
+    "English": "The GS asset hash does not match the document record. Bounds are retained; restore the cache or re-import.",
+    "Chinese": "GS 资源内容与文档记录的哈希不一致；保留包围盒，请恢复原缓存或重新导入。"
+  },
+  {
+    "English": "The referenced PLY has no complete Gaussian data.",
+    "Chinese": "GS 引用的 PLY 没有完整高斯数据。"
+  },
+  {
+    "English": "The Aholo plugin supports Rhino 8 on macOS and Windows.",
+    "Chinese": "Aholo 插件支持 macOS 和 Windows 上的 Rhino 8。"
+  },
+  {
+    "English": "No usable .NET 8 Runtime was found. Install the runtime for this architecture or set DOTNET_ROOT, then restart Rhino.",
+    "Chinese": "未找到可用的 .NET 8 Runtime。请安装本机架构的 .NET 8 Runtime，或设置 DOTNET_ROOT 后重新启动 Rhino。"
+  },
+  {
+    "English": "Preparing",
+    "Chinese": "准备中"
+  },
+  {
+    "English": "Uploading",
+    "Chinese": "上传中"
+  },
+  {
+    "English": "Submitting",
+    "Chinese": "提交中"
+  },
+  {
+    "English": "Submitting mesh",
+    "Chinese": "提交网格中"
+  },
+  {
+    "English": "Submitting render",
+    "Chinese": "提交渲染中"
+  },
+  {
+    "English": "Processing mesh",
+    "Chinese": "处理网格中"
+  },
+  {
+    "English": "Running",
+    "Chinese": "进行中"
+  },
+  {
+    "English": "Pending",
+    "Chinese": "等待中"
+  },
+  {
+    "English": "Preprocessing",
+    "Chinese": "预处理中"
+  },
+  {
+    "English": "Succeeded",
+    "Chinese": "已成功"
+  },
+  {
+    "English": "Failed",
+    "Chinese": "已失败"
+  },
+  {
+    "English": "Cancelled",
+    "Chinese": "已取消"
+  },
+  {
+    "English": "Timed out",
+    "Chinese": "已超时"
+  },
+  {
+    "English": "Rejected",
+    "Chinese": "已拒绝"
+  },
+  {
+    "English": "Record error",
+    "Chinese": "记录错误"
+  },
+  {
+    "English": "Submission unconfirmed",
+    "Chinese": "提交结果待确认"
+  },
+  {
+    "English": "Interrupted",
+    "Chinese": "已中断"
+  }
+]

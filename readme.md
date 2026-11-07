@@ -6,6 +6,12 @@ World generation and RenderCloud rendering inside Rhino 8, by **CuriousArc · qr
 
 **0.1.1-beta.1 — local preview adding GS USD/USDZ interchange.** The preceding 0.1.0 generation/display workflow was user-tested on Apple Silicon Mac; this new import/export UI still needs native acceptance. This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
 
+## Interface language
+
+English is the default and fallback. At plugin startup, a valid Rhino interface language takes precedence over the system UI language. Chinese Rhino variants (including Simplified and Traditional Chinese locales) use Simplified Chinese; other Rhino languages use English. The system UI language is used only when Rhino cannot provide a valid language. Restart Rhino after changing its language.
+
+Panels, command messages, GS diagnostics and known task errors follow this selection. User prompts, names, paths, task IDs and stored status codes remain unchanged. Unknown external or technical errors are preserved rather than guessed at. Language selection and embedded resources are covered by automated tests; native layout in both languages still needs manual Rhino acceptance.
+
 ## What works in this version
 
 - Generate a world from text, one reference image, or both using Aholo's World API.

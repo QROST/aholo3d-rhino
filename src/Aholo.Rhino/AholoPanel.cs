@@ -22,25 +22,25 @@ public sealed class AholoPanel : Panel, IPanel
     private readonly Stopwatch _clock = new();
     private readonly TabControl _tabs = new();
     private readonly PasswordBox _key = new();
-    private readonly CheckBox _remember = new() { Text = "保存到本机安全存储", Checked = false };
-    private readonly Label _connection = Info("尚未连接 · 国际区 API Key");
+    private readonly CheckBox _remember = new() { Text = global::Aholo.Core.UiText.Get("Save in secure local storage"), Checked = false };
+    private readonly Label _connection = Info(global::Aholo.Core.UiText.Get("Not connected · International API Key"));
     private readonly TextArea _prompt = new() { Height = 100, Wrap = true };
-    private readonly TextBox _worldName = new() { PlaceholderText = "任务名称（可选）" };
-    private readonly TextBox _image = new() { ReadOnly = true, PlaceholderText = "可选：PNG / JPEG / WebP 图片" };
-    private readonly TextBox _worldId = new() { PlaceholderText = "已有的 Aholo World ID" };
+    private readonly TextBox _worldName = new() { PlaceholderText = global::Aholo.Core.UiText.Get("Task name (optional)") };
+    private readonly TextBox _image = new() { ReadOnly = true, PlaceholderText = global::Aholo.Core.UiText.Get("Optional: PNG / JPEG / WebP image") };
+    private readonly TextBox _worldId = new() { PlaceholderText = global::Aholo.Core.UiText.Get("Existing Aholo World ID") };
     private readonly TextBox _scale = new() { Text = "1" };
-    private readonly DropDown _axis = new() { DataStore = new[] { "使用世界元数据（缺失时 Z 向上）", "Z 向上", "Y 向上" }, SelectedIndex = 0 };
-    private readonly DropDown _gsExportScope = new() { DataStore = new[] { "选中的顶层 GS", "全部顶层 GS（含隐藏和锁定）" }, SelectedIndex = 0 };
+    private readonly DropDown _axis = new() { DataStore = new[] { global::Aholo.Core.UiText.Get("Use world metadata (Z-up if unavailable)"), global::Aholo.Core.UiText.Get("Z-up"), global::Aholo.Core.UiText.Get("Y-up") }, SelectedIndex = 0 };
+    private readonly DropDown _gsExportScope = new() { DataStore = new[] { global::Aholo.Core.UiText.Get("Selected top-level GS"), global::Aholo.Core.UiText.Get("All top-level GS (including hidden and locked)") }, SelectedIndex = 0 };
     private CancellationTokenSource? _localGsOperation;
-    private readonly Button _cancelGs = new() { Text = "取消本地 GS 操作", Enabled = false };
+    private readonly Button _cancelGs = new() { Text = global::Aholo.Core.UiText.Get("Cancel local GS operation"), Enabled = false };
     private readonly ListBox _worldTasks = new() { Height = 125 };
     private readonly ListBox _renderTasks = new() { Height = 125 };
     private readonly TextArea _worldDetail = new() { ReadOnly = true, Wrap = true, Height = 105 };
     private readonly TextArea _renderDetail = new() { ReadOnly = true, Wrap = true, Height = 105 };
     private readonly DropDown _resolution = new() { DataStore = new[] { "1280 × 720", "1920 × 1080" }, SelectedIndex = 0 };
-    private readonly CheckBox _autoRefresh = new() { Text = "自动查询进行中的任务（每 8 秒）", Checked = true };
-    private readonly Label _operation = Info("就绪");
-    private readonly TextArea _feedback = new() { ReadOnly = true, Height = 80, Wrap = true, Text = "World 生成世界，RenderCloud 渲染 Rhino 选区。结果和任务保存在本机。" };
+    private readonly CheckBox _autoRefresh = new() { Text = global::Aholo.Core.UiText.Get("Auto-refresh active tasks (every 8 seconds)"), Checked = true };
+    private readonly Label _operation = Info(global::Aholo.Core.UiText.Get("Ready"));
+    private readonly TextArea _feedback = new() { ReadOnly = true, Height = 80, Wrap = true, Text = global::Aholo.Core.UiText.Get("World generates worlds; RenderCloud renders the Rhino selection. Results and tasks are stored locally.") };
     private readonly Button _generate;
     private readonly Button _render;
     private bool _busy, _disposed, _shown, _connected, _feedbackError;
@@ -53,60 +53,60 @@ public sealed class AholoPanel : Panel, IPanel
         _serial = documentSerialNumber;
         var doc = RhinoDoc.FromRuntimeSerialNumber(_serial);
         _cancelGs.Click += (_, _) => _localGsOperation?.Cancel();
-        _generate = ActionButton("生成世界 · 消耗服务额度", GenerateAsync);
-        _render = ActionButton("上传选区并渲染 · 消耗服务额度", RenderAsync);
+        _generate = ActionButton(global::Aholo.Core.UiText.Get("Generate world · Uses service credits"), GenerateAsync);
+        _render = ActionButton(global::Aholo.Core.UiText.Get("Upload selection and render · Uses service credits"), RenderAsync);
         _generate.Enabled = _render.Enabled = false;
         _worldTasks.SelectedIndexChanged += (_, _) => DescribeTask("world");
         _renderTasks.SelectedIndexChanged += (_, _) => DescribeTask("render");
         _poll.Elapsed += (_, _) => Poll();
-        _elapsed.Elapsed += (_, _) => { if (!_disposed && _busy) _operation.Text = _operationName + " · " + (int)_clock.Elapsed.TotalSeconds + " 秒"; };
+        _elapsed.Elapsed += (_, _) => { if (!_disposed && _busy) _operation.Text = _operationName + " · " + (int)_clock.Elapsed.TotalSeconds + global::Aholo.Core.UiText.Get(" s"); };
         _tabs.Pages.Add(new TabPage { Text = "World", Content = Column(
-            Info("从文字或一张图片生成 3D Gaussian Splatting 世界。当前接口更适合室内场景。"),
+            Info(global::Aholo.Core.UiText.Get("Generate a 3D Gaussian Splatting world from text or one image. The current API works best for indoor scenes.")),
             _worldName, _prompt, _image,
-            Row(LocalButton("选择图片", ChooseImage), LocalButton("清除", () => _image.Text = "")),
+            Row(LocalButton(global::Aholo.Core.UiText.Get("Choose image"), ChooseImage), LocalButton(global::Aholo.Core.UiText.Get("Clear"), () => _image.Text = "")),
             _generate,
-            Info("世界历史（本地最近 100 条任务中的 World 项）"), _worldTasks,
-            Row(ActionButton("读取历史", () => ReloadAsync()), ActionButton("查询选中任务", () => RefreshSelectedAsync("world"))),
+            Info(global::Aholo.Core.UiText.Get("World history (World entries among the latest 100 local tasks)")), _worldTasks,
+            Row(ActionButton(global::Aholo.Core.UiText.Get("Load history"), () => ReloadAsync()), ActionButton(global::Aholo.Core.UiText.Get("Refresh selected task"), () => RefreshSelectedAsync("world"))),
             _worldDetail,
-            Row(ActionButton("下载 PLY", () => DownloadSelectedAsync("world", "ply")), ActionButton("下载 SPZ", () => DownloadSelectedAsync("world", "spz"))),
-            Row(ActionButton("下载全景图", () => DownloadSelectedAsync("world", "image")), LocalButton("打开全景图", () => OpenSelectedImage("world"))),
-            Info("GS 导入比例：1 个世界单位对应以下文档单位（" + (doc?.ModelUnitSystem.ToString() ?? "当前文档") + "）"),
-            _scale, _axis, ActionButton("放入当前文档 · GS 实验视口", PlaceSelectedAsync),
-            Info("保留完整高斯与原始 PLY / SPZ。后台准备期间显示包围盒；视图停止移动后恢复 GS。实验模式的颜色、遮挡和导航性能需实机验收。"),
-            Row(ActionButton("导入本地 GS · PLY / USD / USDZ", ImportLocalGsAsync), LocalButton("切换到 Aholo GS", () => GaussianViewport.Activate(Document()))),
-            Info("本地 USD 采用文件单位并乘以上方比例；轴向遵循上方选择，自动时读取文件。普通网格 USD 不属于 GS。"),
-            _gsExportScope, ActionButton("导出 GS · USD / USDZ", ExportLocalGsAsync), _cancelGs,
-            Info("导出使用点击时的 GS、位置与文档单位。仅支持顶层 GS；不导出普通几何、嵌套块和隐藏状态。保留全量 SH；官方 USD 高斯字段采用 float32。"),
-            Info("离线验收场景：运行 AholoGsProbe；诊断信息：AholoGsDiagnostics。透明 Rhino 材质交错和嵌套块尚不支持；裁切平面的完整行为仍在验收中。"),
-            ActionButton("诊断：导入 PLY 中心点", ImportLocalPlyAsync),
-            _worldId, ActionButton("从已有 World ID 恢复", ImportExistingWorldAsync)
+            Row(ActionButton(global::Aholo.Core.UiText.Get("Download PLY"), () => DownloadSelectedAsync("world", "ply")), ActionButton(global::Aholo.Core.UiText.Get("Download SPZ"), () => DownloadSelectedAsync("world", "spz"))),
+            Row(ActionButton(global::Aholo.Core.UiText.Get("Download panorama"), () => DownloadSelectedAsync("world", "image")), LocalButton(global::Aholo.Core.UiText.Get("Open panorama"), () => OpenSelectedImage("world"))),
+            Info(global::Aholo.Core.UiText.Get("GS import scale: 1 world unit equals these document units (") + (doc?.ModelUnitSystem.ToString() ?? global::Aholo.Core.UiText.Get("Current document")) + ")"),
+            _scale, _axis, ActionButton(global::Aholo.Core.UiText.Get("Place in current document · Experimental GS viewport"), PlaceSelectedAsync),
+            Info(global::Aholo.Core.UiText.Get("Complete Gaussians and original PLY / SPZ are retained. Bounds appear during background preparation; GS returns after view motion stops. Experimental color, occlusion and navigation performance require native acceptance.")),
+            Row(ActionButton(global::Aholo.Core.UiText.Get("Import local GS · PLY / USD / USDZ"), ImportLocalGsAsync), LocalButton(global::Aholo.Core.UiText.Get("Switch to Aholo GS"), () => GaussianViewport.Activate(Document()))),
+            Info(global::Aholo.Core.UiText.Get("Local USD uses file units multiplied by the scale above. The up-axis selection applies; Auto reads the file. Ordinary mesh USD is not GS.")),
+            _gsExportScope, ActionButton(global::Aholo.Core.UiText.Get("Export GS · USD / USDZ"), ExportLocalGsAsync), _cancelGs,
+            Info(global::Aholo.Core.UiText.Get("Export uses GS, placements and document units at the time of the click. Only top-level GS is supported; ordinary geometry, nested blocks and hidden state are not exported. Complete SH is retained; official USD Gaussian fields use float32.")),
+            Info(global::Aholo.Core.UiText.Get("Offline acceptance scene: AholoGsProbe. Diagnostics: AholoGsDiagnostics. Transparent Rhino material interleaving and nested blocks are unsupported; full clipping-plane behavior still needs acceptance.")),
+            ActionButton(global::Aholo.Core.UiText.Get("Diagnostic: import PLY centers"), ImportLocalPlyAsync),
+            _worldId, ActionButton(global::Aholo.Core.UiText.Get("Restore from an existing World ID"), ImportExistingWorldAsync)
         ) });
         _tabs.Pages.Add(new TabPage { Text = "RenderCloud", Content = Column(
-            Info("选中 Rhino 网格、曲面/多重曲面或挤出，激活标准透视视图，再提交渲染。"),
-            Info("将上传所选几何和基础颜色，并提交当前相机。当前版不转换纹理、灯光、程序材质或块实例。"),
+            Info(global::Aholo.Core.UiText.Get("Select Rhino meshes, surfaces/polysurfaces or extrusions and activate a standard perspective view before rendering.")),
+            Info(global::Aholo.Core.UiText.Get("Selected geometry and base colors will be uploaded with the current camera. Textures, lights, procedural materials and block instances are not converted in this version.")),
             _resolution,
-            Info("输出保留当前相机的水平视角；上下范围按输出画幅调整。"), _render,
-            Info("渲染历史（本地最近 100 条任务中的 RenderCloud 项）"), _renderTasks,
-            Row(ActionButton("读取历史", () => ReloadAsync()), ActionButton("查询选中任务", () => RefreshSelectedAsync("render"))),
+            Info(global::Aholo.Core.UiText.Get("Output preserves the camera's horizontal field of view; vertical framing follows the output aspect ratio.")), _render,
+            Info(global::Aholo.Core.UiText.Get("Render history (RenderCloud entries among the latest 100 local tasks)")), _renderTasks,
+            Row(ActionButton(global::Aholo.Core.UiText.Get("Load history"), () => ReloadAsync()), ActionButton(global::Aholo.Core.UiText.Get("Refresh selected task"), () => RefreshSelectedAsync("render"))),
             _renderDetail,
-            Row(ActionButton("下载渲染图", () => DownloadSelectedAsync("render", "image")), LocalButton("打开本地渲染图", () => OpenSelectedImage("render"))),
-            Info("此页使用离线渲染接口。实时协议已有实验基础，但云视口与 World GS 入库桥接尚未开放。失败或结果未知时，不会自动重复创建付费任务。")
+            Row(ActionButton(global::Aholo.Core.UiText.Get("Download render"), () => DownloadSelectedAsync("render", "image")), LocalButton(global::Aholo.Core.UiText.Get("Open local render"), () => OpenSelectedImage("render"))),
+            Info(global::Aholo.Core.UiText.Get("This page uses offline rendering. Realtime protocol groundwork is experimental; cloud viewports and World GS ingestion are not exposed yet. Failed or unconfirmed submissions never automatically create another paid task."))
         ) });
-        _tabs.Pages.Add(new TabPage { Text = "连接", Content = Column(
-            _connection, Info("当前版本连接 Aholo 国际区。生成与渲染使用区域 API Key；此插件未接入 OAuth。"),
-            new Label { Text = "国际区 API Key" }, _key, _remember,
-            ActionButton("验证并连接", ConnectAsync),
-            Row(ActionButton("读取连接状态", ReadConnectionAsync), ActionButton("断开并清除凭证", DisconnectAsync)),
-            Info("验证只查询已有任务，不生成世界、不渲染，也不保证剩余额度。Key 不会写入 Rhino 文档或任务历史。"),
-            _autoRefresh, LocalButton("打开本地资产目录", OpenAssetFolder),
-            Info("关闭面板会停止本地等待，不代表远程任务取消。重新打开后可查询历史；创建结果未知时先核对服务端记录。"),
-            Info("Aholo for Rhino " + AholoPlugin.DisplayVersion + "\nCuriousArc · qrost\n独立开发的 Aholo 集成插件。")
+        _tabs.Pages.Add(new TabPage { Text = global::Aholo.Core.UiText.Get("Connection"), Content = Column(
+            _connection, Info(global::Aholo.Core.UiText.Get("This version connects to Aholo international. Generation and rendering require a regional API Key; OAuth is not integrated.")),
+            new Label { Text = global::Aholo.Core.UiText.Get("International API Key") }, _key, _remember,
+            ActionButton(global::Aholo.Core.UiText.Get("Validate and connect"), ConnectAsync),
+            Row(ActionButton(global::Aholo.Core.UiText.Get("Read connection status"), ReadConnectionAsync), ActionButton(global::Aholo.Core.UiText.Get("Disconnect and clear credentials"), DisconnectAsync)),
+            Info(global::Aholo.Core.UiText.Get("Validation only queries existing tasks; it does not generate, render or guarantee available credits. The key is never stored in Rhino documents or task history.")),
+            _autoRefresh, LocalButton(global::Aholo.Core.UiText.Get("Open local asset folder"), OpenAssetFolder),
+            Info(global::Aholo.Core.UiText.Get("Closing the panel stops local waiting, not remote tasks. Reopen it to query history; verify server records before retrying an unconfirmed submission.")),
+            Info("Aholo for Rhino " + AholoPlugin.DisplayVersion + global::Aholo.Core.UiText.Get("\nCuriousArc · qrost\nIndependent Aholo integration plugin."))
         ) });
         Content = new StackLayout
         {
             Padding = 10, Spacing = 8, HorizontalContentAlignment = HorizontalAlignment.Stretch,
             Items = { new Label { Text = "Aholo for Rhino", Font = new Font(SystemFont.Bold, 15) },
-                Info("世界与渲染 · " + (doc?.Name ?? "当前文档")), new StackLayoutItem(_tabs, true), _operation, _feedback }
+                Info(global::Aholo.Core.UiText.Get("Worlds and rendering · ") + (doc?.Name ?? global::Aholo.Core.UiText.Get("Current document"))), new StackLayoutItem(_tabs, true), _operation, _feedback }
         };
     }
     private static Label Info(string text) => new() { Text = text, Wrap = WrapMode.Word };
@@ -135,7 +135,7 @@ public sealed class AholoPanel : Panel, IPanel
         _actions.Add(button); return button;
     }
     private CancellationToken Token => _lifetime.Token;
-    private RhinoDoc Document() => RhinoDoc.FromRuntimeSerialNumber(_serial) ?? throw new InvalidOperationException("目标文档已关闭，请在目标文档重新打开面板。");
+    private RhinoDoc Document() => RhinoDoc.FromRuntimeSerialNumber(_serial) ?? throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The target document has closed. Reopen the panel in the target document."));
     private async Task RunAsync(string name, Func<Task> action, bool background = false)
     {
         if (_busy || _disposed || _lifetime.IsCancellationRequested) return;
@@ -146,7 +146,7 @@ public sealed class AholoPanel : Panel, IPanel
         try
         {
             await action();
-            AholoHost.Ui(() => { if (!background && !_disposed && revision == _feedbackRevision) Feedback("操作已完成。"); });
+            AholoHost.Ui(() => { if (!background && !_disposed && revision == _feedbackRevision) Feedback(global::Aholo.Core.UiText.Get("Operation completed.")); });
         }
         catch (Exception ex)
         {
@@ -163,7 +163,7 @@ public sealed class AholoPanel : Panel, IPanel
             {
                 _busy = false; _clock.Stop();
                 if (_disposed) return;
-                _elapsed.Stop(); _operation.Text = (failed ? "操作未完成" : "就绪") + " · " + (int)_clock.Elapsed.TotalSeconds + " 秒";
+                _elapsed.Stop(); _operation.Text = (failed ? global::Aholo.Core.UiText.Get("Operation did not finish") : global::Aholo.Core.UiText.Get("Ready")) + " · " + (int)_clock.Elapsed.TotalSeconds + global::Aholo.Core.UiText.Get(" s");
                 foreach (Button button in _actions) button.Enabled = true;
                 _generate.Enabled = _render.Enabled = _connected;
                 if (_shown && _lifetime.IsCancellationRequested) StartPanelSession();
@@ -173,20 +173,20 @@ public sealed class AholoPanel : Panel, IPanel
     private void Feedback(string text, bool error = false)
     {
         if (_disposed) return;
-        _feedbackRevision++; _feedbackError = error; _feedback.Text = (error ? "需要处理：" : "") + text;
+        _feedbackRevision++; _feedbackError = error; _feedback.Text = (error ? global::Aholo.Core.UiText.Get("Action required: ") : "") + text;
     }
     private void SetConnection(ConnectionState state)
     {
         if (_disposed) return;
         _connected = state.Connected; _connectionId = state.ConnectionId;
-        _connection.Text = state.Connected ? "国际区 · 已连接" + (state.Remembered ? " · 凭证已安全保存" : " · 仅本次会话") : "国际区 · 尚未连接";
+        _connection.Text = state.Connected ? global::Aholo.Core.UiText.Get("International · Connected") + (state.Remembered ? global::Aholo.Core.UiText.Get(" · Credentials saved securely") : global::Aholo.Core.UiText.Get(" · This session only")) : global::Aholo.Core.UiText.Get("International · Not connected");
         _generate.Enabled = _render.Enabled = _connected && !_busy;
     }
     private async Task ConnectAsync()
     {
         string key = _key.Text; bool remember = _remember.Checked == true; _key.Text = "";
         var connection = await _client.ConnectAsync(new ConnectRequest(key, remember), Token);
-        AholoHost.Ui(() => { SetConnection(connection); Feedback("已连接。可在 World 或 RenderCloud 页提交任务。服务额度仍由 Aholo 账户决定。"); });
+        AholoHost.Ui(() => { SetConnection(connection); Feedback(global::Aholo.Core.UiText.Get("Connected. Submit tasks from World or RenderCloud. Service credits are determined by your Aholo account.")); });
         await ReloadAsync();
     }
     private async Task ReadConnectionAsync()
@@ -197,30 +197,30 @@ public sealed class AholoPanel : Panel, IPanel
     private async Task DisconnectAsync()
     {
         var connection = await _client.DisconnectAsync(Token);
-        AholoHost.Ui(() => { SetConnection(connection); _key.Text = ""; Feedback("已断开并清除本机保存的凭证。远程任务不会因此取消。"); });
+        AholoHost.Ui(() => { SetConnection(connection); _key.Text = ""; Feedback(global::Aholo.Core.UiText.Get("Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.")); });
     }
     private void ChooseImage()
     {
-        using var dialog = new OpenFileDialog { Title = "选择世界生成参考图", MultiSelect = false };
-        dialog.Filters.Add(new FileFilter("图片", ".png", ".jpg", ".jpeg", ".webp"));
+        using var dialog = new OpenFileDialog { Title = global::Aholo.Core.UiText.Get("Choose a world-generation reference image"), MultiSelect = false };
+        dialog.Filters.Add(new FileFilter(global::Aholo.Core.UiText.Get("Images"), ".png", ".jpg", ".jpeg", ".webp"));
         if (dialog.ShowDialog(this) == DialogResult.Ok) _image.Text = dialog.FileName;
     }
     private async Task GenerateAsync()
     {
         string prompt = _prompt.Text.Trim(), image = _image.Text.Trim(), name = _worldName.Text.Trim();
-        if (prompt.Length == 0 && image.Length == 0) throw new InvalidOperationException("请填写场景描述或选择一张参考图。");
-        if (name.Length == 0) name = prompt.Length == 0 ? "图片生成世界" : prompt[..Math.Min(prompt.Length, 45)];
+        if (prompt.Length == 0 && image.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Enter a scene description or choose a reference image."));
+        if (name.Length == 0) name = prompt.Length == 0 ? global::Aholo.Core.UiText.Get("World from image") : prompt[..Math.Min(prompt.Length, 45)];
         var task = await _client.GenerateWorldAsync(new GenerateWorldRequest(name, prompt, image.Length == 0 ? null : image), Token);
         AholoHost.Ui(() => ObserveTask(task));
-        AholoHost.Ui(() => Feedback(task.Error ?? "世界任务已记录。生成完成后下载 PLY，再点击“放入当前文档”。", task.Error is not null));
+        AholoHost.Ui(() => Feedback((task.Error is null ? null : UiText.TranslateKnownMessage(task.Error)) ?? global::Aholo.Core.UiText.Get("World task recorded. When generation finishes, download PLY and click Place in current document."), task.Error is not null));
     }
     private async Task ImportExistingWorldAsync()
     {
         string id = _worldId.Text.Trim();
-        if (id.Length == 0) throw new InvalidOperationException("请输入已有的 World ID。");
+        if (id.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Enter an existing World ID."));
         var task = await _client.ImportWorldAsync(id, Token);
         AholoHost.Ui(() => ObserveTask(task));
-        AholoHost.Ui(() => Feedback("已读取原世界任务；没有重新生成。"));
+        AholoHost.Ui(() => Feedback(global::Aholo.Core.UiText.Get("Loaded the original world task; no new generation was submitted.")));
     }
     private async Task RenderAsync()
     {
@@ -228,18 +228,18 @@ public sealed class AholoPanel : Panel, IPanel
         RenderSnapshot snapshot = AholoHost.CaptureRender(Document(), width, height);
         CancellationToken ct = Token;
         string path = Path.Combine(TaskStore.DefaultRoot, "exports", Guid.NewGuid().ToString("N") + ".glb");
-        AholoHost.Ui(() => _operationName = "准备选区几何");
+        AholoHost.Ui(() => _operationName = global::Aholo.Core.UiText.Get("Preparing selection geometry"));
         await Task.Run(() => { Directory.CreateDirectory(Path.GetDirectoryName(path)!); GlbWriter.Write(path, snapshot.Meshes, ct); }, ct);
         // Capture already reflects the user's selected document and camera; no document mutations occur during submission.
-        AholoHost.Ui(() => _operationName = "上传选区并提交渲染");
+        AholoHost.Ui(() => _operationName = global::Aholo.Core.UiText.Get("Uploading selection and submitting render"));
         var task = await _client.RenderAsync(new RenderRequest(snapshot.Name, path, snapshot.Camera, width, height), ct);
         AholoHost.Ui(() => ObserveTask(task));
-        AholoHost.Ui(() => Feedback(task.Error ?? "选区渲染任务已记录。网格处理与渲染可继续从原任务查询；完成后下载渲染图。", task.Error is not null));
+        AholoHost.Ui(() => Feedback((task.Error is null ? null : UiText.TranslateKnownMessage(task.Error)) ?? global::Aholo.Core.UiText.Get("Selection render task recorded. Query the original task for mesh processing and rendering; download the render when finished."), task.Error is not null));
     }
     private LocalTask Selected(string kind)
     {
         var list = kind == "world" ? _worldTasks : _renderTasks;
-        return list.SelectedValue as LocalTask ?? throw new InvalidOperationException("请先选择一条任务。");
+        return list.SelectedValue as LocalTask ?? throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Select a task first."));
     }
     private async Task ReloadAsync(Guid? selected = null)
     {
@@ -276,31 +276,31 @@ public sealed class AholoPanel : Panel, IPanel
     {
         var list = kind == "world" ? _worldTasks : _renderTasks;
         var detail = kind == "world" ? _worldDetail : _renderDetail;
-        if (list.SelectedValue is not LocalTask task) { detail.Text = "尚无选中任务。"; return; }
-        string progress = task.Progress.HasValue ? " · 进度 " + task.Progress.Value.ToString("0.##", CultureInfo.InvariantCulture) : "";
-        string id = task.WorldId is not null ? "\nWorld ID：" + task.WorldId : task.MeshTaskId is not null ? "\n网格处理 ID：" + task.MeshTaskId : "";
-        if (task.OperationId is not null) id += "\n渲染操作 ID：" + task.OperationId;
-        string cache = task.Kind == "world" ? "\n本地资产：" + (task.PlyPath is null ? "PLY 未下载" : "PLY 已下载") + " / " + (task.SpzPath is null ? "SPZ 未下载" : "SPZ 已下载") : "\n渲染图：" + (task.ImagePath is null ? "未下载" : "已下载");
-        detail.Text = task.Name + "\n" + task.Status + progress + id + cache + (string.IsNullOrWhiteSpace(task.Error) ? "" : "\n" + task.Error);
+        if (list.SelectedValue is not LocalTask task) { detail.Text = global::Aholo.Core.UiText.Get("No task selected."); return; }
+        string progress = task.Progress.HasValue ? global::Aholo.Core.UiText.Get(" · Progress ") + task.Progress.Value.ToString("0.##", CultureInfo.InvariantCulture) : "";
+        string id = task.WorldId is not null ? "\nWorld ID: " + task.WorldId : task.MeshTaskId is not null ? global::Aholo.Core.UiText.Get("\nMesh processing ID: ") + task.MeshTaskId : "";
+        if (task.OperationId is not null) id += global::Aholo.Core.UiText.Get("\nRender operation ID: ") + task.OperationId;
+        string cache = task.Kind == "world" ? global::Aholo.Core.UiText.Get("\nLocal assets: ") + (task.PlyPath is null ? global::Aholo.Core.UiText.Get("PLY not downloaded") : global::Aholo.Core.UiText.Get("PLY downloaded")) + " / " + (task.SpzPath is null ? global::Aholo.Core.UiText.Get("SPZ not downloaded") : global::Aholo.Core.UiText.Get("SPZ downloaded")) : global::Aholo.Core.UiText.Get("\nRender image: ") + (task.ImagePath is null ? global::Aholo.Core.UiText.Get("Not downloaded") : global::Aholo.Core.UiText.Get("Downloaded"));
+        detail.Text = task.Name + "\n" + UiText.Status(task.Status) + progress + id + cache + (string.IsNullOrWhiteSpace(task.Error) ? "" : "\n" + UiText.TranslateKnownMessage(task.Error));
     }
     private async Task RefreshSelectedAsync(string kind)
     {
         var selected = Selected(kind);
         var task = await _client.RefreshAsync(selected.Id, Token);
         AholoHost.Ui(() => ObserveTask(task));
-        AholoHost.Ui(() => Feedback("原任务当前状态：" + task.Status + (task.Error is null ? "" : "。" + task.Error), task.Error is not null));
+        AholoHost.Ui(() => Feedback(global::Aholo.Core.UiText.Get("Original task status: ") + UiText.Status(task.Status) + (task.Error is null ? "" : ". " + UiText.TranslateKnownMessage(task.Error)), task.Error is not null));
     }
     private async Task DownloadSelectedAsync(string kind, string asset)
     {
         LocalTask selected = Selected(kind);
         var task = await _client.DownloadAsync(new DownloadRequest(selected.Id, asset), Token);
         AholoHost.Ui(() => ObserveTask(task));
-        AholoHost.Ui(() => Feedback(asset.ToUpperInvariant() + " 已保存到本机任务资产目录。"));
+        AholoHost.Ui(() => Feedback(asset.ToUpperInvariant() + global::Aholo.Core.UiText.Get(" saved to the local task asset folder.")));
     }
     private double ImportScale()
     {
         if ((!double.TryParse(_scale.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double scale) && !double.TryParse(_scale.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out scale)) || !double.IsFinite(scale) || scale <= 0)
-            throw new InvalidOperationException("请填写大于零的导入比例，例如 1 或 1000。");
+            throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Enter an import scale greater than zero, such as 1 or 1000."));
         return scale;
     }
     private string ImportAxis(string? metadata) => _axis.SelectedIndex == 2 ? "Y" : _axis.SelectedIndex == 1 ? "Z" : string.Equals(metadata, "Y", StringComparison.OrdinalIgnoreCase) ? "Y" : "Z";
@@ -310,8 +310,8 @@ public sealed class AholoPanel : Panel, IPanel
         var target = AholoHost.CaptureTarget(Document()); double scale = ImportScale(); int axisChoice = _axis.SelectedIndex;
         CancellationToken ct = Token;
         if (task.PlyPath is null || !File.Exists(task.PlyPath)) task = await _client.DownloadAsync(new DownloadRequest(task.Id, "ply"), ct);
-        if (task.PlyPath is null) throw new InvalidOperationException("原任务尚未提供 PLY，请先查询生成状态。");
-        AholoHost.Ui(() => _operationName = "读取完整 GS 并准备原生视口");
+        if (task.PlyPath is null) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The original task has no PLY yet. Refresh generation status first."));
+        AholoHost.Ui(() => _operationName = global::Aholo.Core.UiText.Get("Reading complete GS and preparing native viewport"));
         string axis = axisChoice == 2 ? "Y" : axisChoice == 1 ? "Z" : string.Equals(task.UpAxis, "Y", StringComparison.OrdinalIgnoreCase) ? "Y" : "Z";
         string message = await GaussianDocument.ImportAsync(task.PlyPath, target, scale, axis, task.Id, ct);
         AholoHost.Ui(() => ObserveTask(task));
@@ -319,8 +319,8 @@ public sealed class AholoPanel : Panel, IPanel
     }
     private async Task ImportLocalGsAsync()
     {
-        using var dialog = new OpenFileDialog { Title = "选择完整 3DGS PLY / USD / USDZ", MultiSelect = false };
-        dialog.Filters.Add(new FileFilter("Gaussian Splat 场景", ".ply", ".usd", ".usda", ".usdc", ".usdz"));
+        using var dialog = new OpenFileDialog { Title = global::Aholo.Core.UiText.Get("Choose complete 3DGS PLY / USD / USDZ"), MultiSelect = false };
+        dialog.Filters.Add(new FileFilter(global::Aholo.Core.UiText.Get("Gaussian Splat scene"), ".ply", ".usd", ".usda", ".usdc", ".usdz"));
         if (dialog.ShowDialog(this) != DialogResult.Ok) return;
         var target = AholoHost.CaptureTarget(Document());
         double scale = ImportScale();
@@ -333,7 +333,7 @@ public sealed class AholoPanel : Panel, IPanel
             string message = await GaussianDocument.ImportSceneAsync(dialog.FileName, target, scale, axis, true, cancellation.Token, progress).ConfigureAwait(false);
             AholoHost.Ui(() => Feedback(message));
         }
-        catch (OperationCanceledException) { AholoHost.Ui(() => Feedback("本地 GS 导入已取消；源文件保留。")); }
+        catch (OperationCanceledException) { AholoHost.Ui(() => Feedback(global::Aholo.Core.UiText.Get("Local GS import cancelled; the source file is retained."))); }
         finally { await AholoHost.OnUi(() => { _localGsOperation = null; if (!_disposed) _cancelGs.Enabled = false; return true; }).ConfigureAwait(false); }
     }
     private async Task ExportLocalGsAsync()
@@ -344,19 +344,19 @@ public sealed class AholoPanel : Panel, IPanel
         string path = GaussianExportDialogs.NormalizePath(dialog);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Token);
         _localGsOperation = cancellation; _cancelGs.Enabled = true;
-        Feedback($"准备导出 {snapshot.Parts.Length:N0} 个 GS 实例；使用点击时的位置与单位。完成前保留原目标文件。");
+        Feedback(global::Aholo.Core.UiText.Format("Preparing to export {0:N0} GS instances using captured placements and units. The existing destination is retained until completion.", snapshot.Parts.Length));
         try
         {
             string message = await GaussianDocument.ExportAsync(path, snapshot, cancellation.Token).ConfigureAwait(false);
             AholoHost.Ui(() => Feedback(message));
         }
-        catch (OperationCanceledException) { AholoHost.Ui(() => Feedback("本地 GS 导出已取消；原目标文件保留。")); }
+        catch (OperationCanceledException) { AholoHost.Ui(() => Feedback(global::Aholo.Core.UiText.Get("Local GS export cancelled; the existing destination is retained."))); }
         finally { await AholoHost.OnUi(() => { _localGsOperation = null; if (!_disposed) _cancelGs.Enabled = false; return true; }).ConfigureAwait(false); }
     }
     private async Task ImportLocalPlyAsync()
     {
-        using var dialog = new OpenFileDialog { Title = "诊断：仅导入 PLY 中心点和基础颜色", MultiSelect = false };
-        dialog.Filters.Add(new FileFilter("PLY 点云", ".ply"));
+        using var dialog = new OpenFileDialog { Title = global::Aholo.Core.UiText.Get("Diagnostic: import only PLY centers and base colors"), MultiSelect = false };
+        dialog.Filters.Add(new FileFilter(global::Aholo.Core.UiText.Get("PLY point cloud"), ".ply"));
         if (dialog.ShowDialog(this) != DialogResult.Ok) return;
         var target = AholoHost.CaptureTarget(Document());
         string message = await AholoHost.ImportAsync(dialog.FileName, target, ImportScale(), ImportAxis(null), null, Token);
@@ -365,15 +365,15 @@ public sealed class AholoPanel : Panel, IPanel
     private void OpenSelectedImage(string kind)
     {
         string? path = Selected(kind).ImagePath;
-        if (path is null || !File.Exists(path)) throw new InvalidOperationException("请先下载该任务的结果图片。");
+        if (path is null || !File.Exists(path)) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Download this task's result image first."));
         string full = Path.GetFullPath(path), root = Path.GetFullPath(Path.Combine(TaskStore.DefaultRoot, "assets")) + Path.DirectorySeparatorChar;
-        if (!full.StartsWith(root, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal) || new FileInfo(full).LinkTarget is not null) throw new InvalidOperationException("渲染图不在插件资产目录中。");
+        if (!full.StartsWith(root, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal) || new FileInfo(full).LinkTarget is not null) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The render image is outside the plugin asset directory."));
         Process.Start(new ProcessStartInfo(full) { UseShellExecute = true });
     }
     private static void OpenAssetFolder()
     {
         string directory = Path.Combine(TaskStore.DefaultRoot, "assets");
-        if (!Directory.Exists(directory)) throw new InvalidOperationException("资产目录尚未创建，请先读取历史或下载结果。");
+        if (!Directory.Exists(directory)) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The asset directory does not exist yet. Load history or download a result first."));
         Process.Start(new ProcessStartInfo(directory) { UseShellExecute = true });
     }
     private static bool InProgress(LocalTask task) => task.Status is "MeshProcessing" or "Running" or "PENDING" or "PREPROCESSING" or "RUNNING";
@@ -383,7 +383,7 @@ public sealed class AholoPanel : Panel, IPanel
         var pending = _records.Where(t => InProgress(t) && t.ConnectionId == _connectionId).ToArray();
         if (pending.Length == 0) return;
         LocalTask task = pending[_pollCursor++ % pending.Length];
-        _ = RunAsync("查询原任务", async () => { var updated = await _client.RefreshAsync(task.Id, Token); AholoHost.Ui(() => ObserveTask(updated, false)); }, true);
+        _ = RunAsync(global::Aholo.Core.UiText.Get("Querying original task"), async () => { var updated = await _client.RefreshAsync(task.Id, Token); AholoHost.Ui(() => ObserveTask(updated, false)); }, true);
     }
     public void PanelShown(uint documentSerialNumber, ShowPanelReason reason)
     {
@@ -396,7 +396,7 @@ public sealed class AholoPanel : Panel, IPanel
         if (_disposed || !_shown) return;
         if (_lifetime.IsCancellationRequested) { _lifetime.Dispose(); _lifetime = new CancellationTokenSource(); }
         _poll.Start();
-        _ = RunAsync("读取连接与历史", async () => { await ReadConnectionAsync(); await ReloadAsync(); }, true);
+        _ = RunAsync(global::Aholo.Core.UiText.Get("Reading connection and history"), async () => { await ReadConnectionAsync(); await ReloadAsync(); }, true);
     }
     public void PanelHidden(uint documentSerialNumber, ShowPanelReason reason) { _shown = false; _poll.Stop(); _elapsed.Stop(); }
     public void PanelClosing(uint documentSerialNumber, bool onCloseDocument)

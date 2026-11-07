@@ -15,9 +15,13 @@ public sealed class AholoPlugin : PlugIn
     internal static AholoClient CreateClient() => new(Path.Combine(Path.GetDirectoryName(typeof(AholoPlugin).Assembly.Location)!, "sidecar"));
     protected override LoadReturnCode OnLoad(ref string errorMessage)
     {
+        int? language = null;
+        try { language = global::Rhino.UI.Localization.CurrentLanguageId; }
+        catch (Exception) { /* Use the system UI language when Rhino cannot provide one during startup. */ }
+        UiText.Initialize(language, System.Globalization.CultureInfo.CurrentUICulture.Name);
         global::Rhino.UI.Panels.RegisterPanel(this, typeof(AholoPanel), "Aholo", null!, global::Rhino.UI.PanelType.PerDoc);
         GaussianViewport.Initialize(this); // Schedules non-fatal GS initialization on the UI idle event.
-        global::Rhino.RhinoApp.WriteLine($"Aholo {DisplayVersion} · CuriousArc · qrost。输入 AholoPanel 打开世界生成与 RenderCloud 面板。");
+        global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Format("Aholo {0} · CuriousArc · qrost. Run AholoPanel to open world generation and RenderCloud.", DisplayVersion));
         return LoadReturnCode.Success;
     }
     protected override void OnShutdown()
@@ -44,12 +48,12 @@ public sealed class AholoImportPlyCommand : Command
     public override string EnglishName => "AholoImportPly";
     protected override Result RunCommand(global::Rhino.RhinoDoc doc, RunMode mode)
     {
-        using var dialog = new Eto.Forms.OpenFileDialog { Title = "诊断：导入 PLY 中心点（Z 向上，1 PLY 单位 = 1 文档单位）", MultiSelect = false };
-        dialog.Filters.Add(new Eto.Forms.FileFilter("PLY 点云", ".ply"));
+        using var dialog = new Eto.Forms.OpenFileDialog { Title = global::Aholo.Core.UiText.Get("Diagnostic: import PLY centers (Z-up, 1 PLY unit = 1 document unit)"), MultiSelect = false };
+        dialog.Filters.Add(new Eto.Forms.FileFilter(global::Aholo.Core.UiText.Get("PLY point cloud"), ".ply"));
         if (dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc)) != Eto.Forms.DialogResult.Ok) return Result.Cancel;
         var target = AholoHost.CaptureTarget(doc);
         _ = ImportAsync(dialog.FileName, target);
-        global::Rhino.RhinoApp.WriteLine("正在读取 PLY 点云。此命令预览中心点和颜色；完整 GS 请使用 AholoImportGs 或 AholoPanel。");
+        global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("Reading the PLY point cloud. This command previews centers and colors; use AholoImportGs or AholoPanel for complete GS."));
         return Result.Success;
     }
     private static async Task ImportAsync(string path, ImportTarget target)
@@ -59,6 +63,6 @@ public sealed class AholoImportPlyCommand : Command
             var result = await AholoHost.ImportAsync(path, target, 1, "Z", null, CancellationToken.None);
             AholoHost.Ui(() => global::Rhino.RhinoApp.WriteLine(result));
         }
-        catch (Exception ex) { AholoHost.Ui(() => global::Rhino.RhinoApp.WriteLine("Aholo 导入未完成：" + AholoHost.FriendlyError(ex))); }
+        catch (Exception ex) { AholoHost.Ui(() => global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("Aholo import did not finish: ") + AholoHost.FriendlyError(ex))); }
     }
 }

@@ -18,7 +18,7 @@ public sealed partial class AholoApiClient
     {
         _apiHttp = apiHttp;
         _uploadHttp = uploadHttp;
-        if (uploadHttp.DefaultRequestHeaders.Contains("Authorization")) throw new ArgumentException("上传客户端不能包含 API 授权。", nameof(uploadHttp));
+        if (uploadHttp.DefaultRequestHeaders.Contains("Authorization")) throw new ArgumentException("The upload client must not include API authorization.", nameof(uploadHttp));
     }
     public static HttpClient CreateHttpClient() => new(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { Timeout = TimeSpan.FromSeconds(90) };
 
@@ -26,7 +26,7 @@ public sealed partial class AholoApiClient
 
     public async Task<string> GenerateWorldAsync(ApiKeyCredential key, string name, string prompt, string? imageUrl, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(prompt) && string.IsNullOrWhiteSpace(imageUrl)) throw new ArgumentException("请输入世界描述或选择参考图。", nameof(prompt));
+        if (string.IsNullOrWhiteSpace(prompt) && string.IsNullOrWhiteSpace(imageUrl)) throw new ArgumentException("Enter a world description or choose a reference image.", nameof(prompt));
         var body = new Dictionary<string, object> { ["name"] = name.Trim() };
         if (!string.IsNullOrWhiteSpace(prompt)) body["prompt"] = prompt.Trim();
         if (!string.IsNullOrWhiteSpace(imageUrl)) body["resources"] = new[] { new { url = HttpsUrl(imageUrl), type = "image" } };
@@ -75,7 +75,7 @@ public sealed partial class AholoApiClient
 
     public async Task<RenderOperation> SubmitRenderAsync(ApiKeyCredential key, string requestId, string usda, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(usda)) throw new ArgumentException("渲染场景不能为空。", nameof(usda));
+        if (string.IsNullOrWhiteSpace(usda)) throw new ArgumentException("The render scene cannot be empty.", nameof(usda));
         using var request = Gateway(key, HttpMethod.Post, "rendercloud/v1/jobs", new { requestId = Identifier(requestId), usdContent = Convert.ToBase64String(Encoding.UTF8.GetBytes(usda)) });
         return await CreateAsync(request, ParseRender, ct).ConfigureAwait(false);
     }
@@ -97,7 +97,7 @@ public sealed partial class AholoApiClient
         await using var snapshot = new FileStream(Path.Combine(Path.GetTempPath(), "aholo-upload-" + Guid.NewGuid().ToString("N")), options);
         await using (var source = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.Asynchronous))
             await source.CopyToAsync(snapshot, ct).ConfigureAwait(false);
-        if (snapshot.Length == 0) throw new ArgumentException("上传文件不能为空。", nameof(filePath));
+        if (snapshot.Length == 0) throw new ArgumentException("The upload file cannot be empty.", nameof(filePath));
         snapshot.Position = 0;
         string md5 = Convert.ToHexString(await MD5.HashDataAsync(snapshot, ct).ConfigureAwait(false)).ToLowerInvariant();
         using var tokenRequest = Gateway(key, HttpMethod.Get, "asset/v1/token");
@@ -106,7 +106,7 @@ public sealed partial class AholoApiClient
         if (ousToken.Any(char.IsControl) || ousToken.Any(char.IsWhiteSpace)) throw InvalidResponse();
         var host = new Uri(HttpsUrl(RequiredString(token, "globalDomain")));
         if (!host.Host.Equals("ous-sg.kujiale.com", StringComparison.OrdinalIgnoreCase) || host.AbsolutePath != "/" || host.Query.Length != 0)
-            throw new ProviderException("invalid_upload_origin", "上传地址不在已核实的国际上传服务范围内。");
+            throw new ProviderException("invalid_upload_origin", "The upload address is outside the verified international upload service.");
         if (!token.TryGetProperty("blockSize", out var block) || !block.TryGetInt64(out var blockSize) || blockSize <= 0) throw InvalidResponse();
         string name = Path.GetFileName(filePath);
         if (snapshot.Length <= blockSize)
@@ -140,21 +140,21 @@ public sealed partial class AholoApiClient
             var result = await SendOusAsync(host, ousToken, "upload/status", HttpMethod.Get, null, ct).ConfigureAwait(false);
             if (!result.TryGetProperty("status", out var status) || !status.TryGetInt32(out var value)) throw InvalidResponse();
             if (value == 5) return HttpsUrl(RequiredString(result, "url"));
-            if (value is 6 or 8) throw new ProviderException("upload_failed", "文件上传失败，请重试上传。");
+            if (value is 6 or 8) throw new ProviderException("upload_failed", "File upload failed. Retry the upload.");
             if (attempt < 24) await Task.Delay(TimeSpan.FromMilliseconds(250), ct).ConfigureAwait(false);
         }
-        throw new ProviderException("upload_timeout", "文件上传尚未完成，请稍后重试上传。");
+        throw new ProviderException("upload_timeout", "File upload has not finished. Retry the upload later.");
     }
 
     private async Task<JsonElement> SendOusAsync(Uri host, string token, string path, HttpMethod method, HttpContent? content, CancellationToken ct)
     {
-        if (_uploadHttp.DefaultRequestHeaders.Contains("Authorization")) throw new InvalidOperationException("上传客户端不能包含 API 授权。");
+        if (_uploadHttp.DefaultRequestHeaders.Contains("Authorization")) throw new InvalidOperationException("The upload client must not include API authorization.");
         using var request = new HttpRequestMessage(method, new Uri(host, "ous/api/v2/" + path));
         request.Headers.Add("ous-token-v2", token);
         request.Content = content;
         var root = await SendAsync(_uploadHttp, request, ct).ConfigureAwait(false);
         if (!root.TryGetProperty("c", out var code) || !root.TryGetProperty("d", out var data)) throw InvalidResponse();
-        if (Scalar(code) != "0") throw new ProviderException("upload_rejected", "上传服务拒绝了请求。");
+        if (Scalar(code) != "0") throw new ProviderException("upload_rejected", "The upload service rejected the request.");
         return data;
     }
 
@@ -182,7 +182,7 @@ public sealed partial class AholoApiClient
             if (!response.IsSuccessStatusCode)
             {
                 string code = response.StatusCode switch { HttpStatusCode.Unauthorized => "unauthenticated", HttpStatusCode.Forbidden => "permission_denied", HttpStatusCode.TooManyRequests => "rate_limited", _ => "http_error" };
-                throw new ProviderException(code, code == "unauthenticated" ? "国际区域 API Key 无效或已失效。" : $"服务请求失败 (HTTP {(int)response.StatusCode})。", isCreate && ((int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.RequestTimeout));
+                throw new ProviderException(code, code == "unauthenticated" ? "The international API Key is invalid or expired." : string.Format(System.Globalization.CultureInfo.CurrentCulture, "Service request failed (HTTP {0}).", (int)response.StatusCode), isCreate && ((int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.RequestTimeout));
             }
             if (response.Content.Headers.ContentLength > JsonLimit) throw new JsonException();
             await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
@@ -202,7 +202,7 @@ public sealed partial class AholoApiClient
         {
             if (isCreate) throw UnknownSubmission();
             if (ex is OperationCanceledException) throw;
-            throw new ProviderException("request_failed", "服务请求失败或响应格式无效。");
+            throw new ProviderException("request_failed", "The service request failed or its response format is invalid.");
         }
     }
 
@@ -229,14 +229,14 @@ public sealed partial class AholoApiClient
         string? resultUrl = null, error = null;
         if (root.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Object) resultUrl = OptionalString(result, "resultUrl");
         if (root.TryGetProperty("error", out var errorValue) && errorValue.ValueKind != JsonValueKind.Null)
-            error = "渲染服务报告任务失败，请在官方平台核对任务。"; // Do not reflect provider text or credentials.
+            error = "The render service reported failure. Check the task on the official platform."; // Do not reflect provider text or credentials.
         return new(id, done.GetBoolean(), resultUrl, error);
     }
 
     private static JsonElement MeshData(JsonElement root)
     {
         if (!root.TryGetProperty("success", out var success) || success.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw InvalidResponse();
-        if (!success.GetBoolean()) throw new ProviderException("business_rejected", "服务拒绝了任务，请核对账户权限、余额与参数。");
+        if (!success.GetBoolean()) throw new ProviderException("business_rejected", "The service rejected the task. Check account permissions, balance and parameters.");
         if (!root.TryGetProperty("data", out var data)) throw InvalidResponse();
         return data;
     }
@@ -255,14 +255,14 @@ public sealed partial class AholoApiClient
     private static string HttpsUrl(string value)
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || !uri.IsDefaultPort || uri.UserInfo.Length != 0 || uri.Fragment.Length != 0 || uri.IsLoopback || Uri.CheckHostName(uri.Host) != UriHostNameType.Dns)
-            throw new ProviderException("invalid_url", "服务资源必须是有效的 HTTPS 地址。");
+            throw new ProviderException("invalid_url", "Service assets must use a valid HTTPS address.");
         return uri.AbsoluteUri;
     }
     private static string RequiredString(JsonElement value, string property) => OptionalString(value, property) is { Length: > 0 } text ? text : throw InvalidResponse();
     private static string? OptionalString(JsonElement value, string property) => value.ValueKind == JsonValueKind.Object && value.TryGetProperty(property, out var field) && field.ValueKind == JsonValueKind.String ? field.GetString() : null;
     private static string? Scalar(JsonElement value) => value.ValueKind switch { JsonValueKind.String => value.GetString(), JsonValueKind.Number => value.GetRawText(), _ => null };
-    private static ProviderException InvalidResponse() => new("invalid_response", "服务响应缺少有效字段或任务身份不匹配。");
-    private static ProviderException UnknownSubmission() => new("submission_unknown", "任务可能已创建，但提交结果不明确。请先核对任务记录，勿重复提交。", true);
+    private static ProviderException InvalidResponse() => new("invalid_response", "The service response is missing required fields or its task identity does not match.");
+    private static ProviderException UnknownSubmission() => new("submission_unknown", "The task may have been created, but submission is unconfirmed. Check task history before submitting again.", true);
 
     private sealed class SnapshotContent(Stream source, long offset, long length) : HttpContent
     {

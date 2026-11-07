@@ -35,15 +35,15 @@ public sealed class AholoClient : IAsyncDisposable
             EnsureProcess();
             var id = Guid.NewGuid();
             string request = JsonSerializer.Serialize(new RpcRequest(1, id, method, AholoJson.Element(payload)), AholoJson.Options);
-            if (request.Length > 128 * 1024) throw new InvalidOperationException("请求过长。");
+            if (request.Length > 128 * 1024) throw new InvalidOperationException("The request is too long.");
             await _process!.StandardInput.WriteLineAsync(request.AsMemory(), timeout.Token).ConfigureAwait(false);
             await _process.StandardInput.FlushAsync().WaitAsync(timeout.Token).ConfigureAwait(false);
             string line = await BoundedLine.ReadAsync(_process.StandardOutput, timeout.Token).ConfigureAwait(false)
-                ?? throw new IOException("Aholo 后台进程已停止。任务可从历史恢复，请勿重复提交未知结果的生成。");
-            var response = JsonSerializer.Deserialize<RpcResponse>(line, AholoJson.Options) ?? throw new IOException("无效后台响应。");
-            if (response.Version != 1 || response.Id != id) throw new IOException("后台协议不匹配。");
+                ?? throw new IOException("The Aholo background process stopped. Recover the task from history; do not resubmit generations with unknown results.");
+            var response = JsonSerializer.Deserialize<RpcResponse>(line, AholoJson.Options) ?? throw new IOException("Invalid background response.");
+            if (response.Version != 1 || response.Id != id) throw new IOException("Background protocol mismatch.");
             if (response.Error is not null) throw new InvalidOperationException(response.Error);
-            return response.Result!.Value.Deserialize<T>(AholoJson.Options) ?? throw new IOException("后台响应为空。");
+            return response.Result!.Value.Deserialize<T>(AholoJson.Options) ?? throw new IOException("The background response is empty.");
         }
         catch (Exception ex) when (ex is OperationCanceledException or IOException or JsonException)
         {
@@ -60,7 +60,7 @@ public sealed class AholoClient : IAsyncDisposable
         string executable = Path.Combine(_directory, OperatingSystem.IsWindows() ? "Aholo.Sidecar.exe" : "Aholo.Sidecar");
         string dll = Path.Combine(_directory, "Aholo.Sidecar.dll");
         bool standalone = File.Exists(executable);
-        if (!standalone && !File.Exists(dll)) throw new IOException("Aholo 后台文件缺失，请重新安装完整插件包。");
+        if (!standalone && !File.Exists(dll)) throw new IOException("Aholo background files are missing. Reinstall the complete plugin package.");
         var start = new ProcessStartInfo(standalone ? executable : SidecarRuntime.FindDotNet8())
         {
             WorkingDirectory = _directory, UseShellExecute = false, CreateNoWindow = true,
@@ -70,10 +70,10 @@ public sealed class AholoClient : IAsyncDisposable
             StandardErrorEncoding = new UTF8Encoding(false)
         };
         if (!standalone) start.ArgumentList.Add(dll);
-        try { _process = Process.Start(start) ?? throw new IOException("无法启动 Aholo 后台进程。"); }
+        try { _process = Process.Start(start) ?? throw new IOException("Cannot start the Aholo background process."); }
         catch (System.ComponentModel.Win32Exception)
         {
-            throw new IOException("无法启动 Aholo 后台进程。请检查安装文件权限及适用于本机的 .NET 8 Runtime。");
+            throw new IOException("Cannot start the Aholo background process. Check file permissions and install the matching .NET 8 Runtime.");
         }
         // Drain diagnostics without copying provider responses or secrets into Rhino logs.
         _process.ErrorDataReceived += (_, _) => { };

@@ -37,5 +37,5 @@ public sealed record LocalTask
     public RenderRequest? Render { get; init; }
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.UtcNow;
-    public override string ToString() => $"{Name} · {Status}";
+    public override string ToString() => $"{Name} · {UiText.Status(Status)}";
 }

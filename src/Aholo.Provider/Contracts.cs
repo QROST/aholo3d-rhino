@@ -16,7 +16,7 @@ public sealed class ApiKeyCredential
     public ApiKeyCredential(string key)
     {
         if (string.IsNullOrWhiteSpace(key) || key.Length > 8192 || key.Any(char.IsWhiteSpace) || key.Any(char.IsControl) || key.StartsWith("Bearer", StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("请输入国际区域 API Key 原文。", nameof(key));
+            throw new ArgumentException("Enter the original international API Key.", nameof(key));
         Value = key;
         ConnectionId = "international:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key))).ToLowerInvariant();
     }

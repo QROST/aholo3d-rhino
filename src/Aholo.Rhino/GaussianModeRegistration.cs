@@ -32,7 +32,7 @@ internal static class GaussianModeRegistration
     internal static Guid Ensure(IGaussianModeStore store, Guid savedId, string englishName)
     {
         ArgumentNullException.ThrowIfNull(store);
-        if (string.IsNullOrWhiteSpace(englishName)) throw new ArgumentException("显示模式名称不能为空。", nameof(englishName));
+        if (string.IsNullOrWhiteSpace(englishName)) throw new ArgumentException(global::Aholo.Core.UiText.Get("The display mode name cannot be empty."), nameof(englishName));
 
         GaussianDisplayModeSnapshot? mode = savedId == Guid.Empty ? null : store.Get(savedId);
         if (!Matches(mode, savedId, englishName)) mode = null;
@@ -42,11 +42,11 @@ internal static class GaussianModeRegistration
         if (mode is null)
         {
             Guid createdId = store.CopyShaded(englishName);
-            if (createdId == Guid.Empty) throw new InvalidOperationException("无法注册 Aholo GS 实验显示模式。");
+            if (createdId == Guid.Empty) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot register the experimental Aholo GS display mode."));
             // Persist immediately, before any readback/update can fail: retries must not keep copying Shaded.
             store.SaveId(createdId);
             mode = store.Get(createdId);
-            if (!Matches(mode, createdId, englishName)) throw new InvalidOperationException("无法读取新建的 Aholo GS 显示模式。");
+            if (!Matches(mode, createdId, englishName)) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot read the newly created Aholo GS display mode."));
         }
         else store.SaveId(mode.Id);
 
@@ -62,7 +62,7 @@ internal static class GaussianModeRegistration
         _ = store.Update(desired);
         GaussianDisplayModeSnapshot? persisted = store.Get(desired.Id);
         if (!Matches(persisted, desired.Id, englishName) || !HasRequiredSettings(persisted!))
-            throw new InvalidOperationException("Aholo GS 显示模式设置尚未保存，请稍后重试。");
+            throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Aholo GS display mode settings have not been saved. Retry later."));
         return desired.Id;
     }
 

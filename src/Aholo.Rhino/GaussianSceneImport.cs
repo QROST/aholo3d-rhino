@@ -16,8 +16,8 @@ internal static partial class GaussianDocument
     internal static async Task<string> ImportSceneAsync(string path, ImportTarget target, double scale, string upAxis,
         bool useSourceUnits, CancellationToken ct, IProgress<string>? progress = null)
     {
-        if (!double.IsFinite(scale) || scale <= 0) throw new ArgumentException("GS 比例必须大于零且有限。");
-        if (upAxis is not ("Auto" or "Y" or "Z")) throw new ArgumentException("向上轴必须是 Auto、Y 或 Z。");
+        if (!double.IsFinite(scale) || scale <= 0) throw new ArgumentException(global::Aholo.Core.UiText.Get("GS scale must be finite and greater than zero."));
+        if (upAxis is not ("Auto" or "Y" or "Z")) throw new ArgumentException(global::Aholo.Core.UiText.Get("The up axis must be Auto, Y or Z."));
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
         CancellationToken token = cancellation.Token;
         try
@@ -25,14 +25,14 @@ internal static partial class GaussianDocument
             await AholoHost.OnUi(() =>
             {
                 RhinoDoc doc = RequireTarget(target.Serial);
-                if (doc.ModelUnitSystem != target.Units) throw new InvalidOperationException("文档单位已改变，请重新确认导入设置。");
+                if (doc.ModelUnitSystem != target.Units) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Document units changed. Confirm the import settings again."));
                 Initialize();
                 if (!Imports.TryGetValue(target.Serial, out var pending)) Imports.Add(target.Serial, pending = new());
                 pending.Add(cancellation);
                 return true;
             }).ConfigureAwait(false);
             PreparedImport prepared = await Task.Run(() => PrepareImport(path, token, progress), token).ConfigureAwait(false);
-            progress?.Report("完整资源已准备；正在写入目标文档…");
+            progress?.Report(global::Aholo.Core.UiText.Get("Complete assets are ready; writing to the target document…"));
             return await AholoHost.OnUi(() => CommitImport(prepared, target, scale, upAxis, useSourceUnits, token)).ConfigureAwait(false);
         }
         finally
@@ -52,26 +52,26 @@ internal static partial class GaussianDocument
     private static PreparedImport PrepareImport(string path, CancellationToken ct, IProgress<string>? progress)
     {
         path = System.IO.Path.GetFullPath(path);
-        progress?.Report("正在存档原始文件…");
+        progress?.Report(global::Aholo.Core.UiText.Get("Archiving the original file…"));
         SourceArchive original = ArchiveSource(path, ct);
         string extension = System.IO.Path.GetExtension(path).ToLowerInvariant();
         bool usd = extension is ".usd" or ".usda" or ".usdc" or ".usdz";
-        progress?.Report("正在读取完整 Gaussian Splat 场景…");
+        progress?.Report(global::Aholo.Core.UiText.Get("Reading the complete Gaussian Splat scene…"));
         // USD composition uses the original resolver context; its root bytes must remain unchanged.
         GaussianScene scene = GaussianSceneReader.Read(usd ? path : original.Path, ct);
-        if (usd && Hash(path, ct) != original.Hash) throw new IOException("读取期间源场景文件改变，导入已停止；请保存文件后重试。");
-        if (scene.Parts.Count == 0) throw new InvalidDataException("文件中没有 Gaussian Splat 数据。");
+        if (usd && Hash(path, ct) != original.Hash) throw new IOException(global::Aholo.Core.UiText.Get("The source scene changed while being read. Import stopped; save the file and retry."));
+        if (scene.Parts.Count == 0) throw new InvalidDataException(global::Aholo.Core.UiText.Get("The file contains no Gaussian Splat data."));
         GaussianPart[] nonempty = scene.Parts.Where(part => part.Splats.Length > 0).ToArray();
-        if (nonempty.Length == 0) throw new InvalidDataException("文件中没有 Gaussian Splat 数据。");
+        if (nonempty.Length == 0) throw new InvalidDataException(global::Aholo.Core.UiText.Get("The file contains no Gaussian Splat data."));
         if (nonempty.Length != scene.Parts.Count)
-            scene = scene with { Warnings = (scene.Warnings ?? Array.Empty<string>()).Concat(new[] { $"已略过 {scene.Parts.Count - nonempty.Length:N0} 个空部分；没有删除任何 GS。" }).ToArray() };
+            scene = scene with { Warnings = (scene.Warnings ?? Array.Empty<string>()).Concat(new[] { global::Aholo.Core.UiText.Format("Skipped {0:N0} empty parts; no GS data was removed.", scene.Parts.Count - nonempty.Length) }).ToArray() };
         var parts = new PreparedPart[nonempty.Length];
         for (int index = 0; index < parts.Length; index++)
         {
             ct.ThrowIfCancellationRequested();
             GaussianPart part = nonempty[index];
             _ = part.Transform.Linear.Inverse();
-            progress?.Report($"准备部分 {index + 1:N0}/{parts.Length:N0} · {part.Splats.Length:N0} 个 GS…");
+            progress?.Report(global::Aholo.Core.UiText.Format("Preparing part {0:N0}/{1:N0} · {2:N0} GS…", index + 1, parts.Length, part.Splats.Length));
             string sourceName = System.IO.Path.GetFileNameWithoutExtension(original.Name);
             string name = usd ? part.Name : scene.Parts.Count == 1 ? sourceName : $"{sourceName} [{index + 1}]";
             parts[index] = new(name, PublishPart(part.Splats, ct), part.Transform, part.Antialiased);
@@ -83,19 +83,19 @@ internal static partial class GaussianDocument
     {
         ct.ThrowIfCancellationRequested();
         RhinoDoc doc = RequireTarget(target.Serial);
-        if (doc.ModelUnitSystem != target.Units) throw new InvalidOperationException("读取期间文档单位改变，请重新确认导入比例。");
-        if (doc.IsCommandRunning || doc.UndoRecordingIsActive) throw new InvalidOperationException("请先结束当前 Rhino 命令再导入 GS。");
+        if (doc.ModelUnitSystem != target.Units) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Document units changed while reading. Confirm the import scale again."));
+        if (doc.IsCommandRunning || doc.UndoRecordingIsActive) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Finish the current Rhino command before importing GS."));
         string upAxis = axis == "Auto" ? prepared.Scene.UpAxis ?? "Z" : axis;
-        if (upAxis is not ("Y" or "Z")) throw new InvalidDataException("场景向上轴不是受支持的 Y 或 Z；请选择轴向后重试。");
+        if (upAxis is not ("Y" or "Z")) throw new InvalidDataException(global::Aholo.Core.UiText.Get("The scene up axis is not supported Y or Z. Choose an up axis and retry."));
         double unitScale = 1;
         if (useSourceUnits && prepared.Scene.MetersPerUnit is double meters)
         {
             if (doc.ModelUnitSystem is global::Rhino.UnitSystem.None or global::Rhino.UnitSystem.Unset or global::Rhino.UnitSystem.CustomUnits)
-                throw new InvalidOperationException("目标文档没有可换算的标准长度单位；请先将文档设为标准长度单位后重试。");
+                throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The target document has no convertible standard length units. Set standard length units and retry."));
             unitScale = meters * global::Rhino.RhinoMath.UnitScale(global::Rhino.UnitSystem.Meters, doc.ModelUnitSystem);
         }
         double effectiveScale = scale * unitScale;
-        if (!double.IsFinite(effectiveScale) || effectiveScale <= 0) throw new InvalidDataException("源单位与比例组合后不是有效的正数。");
+        if (!double.IsFinite(effectiveScale) || effectiveScale <= 0) throw new InvalidDataException(global::Aholo.Core.UiText.Get("The source units and scale do not produce a valid positive scale."));
         Transform import = Transform.Scale(Point3d.Origin, effectiveScale);
         if (upAxis == "Y") import *= Transform.Rotation(Math.PI / 2, Vector3d.XAxis, Point3d.Origin);
         var transforms = new Transform[prepared.Parts.Length];
@@ -103,13 +103,13 @@ internal static partial class GaussianDocument
         for (int i = 0; i < transforms.Length; i++)
         {
             transforms[i] = import * ToRhino(prepared.Parts[i].Transform);
-            if (!transforms[i].IsValid) throw new InvalidDataException("部分的变换无效，尚未修改文档。");
+            if (!transforms[i].IsValid) throw new InvalidDataException(global::Aholo.Core.UiText.Get("A part transform is invalid. The document has not been modified."));
             BoundingBox box = prepared.Parts[i].Asset.Bounds; box.Transform(transforms[i]);
-            if (!box.IsValid) throw new InvalidDataException("变换后的 GS 包围盒超出有效数值范围，尚未修改文档。");
+            if (!box.IsValid) throw new InvalidDataException(global::Aholo.Core.UiText.Get("The transformed GS bounds exceed the valid numeric range. The document has not been modified."));
             overall.Union(box);
         }
-        uint undo = doc.BeginUndoRecord("导入 Aholo Gaussian Splat");
-        if (undo == 0) throw new InvalidOperationException("无法建立导入撤销记录，尚未修改文档。");
+        uint undo = doc.BeginUndoRecord(global::Aholo.Core.UiText.Get("Import Aholo Gaussian Splat"));
+        if (undo == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create the import Undo record. The document has not been modified."));
         var added = new List<(Guid Id, int Definition)>();
         int layer = -1;
         bool createdLayer = !(doc.Layers.CurrentLayer.IsVisible && !doc.Layers.CurrentLayer.IsLocked);
@@ -140,7 +140,7 @@ internal static partial class GaussianDocument
                 try { if (!doc.Layers.Delete(layer, true)) rollbackFailed = true; }
                 catch (Exception) { rollbackFailed = true; }
             }
-            if (rollbackFailed) throw new InvalidOperationException("导入未完成，Rhino 未能完全撤回本次对象；请使用 Undo 撤销本次导入。" + AholoHost.FriendlyError(failure), failure);
+            if (rollbackFailed) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Import did not finish and Rhino could not fully roll back the new objects. Use Undo to reverse this import. ") + AholoHost.FriendlyError(failure), failure);
             throw;
         }
         finally { doc.EndUndoRecord(undo); }
@@ -154,17 +154,17 @@ internal static partial class GaussianDocument
         doc.Objects.UnselectAll(); foreach (var item in added) doc.Objects.Select(item.Id);
         var messages = new List<string>();
         long count = prepared.Parts.Sum(part => (long)part.Asset.Splats.Length);
-        messages.Add($"已导入 {count:N0} 个 GS，共 {added.Count:N0} 个部分，可一次 Undo 撤销。轴向 {upAxis}，有效比例 {effectiveScale:G8}。");
-        messages.Add("原始文件已存档；完整本地 GS 缓存保留。显示准备期间显示包围盒，静止后恢复完整 GS。");
+        messages.Add(global::Aholo.Core.UiText.Format("Imported {0:N0} GS in {1:N0} parts; one Undo reverses the import. Up axis {2}, effective scale {3:G8}.", count, added.Count, upAxis, effectiveScale));
+        messages.Add(global::Aholo.Core.UiText.Get("The original file was archived and the complete local GS cache retained. Bounds are shown during preparation; full GS returns when the view is stationary."));
         if (prepared.Parts.Any(part => part.Antialiased))
-            messages.Add("此场景声明了 antialiased 模式；当前视口尚未实现该模式的补偿公式，视觉结果可能不同。");
+            messages.Add(global::Aholo.Core.UiText.Get("This scene declares antialiased mode. The viewport does not yet implement its compensation formula, so appearance may differ."));
         if (prepared.Scene.Warnings is not null) messages.AddRange(prepared.Scene.Warnings);
         try
         {
             doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(overall);
             GaussianViewport.Activate(doc);
         }
-        catch (Exception ex) { messages.Add("模型已写入，显示模式尚未就绪；包围盒保留。" + AholoHost.FriendlyError(ex)); }
+        catch (Exception ex) { messages.Add(global::Aholo.Core.UiText.Get("The model is in the document, but the display mode is not ready. Bounds are retained. ") + AholoHost.FriendlyError(ex)); }
         doc.Views.Redraw();
         return string.Join(System.Environment.NewLine, messages);
     }
@@ -181,7 +181,7 @@ internal static partial class GaussianDocument
     {
         string extension = System.IO.Path.GetExtension(path).ToLowerInvariant();
         if (extension is not (".ply" or ".usd" or ".usda" or ".usdc" or ".usdz"))
-            throw new ArgumentException("请选择 PLY、USD、USDA、USDC 或 USDZ 文件。");
+            throw new ArgumentException(global::Aholo.Core.UiText.Get("Choose a PLY, USD, USDA, USDC or USDZ file."));
         string directory = System.IO.Path.Combine(TaskStore.DefaultRoot, "sources");
         CreatePrivateDirectory(directory);
         string temporary = System.IO.Path.Combine(directory, Guid.NewGuid().ToString("N") + ".tmp");
@@ -225,7 +225,7 @@ internal static partial class GaussianDocument
             try { File.Move(temporary, destination); }
             catch (IOException) when (File.Exists(destination)) { }
         }
-        if (Hash(destination, ct) != hash) throw new IOException("本地缓存校验失败，原始文件未修改。");
+        if (Hash(destination, ct) != hash) throw new IOException(global::Aholo.Core.UiText.Get("Local cache verification failed. The original file is unchanged."));
     }
     private static AssetData PrepareAsset(GaussianSplat[] source, string path, string hash, CancellationToken ct)
     {
@@ -236,10 +236,10 @@ internal static partial class GaussianDocument
             GaussianMatrix covariance = GaussianMath.Covariance(splat, GaussianTransform.Identity);
             double x=3*Math.Sqrt(covariance.M11), y=3*Math.Sqrt(covariance.M22), z=3*Math.Sqrt(covariance.M33);
             var extent = new BoundingBox(new Point3d(splat.Center.X-x,splat.Center.Y-y,splat.Center.Z-z), new Point3d(splat.Center.X+x,splat.Center.Y+y,splat.Center.Z+z));
-            if (!extent.IsValid) throw new InvalidDataException("GS 包围盒超出有效数值范围。");
+            if (!extent.IsValid) throw new InvalidDataException(global::Aholo.Core.UiText.Get("GS bounds exceed the valid numeric range."));
             bounds.Union(extent);
         }
-        if (source.Length == 0 || !bounds.IsValid) throw new InvalidDataException("此部分没有有效的完整 Gaussian Splat 数据。");
+        if (source.Length == 0 || !bounds.IsValid) throw new InvalidDataException(global::Aholo.Core.UiText.Get("This part has no valid complete Gaussian Splat data."));
         if (bounds.Diagonal.Length == 0) bounds.Inflate(1);
         return new(source, GaussianPreparedAsset.Prepare(source, ct), bounds, hash, path);
     }
@@ -255,7 +255,7 @@ internal static partial class GaussianDocument
         {
             foreach (var a in proxyAttributes) a.SetUserString(ProxyKey, data.Hash);
             definition = doc.InstanceDefinitions.Add("AholoGS_" + data.Hash[..10] + "_" + Guid.NewGuid().ToString("N")[..6], "Aholo Gaussian reference; bounding box placeholder.", Point3d.Origin, geometry, proxyAttributes);
-            if (definition < 0) throw new InvalidOperationException("无法建立 GS 块定义。");
+            if (definition < 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create the GS block definition."));
             using var attrs = new ObjectAttributes { Name = scene.Format.StartsWith("OpenUSD", StringComparison.Ordinal) ? part.Name : "Aholo · " + System.IO.Path.GetFileNameWithoutExtension(source.Name) + " · " + part.Name, LayerIndex = layer };
             attrs.SetUserString(Marker,"1"); attrs.SetUserString(HashKey,data.Hash); attrs.SetUserString(PathKey,data.Path);
             attrs.SetUserString("Aholo.GS.SourceName",source.Name);
@@ -272,7 +272,7 @@ internal static partial class GaussianDocument
             attrs.SetUserString("Aholo.GS.Antialiased",part.Antialiased ? "true" : "false");
             attrs.SetUserString("Aholo.GS.Count",data.Splats.Length.ToString(CultureInfo.InvariantCulture));
             instance = doc.Objects.AddInstanceObject(definition,transform,attrs);
-            if (instance == Guid.Empty) throw new InvalidOperationException("Rhino 未能建立 GS 块实例。");
+            if (instance == Guid.Empty) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Rhino could not create the GS block instance."));
             return (instance, definition);
         }
         finally

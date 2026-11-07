@@ -42,7 +42,7 @@ internal sealed class GaussianViewport : DisplayConduit
     private long _generation;
     private volatile bool _stopping;
     private string? _lastError;
-    private string _backend="尚未绘制；后端未检测";
+    private string _backend=global::Aholo.Core.UiText.Get("Not drawn yet; backend not detected");
     private int _skippedPreviews;
     private DateTime _lastViewRefresh;
     private sealed record NativeView(uint Document,Size ViewportSize,Size ClientSize);
@@ -102,7 +102,7 @@ internal sealed class GaussianViewport : DisplayConduit
         if(_startupAttempts>=3)
         {
             CancelStartup();
-            global::Rhino.RhinoApp.WriteLine(_startupError+" AholoPanel 仍可使用；输入 AholoGsMode 重试。");
+            global::Rhino.RhinoApp.WriteLine(_startupError+global::Aholo.Core.UiText.Get(" AholoPanel remains available; run AholoGsMode to retry."));
         }
         else if(_startupTimer is null)
         {
@@ -115,7 +115,7 @@ internal sealed class GaussianViewport : DisplayConduit
             {
                 CancelStartup();
                 GaussianLog.Write("viewport_startup_retry_unavailable",$"error={ex.GetType().Name}");
-                global::Rhino.RhinoApp.WriteLine(_startupError+" 输入 AholoGsMode 重试。");
+                global::Rhino.RhinoApp.WriteLine(_startupError+global::Aholo.Core.UiText.Get(" Run AholoGsMode to retry."));
             }
         }
     }
@@ -142,7 +142,7 @@ internal sealed class GaussianViewport : DisplayConduit
             var conduit=new GaussianViewport();_instance=conduit;
             string texture=Path.Combine(Path.GetDirectoryName(typeof(GaussianViewport).Assembly.Location)!,"assets","gaussian-opacity-atlas.png");
             if(File.Exists(texture))conduit._material=CreateMaterial(texture);
-            else conduit._lastError="缺少 Gaussian opacity atlas；保留可见包围盒。";
+            else conduit._lastError=global::Aholo.Core.UiText.Get("Gaussian opacity atlas is missing; visible bounds are retained.");
             stage="document_and_viewport";
             GaussianDocument.Initialize();conduit.RefreshNativeViews();
             conduit._timer=new Eto.Forms.UITimer{Interval=.016};conduit._timer.Elapsed+=conduit.OnIdle;conduit._timer.Start();
@@ -155,8 +155,8 @@ internal sealed class GaussianViewport : DisplayConduit
         catch(Exception ex)
         {
             // Keep core commands/panel available, and release partial native state before a bounded or explicit retry.
-            string action=stage switch { "mode_registration"=>"显示模式注册", "material"=>"材质准备", _=>"视口初始化" };
-            _startupError="Aholo GS 初始化未完成："+action+"。";
+            string action=stage switch { "mode_registration"=>global::Aholo.Core.UiText.Get("display mode registration"), "material"=>global::Aholo.Core.UiText.Get("material preparation"), _=>global::Aholo.Core.UiText.Get("viewport initialization") };
+            _startupError=global::Aholo.Core.UiText.Get("Aholo GS initialization did not finish: ")+action+".";
             GaussianLog.Write("viewport_startup_failed",$"version={AholoPlugin.DisplayVersion}; trigger={trigger}; attempt={_startupAttempts}; stage={stage}; error={ex.GetType().Name}");
             try { StopRenderer(); }
             catch(Exception cleanup){GaussianLog.Write("viewport_startup_cleanup_failed",$"error={cleanup.GetType().Name}");}
@@ -220,11 +220,11 @@ internal sealed class GaussianViewport : DisplayConduit
     internal static void Activate(RhinoDoc doc)
     {
         if(!TryInitializeRenderer("command")||_modeId==Guid.Empty)
-            throw new InvalidOperationException((_startupError??"Aholo GS 显示模式尚未初始化。")+"运行 AholoGsDiagnostics 查看状态，可稍后再次运行 AholoGsMode。");
+            throw new InvalidOperationException((_startupError??global::Aholo.Core.UiText.Get("The Aholo GS display mode is not initialized yet."))+global::Aholo.Core.UiText.Get("Run AholoGsDiagnostics for status, or retry AholoGsMode later."));
         CancelStartup();
-        var view=doc.Views.ActiveView??throw new InvalidOperationException("请先激活一个模型视窗。");
-        if(view is RhinoPageView)throw new InvalidOperationException("请先切换到原生模型视窗；本版不在布局细节中绘制 GS。");
-        using var mode=DisplayModeDescription.GetDisplayMode(_modeId)??throw new InvalidOperationException("Aholo GS 显示模式已被删除，请重新加载插件。");
+        var view=doc.Views.ActiveView??throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Activate a model viewport first."));
+        if(view is RhinoPageView)throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Switch to a native model viewport. GS rendering in layout details is not supported in this version."));
+        using var mode=DisplayModeDescription.GetDisplayMode(_modeId)??throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The Aholo GS display mode was deleted. Reload the plugin."));
         view.ActiveViewport.DisplayMode=mode;GaussianDocument.Reload(doc);_instance!.RefreshNativeViews();view.Redraw();
     }
     private static bool IsMode(RhinoViewport viewport)=>viewport.DisplayMode?.Id==_modeId;
@@ -283,7 +283,7 @@ internal sealed class GaussianViewport : DisplayConduit
                 if(box.IsValid)e.IncludeBoundingBox(box);
             }
         }
-        catch(Exception ex){_lastError="GS 包围盒计算失败："+AholoHost.FriendlyError(ex);}
+        catch(Exception ex){_lastError=global::Aholo.Core.UiText.Get("GS bounds calculation failed: ")+AholoHost.FriendlyError(ex);}
     }
     protected override void PreDrawObjects(DrawEventArgs e)
     {
@@ -296,7 +296,7 @@ internal sealed class GaussianViewport : DisplayConduit
             return;
         }
         _nativeSizeRetries.Remove(e.Viewport.Id);
-        _backend=e.Display.IsOpenGL?"OpenGL（当前视窗）":"Non-OpenGL（不能仅据此确认 Metal）";
+        _backend=e.Display.IsOpenGL?global::Aholo.Core.UiText.Get("OpenGL (current viewport)"):global::Aholo.Core.UiText.Get("Non-OpenGL (this alone does not confirm Metal)");
         try
         {
             GaussianCamera camera=Camera(e.Viewport,e.Display.FrameSize.Width,e.Display.FrameSize.Height);
@@ -331,7 +331,7 @@ internal sealed class GaussianViewport : DisplayConduit
             LogDrawRejected(e.Viewport.Id,reason,e.Display.FrameSize);
             _lastError=null;
         }
-        catch(Exception ex){_lastError="GS 准备失败，保留包围盒："+AholoHost.FriendlyError(ex);RemoveView(e.Viewport.Id,"observation_failed");}
+        catch(Exception ex){_lastError=global::Aholo.Core.UiText.Get("GS preparation failed; bounds are retained: ")+AholoHost.FriendlyError(ex);RemoveView(e.Viewport.Id,"observation_failed");}
     }
     protected override void PreDrawObject(DrawObjectEventArgs e)
     {
@@ -355,7 +355,7 @@ internal sealed class GaussianViewport : DisplayConduit
             }
             e.Display.Flush();
         }
-        catch(Exception ex){state.Error="GS 批量绘制失败；保留包围盒，运行 AholoGsMode 重试："+AholoHost.FriendlyError(ex);_lastError=state.Error;GaussianLog.Write("draw_failed",$"generation={state.Request.Generation}; {state.Error}");}
+        catch(Exception ex){state.Error=global::Aholo.Core.UiText.Get("GS batch drawing failed; bounds are retained. Run AholoGsMode to retry: ")+AholoHost.FriendlyError(ex);_lastError=state.Error;GaussianLog.Write("draw_failed",$"generation={state.Request.Generation}; {state.Error}");}
         finally
         {
             try{if(writing)e.Display.PopDepthWriting();}finally{if(testing)e.Display.PopDepthTesting();}
@@ -368,7 +368,7 @@ internal sealed class GaussianViewport : DisplayConduit
         _views.TryGetValue(e.Viewport.Id,out var state);
         bool candidate=_candidates.ContainsKey(e.Viewport.Id);
         if(!candidate&&(state is null||state.DrawAccepted&&state.Error is null))return;
-        string progress=candidate?"Aholo GS：视图稳定后准备显示":state!.Error is not null?"Aholo GS：准备失败，已保留包围盒；运行 AholoGsDiagnostics":state.Pending is not null?$"Aholo GS：上传 {state.Batches.Count:N0}/{state.TotalBatches:N0} 批；完整就绪后显示":state.Started?"Aholo GS：后台投影与排序中；原始资源完整保留":"Aholo GS：视图稳定后准备显示";
+        string progress=candidate?global::Aholo.Core.UiText.Get("Aholo GS: waiting for a stable view before preparing display"):state!.Error is not null?global::Aholo.Core.UiText.Get("Aholo GS: preparation failed; bounds retained. Run AholoGsDiagnostics"):state.Pending is not null?global::Aholo.Core.UiText.Format("Aholo GS: uploading {0:N0}/{1:N0} batches; display starts when fully ready", state.Batches.Count, state.TotalBatches):state.Started?global::Aholo.Core.UiText.Get("Aholo GS: projecting and sorting in the background; complete source data retained"):global::Aholo.Core.UiText.Get("Aholo GS: waiting for a stable view before preparing display");
         e.Display.Draw2dText(progress,Color.FromArgb(45,135,175),new Point2d(18,38),false,14);
     }
     private void AcceptStableCandidates()
@@ -416,13 +416,13 @@ internal sealed class GaussianViewport : DisplayConduit
                     {
                         mesh=new Mesh();mesh.Vertices.UseDoublePrecisionVertices=true;
                         mesh.Vertices.AddVertices(batch.Vertices);mesh.Faces.AddFaces(batch.Faces);
-                        if(!mesh.Normals.SetNormals(batch.Normals)||!mesh.TextureCoordinates.SetTextureCoordinates(batch.Uv)||!mesh.VertexColors.SetColors(batch.Colors))throw new InvalidOperationException("Rhino 未能接受 GS 法线、UV 或顶点色。");
+                        if(!mesh.Normals.SetNormals(batch.Normals)||!mesh.TextureCoordinates.SetTextureCoordinates(batch.Uv)||!mesh.VertexColors.SetColors(batch.Colors))throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Rhino could not accept GS normals, UVs or vertex colors."));
                         mesh.SetSurfaceParametersFromTextureCoordinates();
                         state.Batches.Add(new NativeBatch(mesh,batch.FaceIndices));mesh=null;state.Pending.Batches[index]=null;
                         state.MaxUploadMilliseconds=Math.Max(state.MaxUploadMilliseconds,upload.Elapsed.TotalMilliseconds);
                         if(state.Batches.Count%16==0)GaussianLog.Write("upload_progress",$"generation={state.Request.Generation}; batches={state.Batches.Count}/{state.TotalBatches}");
                     }
-                    catch(Exception ex){mesh?.Dispose();state.Error="GS 上传失败，保留包围盒："+AholoHost.FriendlyError(ex);_lastError=state.Error;Retire(state);break;}
+                    catch(Exception ex){mesh?.Dispose();state.Error=global::Aholo.Core.UiText.Get("GS upload failed; bounds are retained: ")+AholoHost.FriendlyError(ex);_lastError=state.Error;Retire(state);break;}
                 }
                 if(state.Pending is not null&&state.Batches.Count==state.TotalBatches)
                 {state.Pending=null;state.Complete=true;GaussianLog.Write("frame_ready",$"generation={state.Request.Generation}; visible={state.VisibleCount}; batches={state.Batches.Count}; maxUploadMs={state.MaxUploadMilliseconds:F1}");Redraw(state.Request);}
@@ -437,7 +437,7 @@ internal sealed class GaussianViewport : DisplayConduit
                 if(next is not null)Start(next);
             }
         }
-        catch(Exception ex){_lastError="GS 调度未完成："+AholoHost.FriendlyError(ex);}
+        catch(Exception ex){_lastError=global::Aholo.Core.UiText.Get("GS scheduling did not finish: ")+AholoHost.FriendlyError(ex);}
         finally{_pumping=false;}
     }
     private void Start(ViewState state)
@@ -451,7 +451,7 @@ internal sealed class GaussianViewport : DisplayConduit
             WorkResult result;
             try{var prepared=GaussianNativeBatchBuilder.Prepare(work.Request,token);result=new(work.Request,prepared,null,false);}
             catch(OperationCanceledException)when(token.IsCancellationRequested){result=new(work.Request,null,null,true);GaussianLog.Write("prepare_cancelled",$"generation={work.Request.Generation}");}
-            catch(Exception ex){result=new(work.Request,null,"GS 后台准备失败，保留包围盒："+AholoHost.FriendlyError(ex),false);}
+            catch(Exception ex){result=new(work.Request,null,global::Aholo.Core.UiText.Get("GS background preparation failed; bounds are retained: ")+AholoHost.FriendlyError(ex),false);}
             finally{cancellation.Dispose();}
             if(!_stopping)_results.Enqueue(result);
         });
@@ -544,13 +544,13 @@ internal sealed class GaussianViewport : DisplayConduit
         using var source=new Material{DiffuseColor=Color.White,DisableLighting=true,AlphaTransparency=true,Transparency=0,SpecularColor=Color.Black,Reflectivity=0,Shine=0};
         using var texture=new Texture{FileName=path,Enabled=true,TreatAsLinear=true,TextureCombineMode=TextureCombineMode.Blend,WrapU=TextureUvwWrapping.Clamp,WrapV=TextureUvwWrapping.Clamp,MinFilter=TextureFilter.Linear,MagFilter=TextureFilter.Linear};
         texture.SetRGBBlendValues(Color.Black,1,0,0,0);texture.SetAlphaBlendValues(0,0,1,0,0);
-        if(!source.SetBitmapTexture(texture))throw new InvalidOperationException("无法设置 Gaussian opacity atlas。");
+        if(!source.SetBitmapTexture(texture))throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot set the Gaussian opacity atlas."));
         return new DisplayMaterial(source){IsTwoSided=false};
     }
     private static GaussianVector Vector(Vector3d v)=>new(v.X,v.Y,v.Z);
     private static GaussianCamera Camera(RhinoViewport viewport,int width,int height)
     {
-        if(width<=0||height<=0||!viewport.GetFrustum(out double left,out double right,out double bottom,out double top,out double near,out double far))throw new InvalidOperationException("无法读取视窗尺寸或相机视锥。");
+        if(width<=0||height<=0||!viewport.GetFrustum(out double left,out double right,out double bottom,out double top,out double near,out double far))throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot read viewport dimensions or camera frustum."));
         var eye=viewport.CameraLocation;double factor=viewport.IsPerspectiveProjection?near:1;
         return new(new(eye.X,eye.Y,eye.Z),Vector(viewport.CameraX),Vector(viewport.CameraY),Vector(viewport.CameraDirection).Normalized(),viewport.IsPerspectiveProjection,width,height,
             factor*width/(right-left),factor*height/(top-bottom),-left*width/(right-left)-.5,top*height/(top-bottom)-.5,near,far);
@@ -568,18 +568,18 @@ internal sealed class GaussianViewport : DisplayConduit
     internal static string Diagnostics(RhinoDoc doc)
     {
         var conduit=_instance;
-        if(conduit is null)return $"Aholo {AholoPlugin.DisplayVersion}；GS 初始化：{(_startupScheduled?"等待自动重试":"尚未就绪")}；自动尝试 {_startupAttempts}/3 次。\n"+
-            (_startupError??"显示模式准备中。")+" AholoPanel 可用；输入 AholoGsMode 重试。\n日志："+GaussianLog.FilePath;
+        if(conduit is null)return global::Aholo.Core.UiText.Format("Aholo {0}; GS initialization: {1}; automatic attempt {2}/3.\n", AholoPlugin.DisplayVersion, (_startupScheduled?global::Aholo.Core.UiText.Get("waiting for automatic retry"):global::Aholo.Core.UiText.Get("not ready")), _startupAttempts)+
+            (_startupError??global::Aholo.Core.UiText.Get("Preparing display mode."))+global::Aholo.Core.UiText.Get(" AholoPanel is available; run AholoGsMode to retry.\nLog: ")+GaussianLog.FilePath;
         var active=doc.Views.ActiveView?.ActiveViewport;ViewState? state=null;
         if(active is not null)conduit?._views.TryGetValue(active.Id,out state);
         ViewDiagnostics? diagnostics=null;
         if(active is not null)conduit?._diagnostics.TryGetValue(active.Id,out diagnostics);
         bool candidate=active is not null&&conduit?._candidates.ContainsKey(active.Id)==true;
-        string status=candidate?"视角变化，等待稳定后准备":state is null?"等待原生模型视窗":state.Error is not null?"准备失败，包围盒保留":state.Complete?"全量可见 GS 已就绪":state.Pending is not null?$"上传 {state.Batches.Count:N0}/{state.TotalBatches:N0} 批":"后台投影/排序中";
-        return "Aholo GS 批量实验版；"+(conduit?._backend??"未初始化")+"。\n"+GaussianDocument.Diagnostics(doc)+"\n"+
-            $"状态：{status}；输入：{state?.InputCount??0:N0}；投影可见：{state?.VisibleCount??0:N0}；本帧批数：{state?.Batches.Count??0:N0}；每批最多 {GaussianNativeBatchBuilder.SplatsPerBatch} 个 GS（无总数上限）。\n"+
-            $"后台准备 {state?.PreparationMilliseconds??0:F1} ms；最长单批上传 {state?.MaxUploadMilliseconds??0:F1} ms；最近绘制 {state?.LastDrawMilliseconds??0:F1} ms；已跳过缩略图/非原生尺寸绘制 {conduit?._skippedPreviews??0:N0} 次。\n"+
-            $"重启准备 {diagnostics?.Restarts??0:N0} 次；最近原因：{diagnostics?.LastReplacementReason??"none"}；绘制暂缓 {diagnostics?.DrawRejects??0:N0} 次，最近原因：{diagnostics?.LastRejectReason??"none"}。\n"+
-            "原始高斯完整保留；8 位 RGB/HDR 截断与 256 级 opacity atlas 为显示精度限制。透明体交错、Raytraced、布局/打印/捕获/缩略图和大场景实时速度仍待后续支持或验收。顶点 RGB+atlas alpha 及原生遮挡需手动宿主验证。\n"+(state?.Error??conduit?._lastError??"未自动判定视觉通过。")+"\n日志："+GaussianLog.FilePath;
+        string status=candidate?global::Aholo.Core.UiText.Get("View changed; waiting for stability before preparation"):state is null?global::Aholo.Core.UiText.Get("Waiting for a native model viewport"):state.Error is not null?global::Aholo.Core.UiText.Get("Preparation failed; bounds retained"):state.Complete?global::Aholo.Core.UiText.Get("All visible GS is ready"):state.Pending is not null?global::Aholo.Core.UiText.Format("Uploading {0:N0}/{1:N0} batches", state.Batches.Count, state.TotalBatches):global::Aholo.Core.UiText.Get("Background projection/sorting");
+        return global::Aholo.Core.UiText.Get("Aholo GS batch experiment; ")+(conduit?._backend??global::Aholo.Core.UiText.Get("Not initialized"))+".\n"+GaussianDocument.Diagnostics(doc)+"\n"+
+            global::Aholo.Core.UiText.Format("Status: {0}; input: {1:N0}; projected visible: {2:N0}; batches this frame: {3:N0}; up to {4} GS per batch (no total-count cap).\n", status, state?.InputCount??0, state?.VisibleCount??0, state?.Batches.Count??0, GaussianNativeBatchBuilder.SplatsPerBatch)+
+            global::Aholo.Core.UiText.Format("Background preparation {0:F1} ms; longest batch upload {1:F1} ms; latest draw {2:F1} ms; skipped thumbnail/non-native-size draws {3:N0}.\n", state?.PreparationMilliseconds??0, state?.MaxUploadMilliseconds??0, state?.LastDrawMilliseconds??0, conduit?._skippedPreviews??0)+
+            global::Aholo.Core.UiText.Format("Preparation restarts {0:N0}; latest reason: {1}; deferred draws {2:N0}, latest reason: {3}.\n", diagnostics?.Restarts??0, diagnostics?.LastReplacementReason??"none", diagnostics?.DrawRejects??0, diagnostics?.LastRejectReason??"none")+
+            global::Aholo.Core.UiText.Get("Original Gaussians are fully preserved; 8-bit RGB/HDR clipping and the 256-level opacity atlas limit display precision. Transparency interleaving, Raytraced, layout/print/capture/thumbnail support and large-scene real-time speed remain pending. Vertex RGB, atlas alpha and native occlusion require manual host validation.\n")+(state?.Error??conduit?._lastError??global::Aholo.Core.UiText.Get("Visual acceptance is not determined automatically."))+global::Aholo.Core.UiText.Get("\nLog: ")+GaussianLog.FilePath;
     }
 }
