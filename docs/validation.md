@@ -1,6 +1,16 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Version: 0.1.1-beta.1. Date: 2026-11-02.
+Maintainer: CuriousArc · qrost. Version: 0.1.1-beta.2. Date: 2026-11-06.
+
+## Automatic language selection preview
+
+Version 0.1.1-beta.2 adds automatic English/Chinese interface selection to the USD exchange preview. A valid Rhino language takes precedence; system UI language is consulted only when Rhino provides no valid language. Chinese locales use Simplified Chinese; other locales and the fallback use English.
+
+- Localization implementation is commit `2cdb656`. The release changes version metadata and documentation only.
+- Rebuilt the versioned Release solution on Apple Silicon macOS: zero warnings/errors. **314 .NET tests passed**, with zero failures or skips; no service credentials were used.
+- Language selection, embedded resources and known-message translation are covered by automated tests. Unknown external errors, user text, names, paths, task IDs and stored status codes retain their original content.
+- This candidate targets macOS only. Native bilingual layout, the new USD import/export UI, Windows and Intel Mac acceptance remain pending. Prior user-reported Mac acceptance below still applies only to the previously tested workflow.
+- No authenticated service call or desktop UI automation is part of release preparation. Package build/archive receipts and local installation receipts remain separate from native acceptance.
 
 ## USD exchange preview verification
 

@@ -4,7 +4,7 @@ World generation and RenderCloud rendering inside Rhino 8, by **CuriousArc · qr
 
 [简体中文](readme.zh-CN.md)
 
-**0.1.1-beta.1 — local preview adding GS USD/USDZ interchange.** The preceding 0.1.0 generation/display workflow was user-tested on Apple Silicon Mac; this new import/export UI still needs native acceptance. This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
+**0.1.1-beta.2 — macOS preview with automatic English/Chinese interface selection and GS USD/USDZ interchange.** The preceding 0.1.0 generation/display workflow was user-tested on Apple Silicon Mac; the new import/export UI and bilingual native layout still need manual acceptance. This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
 
 ## Interface language
 
@@ -32,7 +32,7 @@ Realtime RenderCloud REST/WebSocket transport and mock-tested session cleanup ar
 
 See the [staged plan and evidence](docs/decisions/0001-native-gaussian-viewport.md) and [GS acceptance procedure](docs/gs-host-acceptance.md).
 
-Existing GS modes are checked and reused, initialization waits for UI idle, and a GS failure does not block the panel. Run `AholoGsMode` to retry locally if initialization is unavailable. Version 0.1.0 retained the tested beta.5 implementation. Version 0.1.1-beta.1 adds local GS exchange while keeping the cloud task workflow.
+Existing GS modes are checked and reused, initialization waits for UI idle, and a GS failure does not block the panel. Run `AholoGsMode` to retry locally if initialization is unavailable. Version 0.1.0 retained the tested beta.5 implementation. Version 0.1.1-beta.1 added local GS exchange while keeping the cloud task workflow; 0.1.1-beta.2 adds automatic interface language selection.
 
 ## Requirements and validation status
 
@@ -55,9 +55,9 @@ Create/manage the Key in the official Aholo platform, following the [official qu
 
 Generating a world or starting a render can consume your Aholo service credits. Clicking the corresponding submit button authorizes that flow, including the selected file/geometry upload and mesh processing for rendering. Closing the panel or stopping local waiting does **not** cancel a cloud task or refund credits. Offline render `requestId` is a tracing ID, **not an idempotency key**.
 
-## Install locally
+## Install
 
-There is no public Yak listing for this project yet. Obtain the local `.yak` produced by `scripts/build-package.sh`, install it with Rhino's bundled Yak CLI (`yak install /absolute/path/to/package.yak`), then restart Rhino manually. On Windows use Rhino's `Yak.exe` with the absolute package path. Do not use a macOS-tagged package on Windows.
+This preview targets macOS; Windows publication awaits native acceptance. For published previews, enable pre-release packages in Rhino's PackageManager and search for `aholo-rhino`. For a local package, install the `.yak` produced by `scripts/build-package.sh` with Rhino's bundled Yak CLI (`yak install /absolute/path/to/package.yak`). Restart Rhino manually after installing or updating. Do not use a macOS-tagged package on Windows.
 
 1. Run `AholoPanel`.
 2. In the connection tab, enter an international API Key and choose whether to remember it.

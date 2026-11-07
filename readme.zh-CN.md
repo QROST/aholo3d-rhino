@@ -4,7 +4,7 @@
 
 [English](readme.md)
 
-**0.1.1-beta.1，本地预览版，新增 GS USD/USDZ 双向交换。** 之前 0.1.0 的生成与显示流程已在本机 Apple Silicon Mac 由用户测试通过；本次新增界面仍待手动验收。 本项目是独立集成，不是 Manycore、Aholo 或 McNeel 官方产品。插件标识、命令、凭据和缓存均独立，不替换 Lux3D for Rhino。
+**0.1.1-beta.2，macOS 预览版，支持自动中英界面选择及 GS USD/USDZ 双向交换。** 之前 0.1.0 的生成与显示流程已在本机 Apple Silicon Mac 由用户测试通过；新增导入导出界面及双语原生布局仍待手动验收。 本项目是独立集成，不是 Manycore、Aholo 或 McNeel 官方产品。插件标识、命令、凭据和缓存均独立，不替换 Lux3D for Rhino。
 
 ## 界面语言
 
@@ -32,7 +32,7 @@
 
 详见[阶段方案与依据](docs/decisions/0001-native-gaussian-viewport.md)及 [GS 验收步骤](docs/gs-host-acceptance.md)。
 
-插件先检查并复用已有 GS 模式，在界面空闲时初始化；GS 初始化失败也不阻断主面板。若仍未就绪，可运行 `AholoGsMode` 在本机重试。0.1.0 保留已经测试的 beta.5 实现；0.1.1-beta.1 在该基础上新增本地 GS 交换，保留云任务流程。
+插件先检查并复用已有 GS 模式，在界面空闲时初始化；GS 初始化失败也不阻断主面板。若仍未就绪，可运行 `AholoGsMode` 在本机重试。0.1.0 保留已经测试的 beta.5 实现；0.1.1-beta.1 在该基础上新增本地 GS 交换，保留云任务流程；0.1.1-beta.2 新增自动界面语言选择。
 
 ## 环境与验证状态
 
@@ -55,9 +55,9 @@
 
 生成和渲染可能消耗 Aholo 服务额度。点击提交按钮会启动对应流程，包括参考图或所选几何的上传、渲染前的模型解析。关闭面板或停止本地等待**不会**取消云端任务或退回额度。离线渲染的 `requestId` 只是追踪标识，**不能用来保证重复请求只扣一次费**。
 
-## 本地安装
+## 安装
 
-目前尚未公开上架 Yak。使用 `scripts/build-package.sh` 生成的本地 `.yak`，通过 Rhino 附带的 Yak CLI 安装：`yak install /absolute/path/to/package.yak`，然后手动重启 Rhino。Windows 使用 Rhino 附带的 `Yak.exe` 和包的绝对路径；请使用相应平台的包。
+本预览包面向 macOS；Windows 发布仍待原生验收。安装已发布的预览版时，在 Rhino PackageManager 中启用预发行包并搜索 `aholo-rhino`。也可使用 `scripts/build-package.sh` 生成的本地 `.yak`，通过 Rhino 附带的 Yak CLI 安装：`yak install /absolute/path/to/package.yak`。安装或更新后请手动重启 Rhino，勿将 macOS 包用于 Windows。
 
 1. 运行 `AholoPanel`。
 2. 在连接页输入国际站 API Key，选择是否保存。
