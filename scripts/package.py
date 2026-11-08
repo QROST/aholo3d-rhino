@@ -38,9 +38,12 @@ def manifest_values(text):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--platform', choices=['mac', 'win'], required=True)
-    parser.add_argument('--yak', required=True)
+    parser.add_argument('--yak')
+    parser.add_argument('--stage-only', action='store_true', help='Validate staged build payload without Yak, installation or publication.')
     parser.add_argument('--checks', choices=['passed', 'not-rerun'], default='not-rerun')
     args = parser.parse_args()
+    if not args.stage_only and not args.yak:
+        parser.error('--yak is required unless --stage-only is used.')
     subprocess.run([sys.executable, str(ROOT / "scripts/create-gs-assets.py"), "--check"], check=True)
     version = ET.parse(ROOT / 'Directory.Build.props').findtext('.//Version')
     manifest = (ROOT / 'packaging/manifest.yml').read_text()
@@ -74,6 +77,15 @@ def main():
     framework = config['runtimeOptions']['framework']
     if framework['name'] != 'Microsoft.NETCore.App' or not framework['version'].startswith('8.'):
         raise ValueError('Unexpected background runtime requirement.')
+    if args.stage_only:
+        actual = {p.relative_to(stage).as_posix() for p in stage.rglob('*') if p.is_file()}
+        if actual != set(required): raise ValueError('Staged contents do not match the allowlist.')
+        for target, source in required.items():
+            if (stage / target).read_bytes() != (ROOT / source).read_bytes():
+                raise ValueError('Staged bytes differ: ' + target)
+        print(json.dumps({'stage': str(stage), 'platform': args.platform, 'files': len(required), 'archiveBuilt': False}))
+        print('Staged payload verified. This is not a Yak archive or native host acceptance.')
+        return
     subprocess.run([str(pathlib.Path(args.yak).resolve()),'build','--platform',args.platform],cwd=stage,check=True)
     archives = list(stage.glob('*.yak'))
     if len(archives) != 1: raise ValueError('Expected exactly one package.')

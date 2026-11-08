@@ -6,7 +6,7 @@
 
 执行仓库：[`QROST/aholo3d-rhino`](https://github.com/QROST/aholo3d-rhino)，源码目录 `aholo3d-rhino`。原有 Yak 包及持久化标识的兼容边界见[仓库改名说明](repository-rename.md)。
 
-状态：**待实施的开发计划**。本轮只审计代码、形成计划；没有实现下述新功能，没有运行 Rhino 或调用需凭据的服务。供后续 agent session 分批执行。
+状态：**实施中**，自 2026-11-08 开始按里程碑推进。本文保留原始审计和验收目标；实际交付与未完成项见[实施记录](implementation-progress.md)，不得将目标当作已实现功能。
 
 ## 1. 目标与范围
 
