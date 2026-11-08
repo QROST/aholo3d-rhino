@@ -17,6 +17,14 @@ This tracks implementation of [the development plan](development-plan.md), not n
 
 M0 local verification passed: Release build with zero warnings/errors; 317 tests passed; both mac/win staged payloads verified (32 allowlisted files each) on Apple Silicon macOS. The CI definitions are not evidence that GitHub jobs ran. Staged payload checks validate allowlisted built files, sidecar runtime metadata and copied bytes; they do not produce a Yak archive or prove native host behavior. A local Yak archive is checked separately before installation/release.
 
+## M1 — journal and action contracts
+
+Implemented task-scoped exclusive locks (network waits no longer hold the all-task lock), non-mutating recovery views that retain the ownership probe through reading, legacy backup before adding schema metadata, unknown-field preservation and refusal to overwrite unsupported schema versions. Local pagination/filtering and full-history World lookup are separate. Remote identifiers remain service-specific strings.
+
+`Refresh` and `Download` only query existing jobs; processed meshes stop at `MeshReady`. `ContinueRender` is a separate intent with the existing persisted submission barrier. An unknown result cannot be replayed. An explicit continuation action is reachable in the current panel while the shared application coordinator is implemented next. Tests include >100-task restoration, live-owner visibility, concurrent independent submissions, old/unknown journals and no paid render from downloads.
+
+Validation: Release build succeeded with zero warnings/errors; 328 tests passed on Apple Silicon macOS. Third-party source review found an ownership-probe/read race; the probe now remains held through the read. This does not claim two-Rhino-process native acceptance. UI reorganization, shared operation cancellation and complete service coverage remain in progress.
+
 ## Review and execution boundaries
 
 The user authorized this development batch's bounded third-party analysis, code drafts, test design and reviews using necessary non-sensitive source/documentation/diffs. Credentials, task data, personal paths and full conversation are excluded. The parent applies changes and executes validation. At most two workers and 4096 output tokens per task; uncertain outcomes are inspected, not retried automatically.

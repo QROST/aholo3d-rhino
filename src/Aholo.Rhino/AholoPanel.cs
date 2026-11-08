@@ -88,7 +88,7 @@ public sealed class AholoPanel : Panel, IPanel
             Info(global::Aholo.Core.UiText.Get("Output preserves the camera's horizontal field of view; vertical framing follows the output aspect ratio.")), _render,
             Info(global::Aholo.Core.UiText.Get("Render history (RenderCloud entries among the latest 100 local tasks)")), _renderTasks,
             Row(ActionButton(global::Aholo.Core.UiText.Get("Load history"), () => ReloadAsync()), ActionButton(global::Aholo.Core.UiText.Get("Refresh selected task"), () => RefreshSelectedAsync("render"))),
-            _renderDetail,
+            _renderDetail, ActionButton(UiText.Get("Continue original render · Uses service credits"), ContinueRenderAsync),
             Row(ActionButton(global::Aholo.Core.UiText.Get("Download render"), () => DownloadSelectedAsync("render", "image")), LocalButton(global::Aholo.Core.UiText.Get("Open local render"), () => OpenSelectedImage("render"))),
             Info(global::Aholo.Core.UiText.Get("This page uses offline rendering. Realtime protocol groundwork is experimental; cloud viewports and World GS ingestion are not exposed yet. Failed or unconfirmed submissions never automatically create another paid task."))
         ) });
@@ -221,6 +221,12 @@ public sealed class AholoPanel : Panel, IPanel
         var task = await _client.ImportWorldAsync(id, Token);
         AholoHost.Ui(() => ObserveTask(task));
         AholoHost.Ui(() => Feedback(global::Aholo.Core.UiText.Get("Loaded the original world task; no new generation was submitted.")));
+    }
+    private async Task ContinueRenderAsync()
+    {
+        var task = Selected("render");
+        var updated = await _client.ContinueRenderAsync(task.Id, Token);
+        AholoHost.Ui(() => ObserveTask(updated));
     }
     private async Task RenderAsync()
     {

@@ -61,7 +61,7 @@ public static class UiText
     {
         "Preparing" => "Preparing", "Uploading" => "Uploading", "Submitting" => "Submitting",
         "MeshSubmitting" => "Submitting mesh", "RenderSubmitting" => "Submitting render",
-        "MeshProcessing" => "Processing mesh", "Running" or "RUNNING" => "Running",
+        "MeshProcessing" => "Processing mesh", "MeshReady" => "Ready to render", "UnsupportedSchema" => "Unsupported task version", "Running" or "RUNNING" => "Running",
         "PENDING" => "Pending", "PREPROCESSING" => "Preprocessing", "SUCCEEDED" => "Succeeded",
         "FAILED" => "Failed", "CANCELED" => "Cancelled", "TIMEOUT" => "Timed out", "REJECTED" => "Rejected",
         "RecordError" => "Record error", "SubmissionUnknown" => "Submission unconfirmed", "Interrupted" => "Interrupted",

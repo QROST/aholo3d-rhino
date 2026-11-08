@@ -20,6 +20,8 @@ public sealed class AholoClient : IAsyncDisposable
     public Task<LocalTask> GenerateWorldAsync(GenerateWorldRequest request, CancellationToken ct = default) => Call<LocalTask>("generate", request, ct);
     public Task<LocalTask> RenderAsync(RenderRequest request, CancellationToken ct = default) => Call<LocalTask>("render", request, ct);
     public Task<LocalTask> RefreshAsync(Guid id, CancellationToken ct = default) => Call<LocalTask>("refresh", new { id }, ct);
+    public Task<TaskPage> GetTaskPageAsync(TaskPageRequest request, CancellationToken ct = default) => Call<TaskPage>("page", request, ct);
+    public Task<LocalTask> ContinueRenderAsync(Guid id, CancellationToken ct = default) => Call<LocalTask>("continueRender", new { id }, ct);
     public Task<LocalTask> DownloadAsync(DownloadRequest request, CancellationToken ct = default) => Call<LocalTask>("download", request, ct);
     public Task<LocalTask> ImportWorldAsync(string worldId, CancellationToken ct = default) => Call<LocalTask>("importWorld", new { worldId }, ct);
 

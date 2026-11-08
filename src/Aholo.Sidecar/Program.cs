@@ -50,6 +50,8 @@ while (true)
             case "disconnect":
                 await credentials.DeleteAsync(Account, ct); key = null; loaded = true; remembered = false; result = State(); break;
             case "list": result = store.List(); break;
+            case "page": result = store.Page(Read<TaskPageRequest>(payload)); break;
+            case "continueRender": result = await workflow.ContinueRenderAsync(await RequireKeyAsync(ct), payload.GetProperty("id").GetGuid(), ct); break;
             case "generate": result = await workflow.GenerateAsync(await RequireKeyAsync(ct), Read<GenerateWorldRequest>(payload), ct); break;
             case "render": result = await workflow.RenderAsync(await RequireKeyAsync(ct), Read<RenderRequest>(payload), ct); break;
             case "refresh": result = await workflow.RefreshAsync(await RequireKeyAsync(ct), payload.GetProperty("id").GetGuid(), ct); break;

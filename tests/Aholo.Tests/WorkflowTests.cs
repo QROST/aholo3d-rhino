@@ -72,7 +72,9 @@ public sealed class WorkflowTests : IDisposable
         });
         var task = new LocalTask { Kind="render",ConnectionId=Key.ConnectionId,Status="MeshProcessing",MeshTaskId="9007199254740993",Render=new("Test","unused.glb",Camera) };
         env.Store.Save(task);
-        var submitted = await env.Flow.RefreshAsync(Key,task.Id,default);
+        var ready = await env.Flow.RefreshAsync(Key,task.Id,default);
+        Assert.Equal("MeshReady", ready.Status); Assert.Empty(bodies);
+        var submitted = await env.Flow.ContinueRenderAsync(Key,task.Id,default);
         Assert.Equal("op-1",submitted.OperationId);
         Assert.Equal("Running",submitted.Status);
         var complete = await env.Flow.RefreshAsync(Key,task.Id,default);
@@ -124,6 +126,64 @@ public sealed class WorkflowTests : IDisposable
         });
         string path = await new AssetDownloader(new HttpClient(env.Handler),env.Store).DownloadAsync(Guid.NewGuid(),"https://example.com/result.ply","ply",default);
         Assert.Equal(ply,File.ReadAllText(path));
+    }
+    [Fact]
+    public async Task DownloadDoesNotContinuePaidRender()
+    {
+        var env = Create(request =>
+        {
+            Assert.Equal(HttpMethod.Get, request.Method);
+            return Task.FromResult(Json("""{"success":true,"data":{"taskId":123,"status":3,"outputs":[{"content":"MESH"}]}}"""));
+        });
+        var task = new LocalTask { Kind="render",ConnectionId=Key.ConnectionId,Status="MeshProcessing",MeshTaskId="123",Render=new("Test","unused.glb",Camera) };
+        env.Store.Save(task);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => env.Flow.DownloadAsync(Key,new(task.Id,"image"),default));
+        Assert.Equal(1, env.Handler.Count); Assert.Equal("MeshReady",env.Store.Get(task.Id).Status);
+    }
+    [Fact]
+    public async Task WorldRestoreFindsTaskBeyondFirstPage()
+    {
+        var env = Create(_ => Task.FromResult(Json("""{"worldId":"older-world","status":"RUNNING"}""")));
+        var older = new LocalTask { ConnectionId=Key.ConnectionId,WorldId="older-world",CreatedAt=DateTimeOffset.UtcNow.AddDays(-1), Status="PENDING" };
+        env.Store.Save(older);
+        for(int n=0;n<110;n++) env.Store.Save(new LocalTask {Status="PENDING"});
+        Assert.DoesNotContain(env.Store.List(),t=>t.Id==older.Id);
+        Assert.Equal(older.Id,(await env.Flow.ImportWorldAsync(Key,"older-world",default)).Id);
+        Assert.Equal(111,env.Store.Page(new()).Total);
+    }
+    [Fact]
+    public async Task UnknownContinuationCannotResubmitRender()
+    {
+        var env = Create(_ => throw new HttpRequestException());
+        var task = new LocalTask { Kind="render",ConnectionId=Key.ConnectionId,Status="MeshReady",MeshTaskId="123",MeshId="MESH",Render=new("Test","unused.glb",Camera) };
+        env.Store.Save(task);
+        Assert.Equal("SubmissionUnknown",(await env.Flow.ContinueRenderAsync(Key,task.Id,default)).Status);
+        Assert.Equal("SubmissionUnknown",(await env.Flow.ContinueRenderAsync(Key,task.Id,default)).Status);
+        Assert.Equal(1,env.Handler.Count);
+    }
+    [Fact]
+    public async Task SeparateTasksCanSubmitWhileHistorySeesTheLiveOwner()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls=0;
+        var env=Create(async _=>
+        {
+            int current=Interlocked.Increment(ref calls);
+            if(current==1) { entered.SetResult(); await release.Task; }
+            return Json("{\"worldId\":\"world-"+current+"\"}");
+        });
+        var first=env.Flow.GenerateAsync(Key,new("First","room"),default);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        try
+        {
+            Assert.Equal("Submitting",Assert.Single(env.Store.List()).Status);
+            var second=await env.Flow.GenerateAsync(Key,new("Second","room"),default);
+            Assert.Equal("PENDING",second.Status);
+            Assert.Equal(2,env.Store.Page(new()).Total);
+        }
+        finally { release.TrySetResult(); }
+        Assert.Equal("PENDING",(await first).Status);
     }
     private static HttpResponseMessage Json(string text) => new(HttpStatusCode.OK){Content=new StringContent(text,Encoding.UTF8,"application/json")};
     private sealed class Stub(Func<HttpRequestMessage,Task<HttpResponseMessage>> responder):HttpMessageHandler

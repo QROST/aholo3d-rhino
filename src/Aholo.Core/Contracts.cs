@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 namespace Aholo.Core;
 public sealed record RpcRequest(int Version, Guid Id, string Method, JsonElement Payload);
 public sealed record RpcResponse(int Version, Guid Id, JsonElement? Result, string? Error);
@@ -16,12 +17,19 @@ public sealed record RenderRequest(string Name, string GlbPath, RenderCamera Cam
 public sealed record DownloadRequest(Guid Id, string Kind = "ply");
 public sealed record LocalTask
 {
+    public const int CurrentSchemaVersion = 1;
+    public int SchemaVersion { get; init; } = CurrentSchemaVersion;
+    public string Region { get; init; } = "international";
+    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalFields { get; init; }
     public Guid Id { get; init; } = Guid.NewGuid();
     public string Kind { get; init; } = "world";
     public string Name { get; init; } = "";
     public string ConnectionId { get; init; } = "";
     public string Status { get; init; } = "Preparing";
     public string? WorldId { get; init; }
+    public string? LuxTaskId { get; init; }
+    public string? SpatialTaskId { get; init; }
+    public DateTimeOffset? LastQueriedAt { get; init; }
     public string? MeshTaskId { get; init; }
     public string? MeshId { get; init; }
     public string? OperationId { get; init; }
@@ -39,3 +47,6 @@ public sealed record LocalTask
     public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.UtcNow;
     public override string ToString() => $"{Name} · {UiText.Status(Status)}";
 }
+
+public sealed record TaskPageRequest(int Offset = 0, int Limit = 50, string? Kind = null, string? Search = null);
+public sealed record TaskPage(IReadOnlyList<LocalTask> Items, int Offset, int Total, bool HasMore);

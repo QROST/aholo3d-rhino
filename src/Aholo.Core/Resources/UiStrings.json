@@ -1574,5 +1574,17 @@
   {
     "English": "Interrupted",
     "Chinese": "已中断"
+  },
+  {
+    "English": "Continue original render · Uses service credits",
+    "Chinese": "继续原渲染流程 · 使用服务额度"
+  },
+  {
+    "English": "Ready to render",
+    "Chinese": "可继续渲染"
+  },
+  {
+    "English": "Unsupported task version",
+    "Chinese": "不支持的任务版本"
   }
 ]
