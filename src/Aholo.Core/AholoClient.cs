@@ -4,9 +4,26 @@ using System.Text.Json;
 
 namespace Aholo.Core;
 
-/// <summary>One private child process per panel. Credentials stay in the child process after connection.</summary>
-public sealed class AholoClient : IAsyncDisposable
+public interface IAholoServiceClient : IAsyncDisposable
 {
+    event Action? TransportReset;
+    Task<ConnectionState> GetConnectionAsync(CancellationToken ct=default);
+    Task<ConnectionState> ConnectAsync(ConnectRequest request,CancellationToken ct=default);
+    Task<ConnectionState> DisconnectAsync(CancellationToken ct=default);
+    Task<IReadOnlyList<LocalTask>> GetTasksAsync(CancellationToken ct=default);
+    Task<TaskPage> GetTaskPageAsync(TaskPageRequest request,CancellationToken ct=default);
+    Task<LocalTask> GenerateWorldAsync(GenerateWorldRequest request,CancellationToken ct=default);
+    Task<LocalTask> RenderAsync(RenderRequest request,CancellationToken ct=default);
+    Task<LocalTask> RefreshAsync(Guid id,CancellationToken ct=default);
+    Task<LocalTask> ContinueRenderAsync(Guid id,CancellationToken ct=default);
+    Task<LocalTask> DownloadAsync(DownloadRequest request,CancellationToken ct=default);
+    Task<LocalTask> ImportWorldAsync(string worldId,CancellationToken ct=default);
+}
+
+/// <summary>One private child transport shared by the application session. Credentials stay in the child.</summary>
+public sealed class AholoClient : IAholoServiceClient
+{
+    public event Action? TransportReset;
     private readonly string _directory;
     private readonly SemaphoreSlim _gate = new(1);
     private Process? _process;
@@ -86,6 +103,7 @@ public sealed class AholoClient : IAsyncDisposable
         if (_process is null) return;
         try { if (!_process.HasExited) _process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
         _process.Dispose(); _process = null;
+        TransportReset?.Invoke();
     }
     public async ValueTask DisposeAsync()
     {

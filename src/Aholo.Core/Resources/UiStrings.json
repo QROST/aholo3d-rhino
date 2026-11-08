@@ -1586,5 +1586,13 @@
   {
     "English": "Unsupported task version",
     "Chinese": "不支持的任务版本"
+  },
+  {
+    "English": "Closing the panel keeps tasks running. Reopen it to view progress. Cancel stops local waiting only; remote tasks remain on the service.",
+    "Chinese": "关闭面板后任务继续运行，重开可查看进度。取消仅停止本地等待，远程任务仍会保留。"
+  },
+  {
+    "English": "Local cancellation requested. Remote tasks are not cancelled.",
+    "Chinese": "已请求取消本地操作；远程任务不会被取消。"
   }
 ]

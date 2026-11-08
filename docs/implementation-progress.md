@@ -36,3 +36,11 @@ Release build passed with zero warnings/errors; 363 tests passed, including 31 i
 The user authorized this development batch's bounded third-party analysis, code drafts, test design and reviews using necessary non-sensitive source/documentation/diffs. Credentials, task data, personal paths and full conversation are excluded. The parent applies changes and executes validation. At most two workers and 4096 output tokens per task; uncertain outcomes are inspected, not retried automatically.
 
 The user controls Rhino for visual/native acceptance. No desktop control, real charged service submissions, push or publication is implied by local implementation. No changes to the independent GSRhino project are required.
+
+## M2 — shared application session
+
+Panels now share one sidecar, connection state, background task polling and operation registry per Rhino process. Local history reads bypass the sidecar queue. Closing a panel detaches its observers without disposing the shared transport; document closure cancels its local operations. GS import/export commands use the same registry, with `AholoCancel` available independently of the panel. A successful native commit is not reported as cancelled by a late cancellation.
+
+Automatic offline-render continuation exists only for the original in-memory render intent. Pause, connection reset and restart remove that authority; recovered MeshReady tasks require the explicit continuation action. No cancellation claim is made for remote jobs. Tests cover continuation once, restart, pause/resume, transport reset, offline history, duplicate scope ownership, independent document scopes and closed observers.
+
+Validation: Release build passed with zero warnings/errors; 370 tests passed. The remote session review timed out; its status was checked and it was not retried. Parent review and the local tests above provide this milestone's evidence. Native panel lifecycle acceptance and cross-process credential-cache invalidation remain pending.

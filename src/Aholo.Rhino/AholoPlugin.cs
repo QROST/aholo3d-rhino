@@ -12,7 +12,14 @@ public sealed class AholoPlugin : PlugIn
     // Register the conduit at startup to restore saved GS views without requiring a panel command.
     public override PlugInLoadTime LoadTime => PlugInLoadTime.AtStartup;
     internal static string DisplayVersion => typeof(AholoPlugin).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0.1.0";
-    internal static AholoClient CreateClient() => new(Path.Combine(Path.GetDirectoryName(typeof(AholoPlugin).Assembly.Location)!, "sidecar"));
+    private static readonly Lazy<AholoSession> SharedSession = new(() => new AholoSession(
+        new AholoClient(Path.Combine(Path.GetDirectoryName(typeof(AholoPlugin).Assembly.Location)!, "sidecar")),
+        new TaskStore(Environment.GetEnvironmentVariable("AHOLO_RHINO_STATE_DIR") ?? TaskStore.DefaultRoot)));
+    internal static AholoSession Session => SharedSession.Value;
+    internal static IAholoServiceClient CreateClient() => Session.Client;
+    internal static string DocumentScope(uint serial) => "document:" + serial.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":";
+    private static void OnDocumentClosed(object? sender, global::Rhino.DocumentEventArgs e)
+    { if(SharedSession.IsValueCreated)Session.Operations.CancelPrefix(DocumentScope(e.Document.RuntimeSerialNumber)); }
     protected override LoadReturnCode OnLoad(ref string errorMessage)
     {
         int? language = null;
@@ -20,12 +27,15 @@ public sealed class AholoPlugin : PlugIn
         catch (Exception) { /* Use the system UI language when Rhino cannot provide one during startup. */ }
         UiText.Initialize(language, System.Globalization.CultureInfo.CurrentUICulture.Name);
         global::Rhino.UI.Panels.RegisterPanel(this, typeof(AholoPanel), "Aholo", null!, global::Rhino.UI.PanelType.PerDoc);
+        global::Rhino.RhinoDoc.CloseDocument += OnDocumentClosed;
         GaussianViewport.Initialize(this); // Schedules non-fatal GS initialization on the UI idle event.
         global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Format("Aholo {0} · CuriousArc · qrost. Run AholoPanel to open world generation and RenderCloud.", DisplayVersion));
         return LoadReturnCode.Success;
     }
     protected override void OnShutdown()
     {
+        global::Rhino.RhinoDoc.CloseDocument -= OnDocumentClosed;
+        if(SharedSession.IsValueCreated)_ = Session.DisposeAsync().AsTask();
         GaussianViewport.Shutdown();
         base.OnShutdown();
     }

@@ -30,7 +30,7 @@ public sealed class AholoImportGsCommand : Command
     {
         try
         {
-            string result=await GaussianDocument.ImportSceneAsync(path,target,1,"Auto",true,CancellationToken.None).ConfigureAwait(false);
+            string result=await AholoPlugin.Session.Operations.RunAsync(AholoPlugin.DocumentScope(target.Serial)+"gs", "Import GS", token => GaussianDocument.ImportSceneAsync(path,target,1,"Auto",true,token)).ConfigureAwait(false);
             AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(result));
         }
         catch(Exception ex){AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("GS import did not finish: ")+AholoHost.FriendlyError(ex)));}
@@ -141,18 +141,30 @@ public sealed class AholoExportGsCommand : Command
             using var dialog = GaussianExportDialogs.CreateSaveDialog();
             if (dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc)) != Eto.Forms.DialogResult.Ok) return Result.Cancel;
             global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("Exporting selected GS in the background using current document coordinates and units. Use AholoPanel to export all GS or to cancel."));
-            _ = ExportAsync(GaussianExportDialogs.NormalizePath(dialog), snapshot);
+            _ = ExportAsync(GaussianExportDialogs.NormalizePath(dialog), snapshot, doc.RuntimeSerialNumber);
             return Result.Success;
         }
         catch (Exception ex) { global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(ex)); return Result.Failure; }
     }
-    private static async Task ExportAsync(string path, GaussianDocument.ExportSnapshot snapshot)
+    private static async Task ExportAsync(string path, GaussianDocument.ExportSnapshot snapshot, uint serial)
     {
         try
         {
-            string result = await GaussianDocument.ExportAsync(path, snapshot, CancellationToken.None).ConfigureAwait(false);
+            string result = await AholoPlugin.Session.Operations.RunAsync(AholoPlugin.DocumentScope(serial)+"gs", "Export GS", token => GaussianDocument.ExportAsync(path, snapshot, token)).ConfigureAwait(false);
             AholoHost.Ui(() => global::Rhino.RhinoApp.WriteLine(result));
         }
         catch (Exception ex) { AholoHost.Ui(() => global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("GS export did not finish: ") + AholoHost.FriendlyError(ex))); }
+    }
+}
+
+[Guid("344D03B1-27B7-47D2-97D3-59F3F13F9ED8")]
+public sealed class AholoCancelCommand : Command
+{
+    public override string EnglishName => "AholoCancel";
+    protected override Result RunCommand(RhinoDoc doc, RunMode mode)
+    {
+        AholoPlugin.Session.Operations.CancelPrefix(AholoPlugin.DocumentScope(doc.RuntimeSerialNumber));
+        global::Rhino.RhinoApp.WriteLine(UiText.Get("Local cancellation requested. Remote tasks are not cancelled."));
+        return Result.Success;
     }
 }
