@@ -25,6 +25,12 @@ Implemented task-scoped exclusive locks (network waits no longer hold the all-ta
 
 Validation: Release build succeeded with zero warnings/errors; 328 tests passed on Apple Silicon macOS. Third-party source review found an ownership-probe/read race; the probe now remains held through the read. This does not claim two-Rhino-process native acceptance. UI reorganization, shared operation cancellation and complete service coverage remain in progress.
 
+## API contract expansion
+
+Verified the public service index and all five current OpenAPI schemas. Original World/RenderCloud/Asset snapshots are unchanged; Lux3D and SpatialUnderstanding snapshots are now pinned with hashes. Added all 16 previously missing endpoint routes, an embedded-schema create registry, cross-field validation, exact Lux int64 IDs and ordered multi-output records. World details retain cover/scene/timestamps/LOD URLs; mesh ingestion exposes fastUpload and all mesh IDs.
+
+Release build passed with zero warnings/errors; 363 tests passed, including 31 initial API cases plus four review regressions/metadata cases. The 35-file macOS staged payload passes. Third-party review identified JSON escape equality and malformed Lux list-row handling; both are fixed and tested. API operation routing is complete at the provider level; Rhino integration and remaining optional upload controls are separately tracked in [the coverage matrix](api-capabilities.md). No real service or host acceptance is implied.
+
 ## Review and execution boundaries
 
 The user authorized this development batch's bounded third-party analysis, code drafts, test design and reviews using necessary non-sensitive source/documentation/diffs. Credentials, task data, personal paths and full conversation are excluded. The parent applies changes and executes validation. At most two workers and 4096 output tokens per task; uncertain outcomes are inspected, not retried automatically.

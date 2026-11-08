@@ -9,3 +9,10 @@ Captured 2026-11-01 from the public Aholo documentation. Unmodified JSON referen
 | [asset.openapi.json](asset.openapi.json) | [Official asset schema](https://labs.aholo.ai/api-docs/specifications/services/asset/openapi.en.json) | `9d46dde1bd6f4f3ce731de86f6af1a7c8d0084a6b07b00a60ef564f6b242fe25` |
 
 The RenderCloud OpenUSD guide is in the render schema tags. Re-check official sources before changing service contracts. These snapshots do not prove account permissions or successful live execution.
+
+Re-verified 2026-11-08: the original World, RenderCloud and Asset snapshots are byte-identical to the official current downloads. The complete public index also lists Lux3D and SpatialUnderstanding; added without modification:
+
+- [lux3d.openapi.json](lux3d.openapi.json) — https://labs.aholo.ai/api-docs/specifications/services/lux3d/openapi.en.json — SHA-256 `b6be5c2d22f26c9b7bdbc8b8c7f298a543ce144ab8bda853aeadd512f02d31e2`
+- [spatialunderstanding.openapi.json](spatialunderstanding.openapi.json) — https://labs.aholo.ai/api-docs/specifications/services/spatialunderstanding/openapi.en.json — SHA-256 `35098d56d83267a205f881d61a5aa7e901b1855adb938aff351b9f4b030d292e`
+
+Coverage and workflow status: [capability matrix](../api-capabilities.md). The official public index is https://labs.aholo.ai/api-docs/en/llms.txt .

@@ -1,0 +1,889 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "SpatialUnderstanding Open API",
+    "description": "Public **Spatial Understanding** APIs: submit a point-cloud file to create an async task, then query task details and lists.\n\n**Recommended flow**: upload a `.ply` via the Asset APIs to get a file URL → `POST /global/spatial-understanding/v1/tasks` to create a task → poll **Get spatial understanding task details** with the returned `taskId` until success, failure, or timeout.\n\n**Path prefix** (relative to the gateway root): `/global/spatial-understanding/v1`.\n\n**Input**: `inputFileUrl` accepts only an indoor `.ply` URL from Asset upload; optional `transformationMatrix` (4×4; translation in the 4th column). Coordinate system: meters, right-handed, Z-up (ScanNet). Credits are deducted when the create request is accepted.\n\n**Async tasks**: create returns `taskId` only. When the task later succeeds, details include `result.resultSslUrl` — a UTF-8 text file (DSL) containing Wall / Door / Window / Bbox; download and parse it yourself.\n\n**Time & paging**: `createTime` / `updateTime` in details and lists are **Unix milliseconds**; lists use `pageNum` / `pageSize` (`pageNum` starts at 1; `0` is treated as the first page).\n\n**Auth**: set `Authorization` in the request header (API key, no Bearer prefix). See the global security scheme.\n\n**Responses**: HTTP 200 returns a business object; HTTP 4xx returns the unified error body (including the business code).",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.aholo.ai",
+      "description": "Aholo Open Platform HTTPS entry (International)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "SpatialUnderstanding",
+      "description": "Spatial Understanding — create async tasks from indoor point clouds (`.ply`), poll details for Wall / Door / Window / Bbox text results, or paginate your tasks.",
+      "x-displayName": "Spatial Understanding"
+    }
+  ],
+  "paths": {
+    "/global/spatial-understanding/v1/tasks": {
+      "post": {
+        "tags": [
+          "SpatialUnderstanding"
+        ],
+        "summary": "Create spatial understanding task",
+        "description": "Creates an async spatial understanding task that detects walls, doors, windows, and object 3D bboxes from an indoor point cloud. `inputFileUrl` must be a `.ply` URL from Asset upload. The point-cloud coordinate system is meters, right-handed, Z-up; if it is not aligned, pass `transformationMatrix` (translation in the 4th column). Credits are deducted on acceptance. Returns `taskId` only (same as the path parameter of **Get spatial understanding task details**). After the task succeeds, details include `result.resultSslUrl` as a DSL text file — download and parse it yourself.",
+        "operationId": "createSpatialUnderstandingTask",
+        "requestBody": {
+          "description": "Create-task body. `inputFileUrl` is required and must be an indoor `.ply` URL from Asset upload. Optional `transformationMatrix` aligns the cloud to meters, right-handed, Z-up.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSpatialUnderstandingTaskRequest"
+              },
+              "examples": {
+                "createWithoutMatrix": {
+                  "summary": "Point cloud only, no transform",
+                  "description": "createWithoutMatrix",
+                  "value": {
+                    "inputFileUrl": "https://holo-cos.aholo3d.cn/resource/openapi/xxx.ply"
+                  }
+                },
+                "createWithMatrix": {
+                  "summary": "Include a 4×4 transform (rotation and translation; translation in the 4th column)",
+                  "description": "createWithMatrix",
+                  "value": {
+                    "inputFileUrl": "https://holo-cos.aholo3d.cn/resource/openapi/xxx.ply",
+                    "transformationMatrix": [
+                      [
+                        0.9337461173020494,
+                        0.3579360116324523,
+                        0,
+                        1.871216953359744
+                      ],
+                      [
+                        -0.3579360116324523,
+                        0.9337461173020494,
+                        0,
+                        -0.2091883674268249
+                      ],
+                      [
+                        0,
+                        0,
+                        0.9999999999999999,
+                        1.2121098756790158
+                      ],
+                      [
+                        0,
+                        0,
+                        0,
+                        1
+                      ]
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted. Returns `taskId` for polling task details.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpatialUnderstandingTaskAsyncOperation"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Create accepted",
+                    "description": "success",
+                    "value": {
+                      "taskId": "A1b2C3d4E5"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed, invalid point-cloud URL, invalid transform matrix, or insufficient credits (`details.metaData.bizCode` is the business code)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "Body validation failed (e.g. empty inputFileUrl)",
+                    "description": "Business code 10001",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo.ai",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  },
+                  "invalidInputUrl": {
+                    "summary": "inputFileUrl is invalid or not a .ply",
+                    "description": "Business code 13001. Use a `.ply` URL returned by the Asset upload APIs.",
+                    "value": {
+                      "code": 400,
+                      "message": "invalid file url, please upload a .ply file via the Asset module APIs",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_13001",
+                        "domain": "api.aholo.ai",
+                        "message": "invalid file url, please upload a .ply file via the Asset module APIs",
+                        "metaData": {
+                          "bizCode": "13001"
+                        }
+                      }
+                    }
+                  },
+                  "invalidTransformationMatrix": {
+                    "summary": "Invalid transform matrix",
+                    "description": "Business code 13002. Must be a 4×4 array of valid numbers.",
+                    "value": {
+                      "code": 400,
+                      "message": "invalid transformation matrix, expect a 4x4 numeric array",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_13002",
+                        "domain": "api.aholo.ai",
+                        "message": "invalid transformation matrix, expect a 4x4 numeric array",
+                        "metaData": {
+                          "bizCode": "13002"
+                        }
+                      }
+                    }
+                  },
+                  "insufficientCredits": {
+                    "summary": "Insufficient credits",
+                    "description": "Business code 24002, insufficient credits",
+                    "value": {
+                      "code": 400,
+                      "message": "insufficient credits",
+                      "status": "FAILED_PRECONDITION",
+                      "details": {
+                        "reason": "BIZ_24002",
+                        "domain": "api.aholo.ai",
+                        "message": "insufficient credits",
+                        "metaData": {
+                          "bizCode": "24002"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Authorization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "Missing or invalid API key",
+                    "description": "Business code 10004",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo.ai",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 10
+      }
+    },
+    "/global/spatial-understanding/v1/tasks/{taskId}": {
+      "get": {
+        "tags": [
+          "SpatialUnderstanding"
+        ],
+        "summary": "Get spatial understanding task details",
+        "description": "Get details for a task owned by the current account. `PENDING` / `RUNNING` means it is not finished — keep polling. On `SUCCEEDED`, the response includes `result.resultSslUrl` (DSL text with Wall / Door / Window / Bbox; download and parse it yourself). On `FAILED` / `TIMEOUT`, the response includes `errorCode` and `errorMessage`.",
+        "operationId": "getSpatialUnderstandingTaskDetail",
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "description": "Task id (same as `taskId` in the create success response)",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "example": "A1b2C3d4E5"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task details.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpatialUnderstandingTask"
+                },
+                "examples": {
+                  "pending": {
+                    "summary": "Queued, no result yet",
+                    "description": "pending",
+                    "value": {
+                      "taskId": "A1b2C3d4E5",
+                      "status": "PENDING",
+                      "modelVersion": "spatiallm-pointcloud-1.2-20260910",
+                      "createTime": 1699339916000,
+                      "updateTime": 1699339916000
+                    }
+                  },
+                  "succeeded": {
+                    "summary": "Finished, includes result URL",
+                    "description": "succeeded",
+                    "value": {
+                      "taskId": "A1b2C3d4E5",
+                      "status": "SUCCEEDED",
+                      "modelVersion": "spatiallm-pointcloud-1.2-20260910",
+                      "result": {
+                        "resultSslUrl": "https://holo-cos.aholo3d.cn/resource/openapi/xxx-result.txt"
+                      },
+                      "createTime": 1699339916000,
+                      "updateTime": 1699340120000
+                    }
+                  },
+                  "failed": {
+                    "summary": "Failed, includes error code and message",
+                    "description": "failed",
+                    "value": {
+                      "taskId": "A1b2C3d4E5",
+                      "status": "FAILED",
+                      "modelVersion": "spatiallm-pointcloud-1.2-20260910",
+                      "errorCode": "MODEL_TASK_FAILED",
+                      "errorMessage": "task failed",
+                      "createTime": 1699339916000,
+                      "updateTime": 1699340120000
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Authorization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "Missing or invalid API key",
+                    "description": "Business code 10004",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo.ai",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found, or you cannot access it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "taskNotFound": {
+                    "summary": "Task not found",
+                    "description": "Business code 13003",
+                    "value": {
+                      "code": 404,
+                      "message": "spatial understanding task not found",
+                      "status": "NOT_FOUND",
+                      "details": {
+                        "reason": "BIZ_13003",
+                        "domain": "api.aholo.ai",
+                        "message": "spatial understanding task not found",
+                        "metaData": {
+                          "bizCode": "13003"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 20
+      }
+    },
+    "/global/spatial-understanding/v1/tasks/list": {
+      "post": {
+        "tags": [
+          "SpatialUnderstanding"
+        ],
+        "summary": "List my spatial understanding tasks",
+        "description": "Paginate spatial understanding tasks for the current account, optionally filtered by status. `pageNum` starts at 1 (`0` and `1` both mean the first page). If `pageSize` is omitted or `0`, it defaults to 20; maximum is 100.",
+        "operationId": "getMySpatialUnderstandingTaskList",
+        "requestBody": {
+          "description": "Paging and filter conditions.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpatialUnderstandingTaskListQueryRequest"
+              },
+              "examples": {
+                "listTaskRequest": {
+                  "description": "Example — page 1, 20 per page, filter RUNNING and SUCCEEDED",
+                  "value": {
+                    "pageNum": 1,
+                    "pageSize": 20,
+                    "statusList": [
+                      "RUNNING",
+                      "SUCCEEDED"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Paged list with `pageNum`, `pageSize`, and the current page of tasks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpatialUnderstandingTaskPagedList"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "List succeeded",
+                    "description": "success",
+                    "value": {
+                      "pageNum": 1,
+                      "pageSize": 20,
+                      "count": 2,
+                      "totalCount": 2,
+                      "hasMore": false,
+                      "result": [
+                        {
+                          "taskId": "A1b2C3d4E5",
+                          "status": "RUNNING",
+                          "modelVersion": "spatiallm-pointcloud-1.2-20260910",
+                          "createTime": 1699339916000,
+                          "updateTime": 1699339916000
+                        },
+                        {
+                          "taskId": "B2c3D4e5F6",
+                          "status": "SUCCEEDED",
+                          "modelVersion": "spatiallm-pointcloud-1.2-20260910",
+                          "result": {
+                            "resultSslUrl": "https://holo-cos.aholo3d.cn/resource/openapi/xxx-result.txt"
+                          },
+                          "createTime": 1699339800000,
+                          "updateTime": 1699340120000
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid paging parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "Body / paging validation failed",
+                    "description": "Business code 10001, e.g. pageSize outside [0, 100]",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo.ai",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Authorization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "Missing or invalid API key",
+                    "description": "Business code 10004",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo.ai",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 30
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateSpatialUnderstandingTaskRequest": {
+        "required": [
+          "inputFileUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "inputFileUrl": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Point-cloud URL. Only `.ply` is supported, for indoor scenes. The cloud should use a right-handed coordinate system in meters and be spatially aligned ([ScanNet Alignment](https://github.com/ScanNet/ScanNet/tree/master/Alignment)): Z up, floor parallel to the X-Y plane, and major walls preferably aligned with the X or Y axis in the horizontal plane. If the input cloud does not meet this, pass `transformationMatrix`. For a local file, upload it with the [Asset upload API](https://labs.aholo.ai/api-docs/en/api-reference#tag/asset), then put the returned URL here. External URLs are not supported.",
+            "example": "https://holo-cos.aholo3d.cn/resource/openapi/xxx.ply"
+          },
+          "transformationMatrix": {
+            "type": "array",
+            "description": "Optional. A 4×4 homogeneous transform (4 rows × 4 columns of numbers) that maps the input cloud into the aligned coordinate system above: Z up, floor parallel to the X-Y plane, and major walls preferably aligned with the X or Y axis in the horizontal plane. Omit it if the input is already aligned. Convention: column-vector multiply `p' = T p`; translation in the 4th column of this array (do not transpose); right-handed; Z-up ([ScanNet Alignment](https://github.com/ScanNet/ScanNet/tree/master/Alignment)); units in meters.\n\nBlock form: upper-left `R` is 3×3 rotation, right `t` is translation, bottom row is `[0, 0, 0, 1]`.\n\n```\nT = [ R(3×3)  t(3×1) ]\n    [ 0(1×3)  1      ]\n```\n\nRequest-body indices:\n\n```\n[\n  [ r00, r01, r02, tx ],\n  [ r10, r11, r12, ty ],\n  [ r20, r21, r22, tz ],\n  [   0,   0,   0,  1 ]\n]\n```",
+            "example": [
+              [
+                0.9337461173020494,
+                0.3579360116324523,
+                0,
+                1.871216953359744
+              ],
+              [
+                -0.3579360116324523,
+                0.9337461173020494,
+                0,
+                -0.2091883674268249
+              ],
+              [
+                0,
+                0,
+                0.9999999999999999,
+                1.2121098756790158
+              ],
+              [
+                0,
+                0,
+                0,
+                1
+              ]
+            ],
+            "items": {
+              "type": "array",
+              "description": "Optional. A 4×4 homogeneous transform (4 rows × 4 columns of numbers) that maps the input cloud into the aligned coordinate system above: Z up, floor parallel to the X-Y plane, and major walls preferably aligned with the X or Y axis in the horizontal plane. Omit it if the input is already aligned. Convention: column-vector multiply `p' = T p`; translation in the 4th column of this array (do not transpose); right-handed; Z-up ([ScanNet Alignment](https://github.com/ScanNet/ScanNet/tree/master/Alignment)); units in meters.\n\nBlock form: upper-left `R` is 3×3 rotation, right `t` is translation, bottom row is `[0, 0, 0, 1]`.\n\n```\nT = [ R(3×3)  t(3×1) ]\n    [ 0(1×3)  1      ]\n```\n\nRequest-body indices:\n\n```\n[\n  [ r00, r01, r02, tx ],\n  [ r10, r11, r12, ty ],\n  [ r20, r21, r22, tz ],\n  [   0,   0,   0,  1 ]\n]\n```",
+              "example": [
+                [
+                  0.9337461173020494,
+                  0.3579360116324523,
+                  0,
+                  1.871216953359744
+                ],
+                [
+                  -0.3579360116324523,
+                  0.9337461173020494,
+                  0,
+                  -0.2091883674268249
+                ],
+                [
+                  0,
+                  0,
+                  0.9999999999999999,
+                  1.2121098756790158
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  1
+                ]
+              ],
+              "items": {
+                "type": "number",
+                "description": "Optional. A 4×4 homogeneous transform (4 rows × 4 columns of numbers) that maps the input cloud into the aligned coordinate system above: Z up, floor parallel to the X-Y plane, and major walls preferably aligned with the X or Y axis in the horizontal plane. Omit it if the input is already aligned. Convention: column-vector multiply `p' = T p`; translation in the 4th column of this array (do not transpose); right-handed; Z-up ([ScanNet Alignment](https://github.com/ScanNet/ScanNet/tree/master/Alignment)); units in meters.\n\nBlock form: upper-left `R` is 3×3 rotation, right `t` is translation, bottom row is `[0, 0, 0, 1]`.\n\n```\nT = [ R(3×3)  t(3×1) ]\n    [ 0(1×3)  1      ]\n```\n\nRequest-body indices:\n\n```\n[\n  [ r00, r01, r02, tx ],\n  [ r10, r11, r12, ty ],\n  [ r20, r21, r22, tz ],\n  [   0,   0,   0,  1 ]\n]\n```",
+                "format": "double"
+              }
+            }
+          }
+        },
+        "description": "Body for creating a spatial understanding task. Indoor point clouds; coordinate system is meters, right-handed, Z-up."
+      },
+      "SpatialUnderstandingTaskAsyncOperation": {
+        "required": [
+          "taskId"
+        ],
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "Task id. Pass it to `GET /global/spatial-understanding/v1/tasks/{taskId}` topoll status and results.",
+            "example": "A1b2C3d4E5"
+          }
+        },
+        "description": "Create acceptance result with `taskId`. Use it to poll details until the task finishes."
+      },
+      "ApiError": {
+        "required": [
+          "code",
+          "details",
+          "message",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "HTTP status code",
+            "format": "int32",
+            "example": 403
+          },
+          "message": {
+            "type": "string",
+            "description": "Developer-facing error message (English); use `localizedMessage` for user-visible localized text.",
+            "example": "Permission denied to access this resource"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Code"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ErrorDetails"
+          },
+          "localizedMessage": {
+            "$ref": "#/components/schemas/LocalizedMessage"
+          },
+          "help": {
+            "$ref": "#/components/schemas/Help"
+          }
+        },
+        "description": "API error response with status, details, and optional help."
+      },
+      "Code": {
+        "type": "string",
+        "description": "Standard REST status code following Google API design, used as a unified error-code representation.",
+        "example": "PERMISSION_DENIED",
+        "enum": [
+          "OK",
+          "CANCELLED",
+          "UNKNOWN",
+          "INVALID_ARGUMENT",
+          "DEADLINE_EXCEEDED",
+          "NOT_FOUND",
+          "ALREADY_EXISTS",
+          "PERMISSION_DENIED",
+          "UNAUTHENTICATED",
+          "RESOURCE_EXHAUSTED",
+          "FAILED_PRECONDITION",
+          "ABORTED",
+          "OUT_OF_RANGE",
+          "UNIMPLEMENTED",
+          "INTERNAL",
+          "UNAVAILABLE",
+          "DATA_LOSS",
+          "PARTIAL_ELEMENT_UPDATE_FAILED"
+        ]
+      },
+      "ErrorDetails": {
+        "required": [
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
+            "maxLength": 63,
+            "pattern": "[A-Z][A-Z0-9_]+[A-Z0-9]",
+            "type": "string",
+            "description": "Error reason identifier in UPPER_SNAKE_CASE, at most 63 characters",
+            "example": "RESOURCE_NOT_FOUND"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable explanation of this error, with specific context",
+            "nullable": true,
+            "example": "The requested design with ID 12345 does not exist"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Error domain, usually the service that produced the error",
+            "nullable": true,
+            "example": "restapi.qunhe.com"
+          },
+          "metaData": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "description": "Additional error metadata as key-value pairs; keys at most 64 characters, matching /[a-zA-Z0-9-_]/",
+              "nullable": true,
+              "example": "{\"instanceLimitPerRequest\":\"100\",\"currentInstanceCount\":\"150\"}"
+            },
+            "description": "Additional error metadata as key-value pairs; keys at most 64 characters, matching /[a-zA-Z0-9-_]/",
+            "nullable": true,
+            "example": {
+              "instanceLimitPerRequest": "100",
+              "currentInstanceCount": "150"
+            }
+          }
+        },
+        "description": "Error details with reason, domain, and metadata"
+      },
+      "Help": {
+        "required": [
+          "desc",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "desc": {
+            "type": "string",
+            "description": "Description of the linked content and how it helps",
+            "example": "How to resolve a permission-denied error"
+          },
+          "url": {
+            "type": "string",
+            "description": "Help-document URL",
+            "example": "https://docs.example.com/errors/permission-denied"
+          }
+        },
+        "description": "Help information with a documentation link",
+        "nullable": true
+      },
+      "LocalizedMessage": {
+        "required": [
+          "locale",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "description": "Locale identifier for the message",
+            "example": "en_US"
+          },
+          "message": {
+            "type": "string",
+            "description": "Localized error text for end users",
+            "example": "You do not have permission to access this resource"
+          }
+        },
+        "description": "Localized message for a specific locale",
+        "nullable": true
+      },
+      "SpatialUnderstandingTaskListQueryRequest": {
+        "type": "object",
+        "properties": {
+          "pageNum": {
+            "minimum": 0,
+            "type": "integer",
+            "description": "Page number, starting at 1; `0` and `1` both mean the first page.",
+            "format": "int32",
+            "example": 1
+          },
+          "pageSize": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer",
+            "description": "Page size, maximum 100; `0` or omitted defaults to 20.",
+            "format": "int32",
+            "example": 20
+          },
+          "statusList": {
+            "type": "array",
+            "description": "Filter by task status (uppercase strings); empty means no status filter.",
+            "items": {
+              "$ref": "#/components/schemas/SpatialUnderstandingTaskStatus"
+            }
+          }
+        },
+        "description": "Body for listing spatial understanding tasks. `pageNum` starts at 1 (`0` and `1` both mean the first page); `pageSize` is 1–100 (omitted or `0` defaults to 20). Only tasks owned by the current account are returned."
+      },
+      "SpatialUnderstandingTaskStatus": {
+        "type": "string",
+        "description": "Spatial understanding task status. **In progress**: `PENDING` queued; `RUNNING` running. **Terminal**: `SUCCEEDED` succeeded; `FAILED` failed; `TIMEOUT` timed out.",
+        "example": "SUCCEEDED",
+        "enum": [
+          "PENDING",
+          "RUNNING",
+          "SUCCEEDED",
+          "FAILED",
+          "TIMEOUT"
+        ]
+      },
+      "SpatialUnderstandingTask": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "Task id, same as the create response.",
+            "example": "A1b2C3d4E5"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SpatialUnderstandingTaskStatus"
+          },
+          "modelVersion": {
+            "type": "string",
+            "description": "Model version actually used for this task. Not specified at create time; the server uses the current default.",
+            "example": "spatiallm-pointcloud-1.2-20260910"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SpatialUnderstandingTaskResult"
+          },
+          "errorCode": {
+            "type": "string",
+            "description": "Failure category; returned only for `FAILED` or `TIMEOUT`. `MODEL_SUBMIT_FAILED`: submit failed; `MODEL_TASK_FAILED`: execution failed; `RESULT_TRANSFER_FAILED`: result write failed; `TIMEOUT`: timed out.",
+            "example": "MODEL_TASK_FAILED"
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Failure details; returned only for `FAILED` or `TIMEOUT`.",
+            "example": "task failed"
+          },
+          "createTime": {
+            "type": "integer",
+            "description": "Create time, Unix milliseconds.",
+            "format": "int64"
+          },
+          "updateTime": {
+            "type": "integer",
+            "description": "Last update time, Unix milliseconds.",
+            "format": "int64"
+          }
+        },
+        "description": "Spatial understanding task details. On success includes `result`; on failure or timeout includes `errorCode` and `errorMessage`."
+      },
+      "SpatialUnderstandingTaskPagedList": {
+        "type": "object",
+        "properties": {
+          "pageNum": {
+            "type": "integer",
+            "description": "Page number used for this request (starts at 1; if the request sent `0`, `0` is echoed back).",
+            "format": "int32",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "description": "Page size used for this request.",
+            "format": "int32",
+            "example": 20
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of records on the current page.",
+            "format": "int32",
+            "example": 20
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "Total records matching the filter.",
+            "format": "int32",
+            "example": 128
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether another page exists.",
+            "example": false
+          },
+          "result": {
+            "type": "array",
+            "description": "Task records on the current page.",
+            "items": {
+              "$ref": "#/components/schemas/SpatialUnderstandingTask"
+            }
+          }
+        },
+        "description": "Paged spatial understanding task list, including `pageNum` / `pageSize` for this request, plus the current page and totals."
+      },
+      "SpatialUnderstandingTaskResult": {
+        "type": "object",
+        "properties": {
+          "resultSslUrl": {
+            "type": "string",
+            "description": "URL of the spatial understanding result file. UTF-8 plain text, one entity per line. The server does not return parsed JSON — download and parse it yourself.\n\nCoordinate system: meters, right-handed, Z-up ([ScanNet Alignment](https://github.com/ScanNet/ScanNet/tree/master/Alignment)).\n\nLine format: `{id}={Type}(arg1,arg2,...)`. Skip unknown `Type` values; do not fail the whole file.\n\n| Type | Line format |\n| --- | --- |\n| Wall | `wall_{n}=Wall(ax,ay,az,bx,by,bz,height,thickness)` |\n| Door | `door_{n}=Door(wall_id,position_x,position_y,position_z,width,height)` |\n| Window | `window_{n}=Window(wall_id,position_x,position_y,position_z,width,height)` |\n| Bbox | `bbox_{n}=Bbox(class,position_x,position_y,position_z,angle_z,scale_x,scale_y,scale_z)` |\n\n| Type | Field | Data type | Description |\n| --- | --- | --- | --- |\n| Wall | `ax, ay, az` | number | 3D coordinates of start point A of the wall baseline on the floor. |\n| Wall | `bx, by, bz` | number | 3D coordinates of end point B of the wall baseline on the floor. |\n| Wall | `height` | number | Wall height. |\n| Wall | `thickness` | number | Wall thickness; currently `0.0` because the detector outputs inner-room contour edges. |\n| Door | `wall_id` | string | Id of the wall that owns the door, e.g. `wall_0`; must refer to a wall in this file. |\n| Door | `position_x, position_y, position_z` | number | 3D coordinates of the door-opening center. |\n| Door | `width` | number | Opening width along the owning wall. |\n| Door | `height` | number | Vertical height of the opening. |\n| Window | `wall_id` | string | Id of the wall that owns the window, e.g. `wall_4`; must refer to a wall in this file. |\n| Window | `position_x, position_y, position_z` | number | 3D coordinates of the window-opening center. |\n| Window | `width` | number | Opening width along the owning wall. |\n| Window | `height` | number | Vertical height of the opening. |\n| Bbox | `class` | string | Object class, e.g. `chair`, `sofa`, `carpet`, `coffee_table`. |\n| Bbox | `position_x, position_y, position_z` | number | Center of the 3D bounding box. |\n| Bbox | `angle_z` | number | Box rotation around Z, i.e. heading in the horizontal plane. |\n| Bbox | `scale_x` | number | Full extent along the box local X axis (not half-size). |\n| Bbox | `scale_y` | number | Full extent along the box local Y axis (not half-size). |\n| Bbox | `scale_z` | number | Full extent along the box local Z axis (height). |\n\nParsing tips: read line by line. `class` may contain spaces (e.g. `dining chair`); do not split on the first comma. Take the last 7 numbers from the right and treat the remainder as `class`. `class` is usually unquoted. Numbers are floats.\n\nFormat sample:\n\n```\nwall_0=Wall(1.6857,-4.4625,0.0,4.6798,-4.4474,0.0,2.73,0.0)\ndoor_0=Door(wall_0,3.1734,-4.4550,1.05,1.3852,2.1)\nwindow_0=Window(wall_4,5.6622,-1.0338,1.65,0.6883,1.5)\nbbox_0=Bbox(carpet,-3.009,4.371,-1.401,-1.5708,5.718,6.734,0.109)\n```\n\n**Common `class` values** (use the token as-is; treat unknown values as a generic object):\n\n`curtain`, `painting`, `nightstand`, `chandelier`, `wardrobe`, `bed`, `carpet`, `sofa`, `dining chair`, `bathroom cabinet`, `television`, `toilet`, `dining table combination`, `chair`, `shower`, `plants`, `tv cabinet`, `coffee table`, `illumination`, `shoe cabinet`, `refrigerator`, `shower room`, `wall decoration`, `cupboard`, `side table`, `stool`, `wine cabinet`, `bookcase`, `combination sofa`, `air conditioner`, `washing cabinet`, `pillow`, `stove`, `dressing table`, `desk`, `cushion`, `floor-standing lamp`, `dining table`, `washing machine`, `hand sink`, `clothes rack`, `mirror`, `sideboard`, `computer`, `potted bonsai`, `range hood`, `entrance cabinet`, `gas stove`, `multifunctional combination bed`, `leisure table and chair combination`, `bar chair`, `screen`, `sink`, `bar`, `tub`, `decorative cabinet`, `wall cabinet`, `integrated stove`, `micro-wave oven`",
+            "example": "https://holo-cos.aholo3d.cn/resource/openapi/xxx-result.txt"
+          }
+        },
+        "description": "Spatial understanding task output. Returned only when the task succeeds. `resultSslUrl` points to UTF-8 text (DSL) with Wall / Door / Window / Bbox; download and parse it yourself."
+      }
+    },
+    "securitySchemes": {
+      "AuthorizationHeader": {
+        "type": "apiKey",
+        "description": "API key auth. Set the Authorization header to the platform-issued API key;do not add a Bearer prefix.",
+        "name": "Authorization",
+        "in": "header"
+      }
+    }
+  }
+}

@@ -23,6 +23,14 @@ public sealed class ApiKeyCredential
     public override string ToString() => "Aholo API Key (redacted)";
 }
 
-public sealed record WorldResult(string WorldId, string Name, string Status, double? Progress, string? UpAxis, string? PlyUrl, string? SpzUrl, string? ImageUrl);
-public sealed record MeshResult(string TaskId, int Status, string? MeshId);
+public sealed record WorldResult(string WorldId, string Name, string Status, double? Progress, string? UpAxis, string? PlyUrl, string? SpzUrl, string? ImageUrl)
+{
+    public string? CoverUrl { get; init; }
+    public string? Scene { get; init; }
+    public string? LodMetaUrl { get; init; }
+    public long? Created { get; init; }
+    public long? Updated { get; init; }
+}
+public sealed record MeshResult(string TaskId, int Status, string? MeshId)
+{ public IReadOnlyList<string> MeshIds { get; init; } = Array.Empty<string>(); }
 public sealed record RenderOperation(string OperationId, bool Done, string? ResultUrl, string? Error);

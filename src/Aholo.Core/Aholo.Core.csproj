@@ -3,4 +3,9 @@
     <TargetFramework>net7.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup><EmbeddedResource Include="Resources/UiStrings.json" LogicalName="Aholo.Core.UiStrings.json" WithCulture="false" /></ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../../docs/api/world.openapi.json" LogicalName="Aholo.Core.ServiceSchemas.world.json" />
+    <EmbeddedResource Include="../../docs/api/lux3d.openapi.json" LogicalName="Aholo.Core.ServiceSchemas.lux3d.json" />
+    <EmbeddedResource Include="../../docs/api/spatialunderstanding.openapi.json" LogicalName="Aholo.Core.ServiceSchemas.spatialunderstanding.json" />
+  </ItemGroup>
 </Project>

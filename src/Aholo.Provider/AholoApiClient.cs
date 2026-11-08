@@ -52,9 +52,11 @@ public sealed partial class AholoApiClient
         return rows.EnumerateArray().Select(ParseWorld).ToArray();
     }
 
-    public async Task<string> CreateMeshAsync(ApiKeyCredential key, string url, CancellationToken ct = default)
+    public Task<string> CreateMeshAsync(ApiKeyCredential key, string url, CancellationToken ct = default) => CreateMeshAsync(key, url, true, ct);
+
+    public async Task<string> CreateMeshAsync(ApiKeyCredential key, string url, bool fastUpload, CancellationToken ct = default)
     {
-        using var request = Gateway(key, HttpMethod.Post, "rendercloud/v1/mesh-upload-process/task/create", new { originMeshUrl = HttpsUrl(url), fastUpload = true });
+        using var request = Gateway(key, HttpMethod.Post, "rendercloud/v1/mesh-upload-process/task/create", new { originMeshUrl = HttpsUrl(url), fastUpload });
         return await CreateAsync(request, root => NumericId(MeshData(root)), ct).ConfigureAwait(false);
     }
 
@@ -64,13 +66,14 @@ public sealed partial class AholoApiClient
         using var request = Gateway(key, HttpMethod.Get, "rendercloud/v1/mesh-upload-process/task/get?taskid=" + taskId);
         var data = MeshData(await SendAsync(_apiHttp, request, ct).ConfigureAwait(false));
         if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("taskId", out var id) || NumericId(id) != taskId || !data.TryGetProperty("status", out var status) || !status.TryGetInt32(out var state)) throw InvalidResponse();
-        string? meshId = null;
+        string? meshId = null; string[] meshIds = Array.Empty<string>();
         if (state == 3 && data.TryGetProperty("outputs", out var outputs) && outputs.ValueKind == JsonValueKind.Array)
         {
             var matches = outputs.EnumerateArray().Select(item => OptionalString(item, "content")).Where(value => !string.IsNullOrWhiteSpace(value)).ToArray();
-            if (matches.Length == 1) meshId = Identifier(matches[0]!);
+            meshIds = matches.Select(x => Identifier(x!)).ToArray();
+            if (meshIds.Length == 1) meshId = meshIds[0];
         }
-        return new(taskId, state, meshId);
+        return new(taskId, state, meshId) { MeshIds = meshIds };
     }
 
     public async Task<RenderOperation> SubmitRenderAsync(ApiKeyCredential key, string requestId, string usda, CancellationToken ct = default)
@@ -211,15 +214,17 @@ public sealed partial class AholoApiClient
         string id = RequiredIdentifier(root, "worldId");
         string status = RequiredString(root, "status");
         double? progress = root.TryGetProperty("progress", out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number) && double.IsFinite(number) ? number : null;
-        string? up = null, ply = null, spz = null, image = null;
+        string? up = null, ply = null, spz = null, image = null, lod = null;
         if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Object)
         {
             if (assets.TryGetProperty("semanticsMetadata", out var semantics)) up = OptionalString(semantics, "upAxis");
             if (assets.TryGetProperty("imagery", out var imagery)) image = OptionalString(imagery, "panoUrl");
             if (assets.TryGetProperty("splats", out var splats) && splats.ValueKind == JsonValueKind.Object && splats.TryGetProperty("urls", out var urls))
-            { ply = OptionalString(urls, "plyPath"); spz = OptionalString(urls, "spzPath"); }
+            { ply = OptionalString(urls, "plyPath"); spz = OptionalString(urls, "spzPath"); lod = OptionalString(urls, "lodMetaPath"); }
         }
-        return new(id, OptionalString(root, "name") ?? id, status, progress, up, ply, spz, image);
+        return new(id, OptionalString(root, "name") ?? id, status, progress, up, ply, spz, image)
+        { CoverUrl = OptionalString(root, "cover"), Scene = OptionalString(root, "scene"), LodMetaUrl = lod,
+          Created = OptionalLong(root, "createTime"), Updated = OptionalLong(root, "updateTime") };
     }
 
     private static RenderOperation ParseRender(JsonElement root)

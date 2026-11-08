@@ -2,4 +2,5 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../Aholo.Core/Aholo.Core.csproj" /></ItemGroup>
 </Project>
