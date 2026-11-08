@@ -2,7 +2,9 @@
 
 在 Rhino 8 中生成世界并使用 RenderCloud 云渲染，由 **CuriousArc · qrost** 开发。
 
-[English](readme.md)
+[English](readme.md) · [源码仓库](https://github.com/QROST/aholo3d-rhino)
+
+仓库和源码目录现为 **`aholo3d-rhino`**。已发布的 Yak 包继续使用 **`aholo-rhino`**，保持原有用户的更新渠道；插件标识、命令、凭据、任务/缓存及可选 USD 运行时路径保持兼容。详见[仓库改名与兼容说明](docs/repository-rename.md)。
 
 **0.1.1-beta.2，macOS 预览版，支持自动中英界面选择及 GS USD/USDZ 双向交换。** 之前 0.1.0 的生成与显示流程已在本机 Apple Silicon Mac 由用户测试通过；新增导入导出界面及双语原生布局仍待手动验收。 本项目是独立集成，不是 Manycore、Aholo 或 McNeel 官方产品。插件标识、命令、凭据和缓存均独立，不替换 Lux3D for Rhino。
 

@@ -2,7 +2,9 @@
 
 World generation and RenderCloud rendering inside Rhino 8, by **CuriousArc · qrost**.
 
-[简体中文](readme.zh-CN.md)
+[简体中文](readme.zh-CN.md) · [Source repository](https://github.com/QROST/aholo3d-rhino)
+
+The repository and checkout directory are now **`aholo3d-rhino`**. The existing Yak package remains **`aholo-rhino`** so installed users keep the same update channel. Plug-in identity, commands, credentials, state/cache and optional USD runtime locations remain compatible. See [repository rename and compatibility](docs/repository-rename.md).
 
 **0.1.1-beta.2 — macOS preview with automatic English/Chinese interface selection and GS USD/USDZ interchange.** The preceding 0.1.0 generation/display workflow was user-tested on Apple Silicon Mac; the new import/export UI and bilingual native layout still need manual acceptance. This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
 

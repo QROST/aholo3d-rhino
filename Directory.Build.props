@@ -11,6 +11,7 @@
     <Company>CuriousArc</Company>
     <Authors>CuriousArc;qrost</Authors>
     <Product>Aholo for Rhino</Product>
+    <RepositoryUrl>https://github.com/QROST/aholo3d-rhino</RepositoryUrl>
     <CheckEolTargetFramework>false</CheckEolTargetFramework>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>

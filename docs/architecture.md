@@ -2,6 +2,8 @@
 
 Maintainer: CuriousArc · qrost. API review date: 2026-11-01.
 
+Canonical source repository: [https://github.com/QROST/aholo3d-rhino](https://github.com/QROST/aholo3d-rhino); checkout directory: `aholo3d-rhino`. The repository rename does not rename installed package or persisted identifiers; see [compatibility details](repository-rename.md).
+
 ## Boundaries
 
 - **Aholo.Rhino**, .NET 7: Eto UI, document identity checks, tessellation, camera capture, native Gaussian block references and an experimental DisplayConduit mode. Only Rhino's UI thread mutates the document.

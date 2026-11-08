@@ -14,7 +14,7 @@ description: >-
   remain pending. English is the default interface; Chinese follows the Rhino
   language, with the system UI language used only as a fallback.
   Realtime cloud transport is experimental; no cloud viewport is enabled.
-url: https://github.com/QROST
+url: https://github.com/QROST/aholo3d-rhino
 keywords:
   - D1D17217-1169-41BB-B63A-FEE17DFA777F
   - aholo
