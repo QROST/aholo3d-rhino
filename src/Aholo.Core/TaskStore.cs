@@ -50,6 +50,14 @@ public sealed class TaskStore
         var items = rows.Skip(request.Offset).Take(request.Limit).ToArray();
         return new(items, request.Offset, rows.Length, (long)request.Offset + items.Length < rows.Length);
     }
+    public TaskPage PageContaining(Guid id,int limit=50)
+    {
+        if(limit is <1 or >100)throw new ArgumentOutOfRangeException(nameof(limit));
+        var rows=All().OrderByDescending(t=>t.CreatedAt).ThenBy(t=>t.Id).ToArray();
+        int index=Array.FindIndex(rows,t=>t.Id==id);
+        if(index<0)throw new IOException("The requested local task was not found.");
+        int offset=index/limit*limit;return new(rows.Skip(offset).Take(limit).ToArray(),offset,rows.Length,offset+limit<rows.Length);
+    }
     public LocalTask? FindWorld(string worldId, string connectionId) => All().FirstOrDefault(t =>
         t.Kind == "world" && t.WorldId == worldId && t.ConnectionId == connectionId);
     private LocalTask? TryGet(Guid id) { try { return Get(id); } catch (Exception e) when (e is IOException or JsonException) { return new LocalTask { Id = id, Name = "Unreadable task record", Status = "RecordError", Error = "The local record cannot be read; the file is retained. Check cloud history to avoid duplicate submissions." }; } }
@@ -93,7 +101,8 @@ public sealed class TaskStore
         {
             Name = DisplayText(task.Name, 512), Error = task.Error is null ? null : DisplayText(task.Error, 1024),
             Render = task.Render is null ? null : task.Render with { Name = DisplayText(task.Render.Name, 512) },
-            PlyUrl = null, SpzUrl = null, ImageUrl = null
+            PlyUrl = null, SpzUrl = null, ImageUrl = null,
+            Artifacts = task.Artifacts.Select(a=>a with { Url = null, Label = DisplayText(a.Label,128), Error = a.Error is null ? null : DisplayText(a.Error,512) }).ToArray()
         }, AholoJson.Options));
     }
     public static string DisplayText(string value, int maxLength = 512) => value.Length <= maxLength ? value : value[..maxLength] + "…";

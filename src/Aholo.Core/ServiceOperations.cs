@@ -25,6 +25,7 @@ public static class ServiceOperations
     private static readonly IReadOnlyDictionary<string,JsonElement> Schemas = new[] {"world","lux3d","spatialunderstanding"}.ToDictionary(x=>x,Load);
     public static ServiceOperation Get(string id) => All.SingleOrDefault(x=>x.Id==id) ?? throw new ArgumentException("Unknown service operation.",nameof(id));
     public static JsonElement RequestSchema(string id) { var op=Get(id);return Schemas[op.SchemaService].GetProperty(op.Schema); }
+    public static JsonElement ResolveSchema(string operation,JsonElement schema) => schema.TryGetProperty("$ref",out var reference) ? Schemas[Get(operation).SchemaService].GetProperty(reference.GetString()!.Split('/')[^1]) : schema;
     private static JsonElement Load(string service)
     {
         using var stream=typeof(ServiceOperations).Assembly.GetManifestResourceStream("Aholo.Core.ServiceSchemas."+service+".json") ?? throw new InvalidOperationException("Missing service contract.");

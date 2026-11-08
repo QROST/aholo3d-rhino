@@ -9,7 +9,7 @@ public static class AholoJson
     public static JsonElement Element<T>(T value) => JsonSerializer.SerializeToElement(value, Options);
 }
 public sealed record ConnectionState(bool Connected, string? ConnectionId, bool Remembered);
-public sealed record ConnectRequest(string ApiKey, bool Remember);
+public sealed record ConnectRequest(string ApiKey, bool Remember, string ValidationService = "world");
 public sealed record GenerateWorldRequest(string Name, string Prompt, string? ImagePath = null);
 // Row-vector pose, translation in row 4, distances in millimetres; camera looks along local -Z.
 public sealed record RenderCamera(double[] Transform, double FocalLength, double HorizontalAperture, double VerticalAperture, double Near, double Far);
@@ -28,6 +28,8 @@ public sealed record LocalTask
     public string Status { get; init; } = "Preparing";
     public string? WorldId { get; init; }
     public string? LuxTaskId { get; init; }
+    public string? ServiceOperation { get; init; }
+    public TaskArtifact[] Artifacts { get; init; } = Array.Empty<TaskArtifact>();
     public string? SpatialTaskId { get; init; }
     public DateTimeOffset? LastQueriedAt { get; init; }
     public string? MeshTaskId { get; init; }

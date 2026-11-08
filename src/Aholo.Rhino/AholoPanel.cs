@@ -1,434 +1,280 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 using Aholo.Core;
 using Eto.Drawing;
 using Eto.Forms;
 using Rhino.UI;
-using RhinoDoc = global::Rhino.RhinoDoc;
-using OpenFileDialog = Eto.Forms.OpenFileDialog;
+using OpenFileDialog=Eto.Forms.OpenFileDialog;
+using RhinoDoc=global::Rhino.RhinoDoc;
 namespace Aholo.Rhino;
 
 [Guid("676AA7F9-6F1F-4F15-9CE1-DB3CB70CF397")]
-public sealed class AholoPanel : Panel, IPanel
+public sealed class AholoPanel : Panel,IPanel
 {
-    private readonly uint _serial;
-    private readonly AholoSession _session = AholoPlugin.Session;
-    private IAholoServiceClient _client => _session.Client;
-    private CancellationToken _operationToken;
-    private CancellationTokenSource _lifetime = new();
-    private readonly List<Button> _actions = new();
-    private readonly List<LocalTask> _records = new();
-    private readonly UITimer _elapsed = new() { Interval = 1 };
-    private readonly Stopwatch _clock = new();
-    private readonly TabControl _tabs = new();
-    private readonly PasswordBox _key = new();
-    private readonly CheckBox _remember = new() { Text = global::Aholo.Core.UiText.Get("Save in secure local storage"), Checked = false };
-    private readonly Label _connection = Info(global::Aholo.Core.UiText.Get("Not connected · International API Key"));
-    private readonly TextArea _prompt = new() { Height = 100, Wrap = true };
-    private readonly TextBox _worldName = new() { PlaceholderText = global::Aholo.Core.UiText.Get("Task name (optional)") };
-    private readonly TextBox _image = new() { ReadOnly = true, PlaceholderText = global::Aholo.Core.UiText.Get("Optional: PNG / JPEG / WebP image") };
-    private readonly TextBox _worldId = new() { PlaceholderText = global::Aholo.Core.UiText.Get("Existing Aholo World ID") };
-    private readonly TextBox _scale = new() { Text = "1" };
-    private readonly DropDown _axis = new() { DataStore = new[] { global::Aholo.Core.UiText.Get("Use world metadata (Z-up if unavailable)"), global::Aholo.Core.UiText.Get("Z-up"), global::Aholo.Core.UiText.Get("Y-up") }, SelectedIndex = 0 };
-    private readonly DropDown _gsExportScope = new() { DataStore = new[] { global::Aholo.Core.UiText.Get("Selected top-level GS"), global::Aholo.Core.UiText.Get("All top-level GS (including hidden and locked)") }, SelectedIndex = 0 };
-    private CancellationTokenSource? _localGsOperation;
-    private readonly Button _cancelGs = new() { Text = global::Aholo.Core.UiText.Get("Cancel local GS operation"), Enabled = false };
-    private readonly ListBox _worldTasks = new() { Height = 125 };
-    private readonly ListBox _renderTasks = new() { Height = 125 };
-    private readonly TextArea _worldDetail = new() { ReadOnly = true, Wrap = true, Height = 105 };
-    private readonly TextArea _renderDetail = new() { ReadOnly = true, Wrap = true, Height = 105 };
-    private readonly DropDown _resolution = new() { DataStore = new[] { "1280 × 720", "1920 × 1080" }, SelectedIndex = 0 };
-    private readonly CheckBox _autoRefresh = new() { Text = global::Aholo.Core.UiText.Get("Auto-refresh active tasks (every 8 seconds)"), Checked = true };
-    private readonly Label _operation = Info(global::Aholo.Core.UiText.Get("Ready"));
-    private readonly TextArea _feedback = new() { ReadOnly = true, Height = 80, Wrap = true, Text = global::Aholo.Core.UiText.Get("World generates worlds; RenderCloud renders the Rhino selection. Results and tasks are stored locally.") };
-    private readonly Button _generate;
-    private readonly Button _render;
-    private bool _busy, _disposed, _shown, _connected, _feedbackError;
-    private int _feedbackRevision;
-    private string _operationName = "";
-    private string? _connectionId;
-
+    private readonly uint serial;
+    private readonly AholoSession session=AholoPlugin.Session;
+    private readonly TabControl tabs=new();
+    private readonly DropDown creation=new();
+    private readonly Panel formHost=new();
+    private CreationForm form=null!;
+    private readonly Dictionary<string,CreationForm> drafts=new();
+    private readonly ListBox tasks=new(){Height=190};
+    private readonly DropDown artifacts=new();
+    private readonly Label artifactDetail=Info("");
+    private readonly TextArea detail=new(){ReadOnly=true,Wrap=true,Height=130};
+    private readonly TextArea feedback=new(){ReadOnly=true,Wrap=true,Height=65};
+    private readonly Label connection=Info("Not connected");
+    private readonly Label operation=Info("Ready");
+    private readonly TextBox search=new(){PlaceholderText=T("Search local history")};
+    private readonly DropDown filter=new(){DataStore=new[]{T("All tasks"),T("Worlds"),T("Objects and images"),T("Renders"),T("Spatial understanding")},SelectedIndex=0};
+    private readonly Label pageInfo=Info("");
+    private readonly Button previous=new(){Text=T("Previous")},next=new(){Text=T("Next")},cancel=new(){Text=T("Cancel local operation"),Enabled=false};
+    private readonly TextBox scale=new(){Text="1"};
+    private readonly DropDown axis=new(){DataStore=new[]{T("Automatic up axis"),"Z-up","Y-up"},SelectedIndex=0};
+    private readonly TextBox objectHeight=new(){Text="1"};
+    private readonly DropDown exportScope=new(){DataStore=new[]{T("Selected top-level GS"),T("All top-level GS (including hidden and locked)")},SelectedIndex=0};
+    private readonly DropDown resolution=new(){DataStore=new[]{"1280 × 720","1920 × 1080"},SelectedIndex=0};
+    private readonly List<Button> actions=new();
+    private readonly Button submit,render,refresh,download,place,continueRender;
+    private readonly UITimer elapsed=new(){Interval=1};
+    private readonly Stopwatch clock=new();
+    private readonly CancellationTokenSource lifetime=new();
+    private CancellationToken token;
+    private bool busy,disposed;
+    private int offset;
+    private string workName="";
+    private LocalTask? Selected=>tasks.SelectedValue as LocalTask;
+    private TaskArtifact? SelectedArtifact=>artifacts.SelectedValue as TaskArtifact;
+    private static string T(string value)=>UiText.Get(value);
+    private static Label Info(string value)=>new(){Text=T(value),Wrap=WrapMode.Word};
+    private RhinoDoc Document()=>RhinoDoc.FromRuntimeSerialNumber(serial)??throw new InvalidOperationException(T("The target document has closed."));
+    private string Scope=>AholoPlugin.DocumentScope(serial);
     public AholoPanel(uint documentSerialNumber)
     {
-        _serial = documentSerialNumber;
-        _session.Changed += SessionChanged;
-        _session.TaskChanged += SessionTaskChanged;
-        _autoRefresh.Checked = _session.AutoRefresh;
-        _autoRefresh.CheckedChanged += (_, _) => _session.AutoRefresh = _autoRefresh.Checked == true;
-        var doc = RhinoDoc.FromRuntimeSerialNumber(_serial);
-        _cancelGs.Click += (_, _) => { _localGsOperation?.Cancel(); _session.Operations.CancelPrefix(AholoPlugin.DocumentScope(_serial)); };
-        _generate = ActionButton(global::Aholo.Core.UiText.Get("Generate world · Uses service credits"), GenerateAsync);
-        _render = ActionButton(global::Aholo.Core.UiText.Get("Upload selection and render · Uses service credits"), RenderAsync);
-        _generate.Enabled = _render.Enabled = false;
-        _worldTasks.SelectedIndexChanged += (_, _) => DescribeTask("world");
-        _renderTasks.SelectedIndexChanged += (_, _) => DescribeTask("render");
-        _elapsed.Elapsed += (_, _) => { if (!_disposed && _busy) _operation.Text = _operationName + " · " + (int)_clock.Elapsed.TotalSeconds + global::Aholo.Core.UiText.Get(" s"); };
-        _tabs.Pages.Add(new TabPage { Text = "World", Content = Column(
-            Info(global::Aholo.Core.UiText.Get("Generate a 3D Gaussian Splatting world from text or one image. The current API works best for indoor scenes.")),
-            _worldName, _prompt, _image,
-            Row(LocalButton(global::Aholo.Core.UiText.Get("Choose image"), ChooseImage), LocalButton(global::Aholo.Core.UiText.Get("Clear"), () => _image.Text = "")),
-            _generate,
-            Info(global::Aholo.Core.UiText.Get("World history (World entries among the latest 100 local tasks)")), _worldTasks,
-            Row(ActionButton(global::Aholo.Core.UiText.Get("Load history"), () => ReloadAsync()), ActionButton(global::Aholo.Core.UiText.Get("Refresh selected task"), () => RefreshSelectedAsync("world"))),
-            _worldDetail,
-            Row(ActionButton(global::Aholo.Core.UiText.Get("Download PLY"), () => DownloadSelectedAsync("world", "ply")), ActionButton(global::Aholo.Core.UiText.Get("Download SPZ"), () => DownloadSelectedAsync("world", "spz"))),
-            Row(ActionButton(global::Aholo.Core.UiText.Get("Download panorama"), () => DownloadSelectedAsync("world", "image")), LocalButton(global::Aholo.Core.UiText.Get("Open panorama"), () => OpenSelectedImage("world"))),
-            Info(global::Aholo.Core.UiText.Get("GS import scale: 1 world unit equals these document units (") + (doc?.ModelUnitSystem.ToString() ?? global::Aholo.Core.UiText.Get("Current document")) + ")"),
-            _scale, _axis, ActionButton(global::Aholo.Core.UiText.Get("Place in current document · Experimental GS viewport"), PlaceSelectedAsync),
-            Info(global::Aholo.Core.UiText.Get("Complete Gaussians and original PLY / SPZ are retained. Bounds appear during background preparation; GS returns after view motion stops. Experimental color, occlusion and navigation performance require native acceptance.")),
-            Row(ActionButton(global::Aholo.Core.UiText.Get("Import local GS · PLY / USD / USDZ"), ImportLocalGsAsync), LocalButton(global::Aholo.Core.UiText.Get("Switch to Aholo GS"), () => GaussianViewport.Activate(Document()))),
-            Info(global::Aholo.Core.UiText.Get("Local USD uses file units multiplied by the scale above. The up-axis selection applies; Auto reads the file. Ordinary mesh USD is not GS.")),
-            _gsExportScope, ActionButton(global::Aholo.Core.UiText.Get("Export GS · USD / USDZ"), ExportLocalGsAsync), _cancelGs,
-            Info(global::Aholo.Core.UiText.Get("Export uses GS, placements and document units at the time of the click. Only top-level GS is supported; ordinary geometry, nested blocks and hidden state are not exported. Complete SH is retained; official USD Gaussian fields use float32.")),
-            Info(global::Aholo.Core.UiText.Get("Offline acceptance scene: AholoGsProbe. Diagnostics: AholoGsDiagnostics. Transparent Rhino material interleaving and nested blocks are unsupported; full clipping-plane behavior still needs acceptance.")),
-            ActionButton(global::Aholo.Core.UiText.Get("Diagnostic: import PLY centers"), ImportLocalPlyAsync),
-            _worldId, ActionButton(global::Aholo.Core.UiText.Get("Restore from an existing World ID"), ImportExistingWorldAsync)
-        ) });
-        _tabs.Pages.Add(new TabPage { Text = "RenderCloud", Content = Column(
-            Info(global::Aholo.Core.UiText.Get("Select Rhino meshes, surfaces/polysurfaces or extrusions and activate a standard perspective view before rendering.")),
-            Info(global::Aholo.Core.UiText.Get("Selected geometry and base colors will be uploaded with the current camera. Textures, lights, procedural materials and block instances are not converted in this version.")),
-            _resolution,
-            Info(global::Aholo.Core.UiText.Get("Output preserves the camera's horizontal field of view; vertical framing follows the output aspect ratio.")), _render,
-            Info(global::Aholo.Core.UiText.Get("Render history (RenderCloud entries among the latest 100 local tasks)")), _renderTasks,
-            Row(ActionButton(global::Aholo.Core.UiText.Get("Load history"), () => ReloadAsync()), ActionButton(global::Aholo.Core.UiText.Get("Refresh selected task"), () => RefreshSelectedAsync("render"))),
-            _renderDetail, ActionButton(UiText.Get("Continue original render · Uses service credits"), ContinueRenderAsync),
-            Row(ActionButton(global::Aholo.Core.UiText.Get("Download render"), () => DownloadSelectedAsync("render", "image")), LocalButton(global::Aholo.Core.UiText.Get("Open local render"), () => OpenSelectedImage("render"))),
-            Info(global::Aholo.Core.UiText.Get("This page uses offline rendering. Realtime protocol groundwork is experimental; cloud viewports and World GS ingestion are not exposed yet. Failed or unconfirmed submissions never automatically create another paid task."))
-        ) });
-        _tabs.Pages.Add(new TabPage { Text = global::Aholo.Core.UiText.Get("Connection"), Content = Column(
-            _connection, Info(global::Aholo.Core.UiText.Get("This version connects to Aholo international. Generation and rendering require a regional API Key; OAuth is not integrated.")),
-            new Label { Text = global::Aholo.Core.UiText.Get("International API Key") }, _key, _remember,
-            ActionButton(global::Aholo.Core.UiText.Get("Validate and connect"), ConnectAsync),
-            Row(ActionButton(global::Aholo.Core.UiText.Get("Read connection status"), ReadConnectionAsync), ActionButton(global::Aholo.Core.UiText.Get("Disconnect and clear credentials"), DisconnectAsync)),
-            Info(global::Aholo.Core.UiText.Get("Validation only queries existing tasks; it does not generate, render or guarantee available credits. The key is never stored in Rhino documents or task history.")),
-            _autoRefresh, LocalButton(global::Aholo.Core.UiText.Get("Open local asset folder"), OpenAssetFolder),
-            Info(global::Aholo.Core.UiText.Get("Closing the panel keeps tasks running. Reopen it to view progress. Cancel stops local waiting only; remote tasks remain on the service.")),
-            Info("Aholo for Rhino " + AholoPlugin.DisplayVersion + global::Aholo.Core.UiText.Get("\nCuriousArc · qrost\nIndependent Aholo integration plugin."))
-        ) });
-        Content = new StackLayout
-        {
-            Padding = 10, Spacing = 8, HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Items = { new Label { Text = "Aholo for Rhino", Font = new Font(SystemFont.Bold, 15) },
-                Info(global::Aholo.Core.UiText.Get("Worlds and rendering · ") + (doc?.Name ?? global::Aholo.Core.UiText.Get("Current document"))), new StackLayoutItem(_tabs, true), _operation, _feedback }
-        };
+        serial=documentSerialNumber;
+        var document=RhinoDoc.FromRuntimeSerialNumber(serial);
+        if(document is not null){double unitScale=global::Rhino.RhinoMath.UnitScale(global::Rhino.UnitSystem.Meters,document.ModelUnitSystem);if(double.IsFinite(unitScale)&&unitScale>0)objectHeight.Text=unitScale.ToString("R",CultureInfo.InvariantCulture);}
+        creation.DataStore=ServiceOperations.All.Select(x=>T(x.Title)).ToArray();creation.SelectedIndex=0;
+        creation.SelectedIndexChanged+=(_,_)=>ChangeForm();ChangeForm();
+        submit=Action("Create · Uses service credits",CreateAsync);
+        render=Action("Upload selection and render · Uses service credits",RenderAsync);
+        refresh=Action("Refresh selected task",RefreshAsync);
+        download=Action("Download selected result",DownloadAsync);
+        place=Action("Place in current document",PlaceAsync);
+        continueRender=Action("Continue original render · Uses service credits",ContinueAsync);
+        var createPage=Column(creation,formHost,submit,Info("Each click creates one paid task. Follow its progress in Library."));
+        tasks.SelectedIndexChanged+=(_,_)=>Describe();artifacts.SelectedIndexChanged+=(_,_)=>UpdateActions();
+        filter.SelectedIndexChanged+=(_,_)=>{offset=0;_=ReloadAsync();};search.TextChanged+=(_,_)=>{offset=0;_=ReloadAsync();};
+        previous.Click+=(_,_)=>{offset=Math.Max(0,offset-50);_=ReloadAsync();};next.Click+=(_,_)=>{offset+=50;_=ReloadAsync();};
+        var worldId=new TextBox{PlaceholderText=T("Existing Aholo World ID")};
+        var libraryPage=Column(search,filter,tasks,Row(previous,pageInfo,next),Row(Local("Load history",()=>_=ReloadAsync()),refresh),detail,artifacts,artifactDetail,
+            Row(download,Local("Open result folder",OpenResultFolder)),Local("Open image",OpenImage),place,continueRender,
+            Row(Local("Pause local polling",Pause),Local("Resume polling",Resume)),
+            Info("Local files"),Row(Action("Import GS",ImportGsAsync),Action("Export GS",ExportGsAsync)),exportScope,
+            Row(Local("GS viewport",()=>GaussianViewport.Activate(Document())),Local("Diagnostics",()=>Report(GaussianViewport.Diagnostics(Document())))),
+            worldId,Action("Restore World ID",async()=>{var task=await session.Client.ImportWorldAsync(worldId.Text.Trim(),token);session.Observe(task);await RevealAsync(task);}));
+        var renderPage=Column(Info("Select meshes, surfaces, extrusions or mesh blocks and use a perspective view. Geometry, base colors and camera will be uploaded."),resolution,render,
+            Info("Offline rendering uses a captured scene, including nested block placements. Results appear in Library. Textures, lights and GS ingestion are not converted yet."),
+            Info("Realtime cloud rendering is still under development. Native depth compositing is not available from the documented image stream."));
+        tabs.Pages.Add(new(){Text=T("Create"),Content=createPage});tabs.Pages.Add(new(){Text=T("Library"),Content=libraryPage});tabs.Pages.Add(new(){Text=T("Render"),Content=renderPage});
+        cancel.Click+=(_,_)=>session.Operations.CancelPrefix(Scope);
+        elapsed.Elapsed+=(_,_)=>{if(!disposed&&busy)operation.Text=workName+" · "+(int)clock.Elapsed.TotalSeconds+" s";};
+        Content=new StackLayout{Padding=10,Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
+            Row(new Label{Text="Aholo3D",Font=new Font(SystemFont.Bold,16)},Local("Settings",ShowSettings)),connection,new StackLayoutItem(tabs,true),Row(operation,cancel),feedback}};
+        session.Changed+=SessionChanged;session.TaskChanged+=TaskChanged;UpdateActions();
+        Report(T("Create assets, organize results and place them in this Rhino document."));
     }
-    private static Label Info(string text) => new() { Text = text, Wrap = WrapMode.Word };
     private static Control Column(params Control[] controls)
-    {
-        var layout = new StackLayout { Padding = 8, Spacing = 8, HorizontalContentAlignment = HorizontalAlignment.Stretch };
-        foreach (Control control in controls) layout.Items.Add(control);
-        return new Scrollable { Content = layout };
-    }
+    {var stack=new StackLayout{Padding=6,Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch};foreach(var control in controls)stack.Items.Add(control);return new Scrollable{Content=stack};}
     private static Control Row(params Control[] controls)
+    {var row=new StackLayout{Orientation=Orientation.Horizontal,Spacing=6};foreach(var control in controls)row.Items.Add(new StackLayoutItem(control,true));return row;}
+    private Button Action(string title,Func<Task> work)
+    {var button=new Button{Text=T(title)};button.Click+=(_,_)=>_=RunAsync(title,work);actions.Add(button);return button;}
+    private Button Local(string title,System.Action work)
+    {var button=new Button{Text=T(title)};button.Click+=(_,_)=>{if(disposed)return;try{work();}catch(Exception ex){Report(AholoHost.FriendlyError(ex));}};return button;}
+    private void ChangeForm()
     {
-        var layout = new StackLayout { Orientation = Orientation.Horizontal, Spacing = 6 };
-        foreach (Control control in controls) layout.Items.Add(new StackLayoutItem(control, true));
-        return layout;
+        if(creation.SelectedIndex<0)return;string id=ServiceOperations.All[creation.SelectedIndex].Id;
+        if(!drafts.TryGetValue(id,out var selected)){selected=new CreationForm(id);drafts[id]=selected;}
+        form=selected;formHost.Content=form;
     }
-    private Button ActionButton(string title, Func<Task> action)
+    private void Report(string text){if(!disposed)feedback.Text=text;}
+    private async Task RunAsync(string name,Func<Task> work)
     {
-        var button = new Button { Text = title };
-        button.Click += (_, _) => _ = RunAsync(title, action);
-        _actions.Add(button); return button;
-    }
-    private Button LocalButton(string title, Action action)
-    {
-        var button = new Button { Text = title };
-        button.Click += (_, _) => { if (_busy || _disposed) return; try { action(); } catch (Exception ex) { Feedback(AholoHost.FriendlyError(ex), true); } };
-        _actions.Add(button); return button;
-    }
-    private CancellationToken Token => _operationToken.CanBeCanceled ? _operationToken : _lifetime.Token;
-    private RhinoDoc Document() => RhinoDoc.FromRuntimeSerialNumber(_serial) ?? throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The target document has closed. Reopen the panel in the target document."));
-    private async Task RunAsync(string name, Func<Task> action, bool background = false)
-    {
-        if (_busy || _disposed || _lifetime.IsCancellationRequested) return;
-        _busy = true; int revision = _feedbackRevision;
-        _operationName = name; _operation.Text = name; _clock.Restart(); _elapsed.Start();
-        foreach (Button button in _actions) button.Enabled = false;
-        bool failed = false;
+        if(disposed||busy)return;busy=true;workName=T(name);clock.Restart();elapsed.Start();UpdateActions();
         try
         {
-            await _session.Operations.RunAsync(AholoPlugin.DocumentScope(_serial) + "foreground", name, async token =>
-            { _operationToken = token; try { await action(); } finally { _operationToken = default; } }, _lifetime.Token);
-            AholoHost.Ui(() => { if (!background && !_disposed && revision == _feedbackRevision) Feedback(global::Aholo.Core.UiText.Get("Operation completed.")); });
+            await session.Operations.RunAsync(Scope+"foreground",name,async ct=>{token=ct;try{await work();}finally{token=default;}},lifetime.Token);
         }
-        catch (Exception ex)
-        {
-            failed = true;
-            AholoHost.Ui(() =>
-            {
-                if (_disposed) return;
-                if (!background || !_feedbackError) Feedback(AholoHost.FriendlyError(ex), true);
-            });
-        }
+        catch(Exception ex){AholoHost.Ui(()=>Report(AholoHost.FriendlyError(ex)));}
         finally
         {
-            AholoHost.Ui(() =>
-            {
-                _busy = false; _clock.Stop();
-                if (_disposed) { _lifetime.Dispose(); return; }
-                _elapsed.Stop(); _operation.Text = (failed ? global::Aholo.Core.UiText.Get("Operation did not finish") : global::Aholo.Core.UiText.Get("Ready")) + " · " + (int)_clock.Elapsed.TotalSeconds + global::Aholo.Core.UiText.Get(" s");
-                foreach (Button button in _actions) button.Enabled = true;
-                _generate.Enabled = _render.Enabled = _connected;
-                if (_shown && _lifetime.IsCancellationRequested) StartPanelSession();
-            });
+            AholoHost.Ui(()=>{busy=false;clock.Stop();if(disposed){lifetime.Dispose();return;}elapsed.Stop();operation.Text=T("Ready");UpdateActions();});
         }
     }
-    private void Feedback(string text, bool error = false)
+    private void UpdateActions()
     {
-        if (_disposed) return;
-        _feedbackRevision++; _feedbackError = error; _feedback.Text = (error ? global::Aholo.Core.UiText.Get("Action required: ") : "") + text;
+        if(disposed)return;
+        bool connected=session.Connection.Connected;
+        connection.Text=connected?T("International · Connected"):T("International · Not connected");
+        foreach(var button in actions)button.Enabled=!busy;
+        submit.Enabled=render.Enabled=!busy&&connected;
+        var task=Selected;var capability=task is null?null:TaskCapabilities.For(task);var artifact=SelectedArtifact;
+        artifactDetail.Text=artifact?.Error is not null?UiText.TranslateKnownMessage(artifact.Error):artifact?.LocalPath??"";
+        bool sameAccount=task?.ConnectionId==session.Connection.ConnectionId;
+        refresh.Enabled=!busy&&connected&&sameAccount&&capability?.CanQuery==true;
+        download.Enabled=!busy&&connected&&sameAccount&&capability?.CanDownload==true&&artifact is not null&&artifact.Error is null;
+        place.Enabled=!busy&&task is not null&&artifact is not null&&artifact.Format is "glb" or "ply"&&artifact.LocalPath is not null&&File.Exists(artifact.LocalPath);
+        continueRender.Enabled=!busy&&connected&&sameAccount&&capability?.CanContinueRender==true;
+        continueRender.Visible=task?.Kind=="render"&&capability?.CanContinueRender==true;
+        cancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
     }
-    private void SetConnection(ConnectionState state)
+    private long historyRevision;
+    private async Task ReloadAsync(Guid? select=null)
     {
-        if (_disposed) return;
-        _connected = state.Connected; _connectionId = state.ConnectionId;
-        _connection.Text = state.Connected ? global::Aholo.Core.UiText.Get("International · Connected") + (state.Remembered ? global::Aholo.Core.UiText.Get(" · Credentials saved securely") : global::Aholo.Core.UiText.Get(" · This session only")) : global::Aholo.Core.UiText.Get("International · Not connected");
-        _generate.Enabled = _render.Enabled = _connected && !_busy;
+        if(disposed)return;
+        long revision=Interlocked.Increment(ref historyRevision);
+        var request=new TaskPageRequest(offset,50,filter.SelectedIndex switch{1=>"world",2=>"object",3=>"render",4=>"spatial",_=>null},search.Text.Trim());
+        Guid? selected=select??Selected?.Id;
+        try
+        {
+            var page=await session.ReadHistoryAsync(request);
+            AholoHost.Ui(()=>{if(disposed||revision!=historyRevision)return;tasks.DataStore=page.Items;int index=page.Items.ToList().FindIndex(t=>t.Id==selected);tasks.SelectedIndex=index>=0?index:page.Items.Count>0?0:-1;previous.Enabled=offset>0;next.Enabled=page.HasMore;pageInfo.Text=$"{Math.Min(offset+1,page.Total)}–{offset+page.Items.Count} / {page.Total}";Describe();});
+        }
+        catch(Exception ex){AholoHost.Ui(()=>Report(AholoHost.FriendlyError(ex)));}
     }
-    private async Task ConnectAsync()
+    private static TaskArtifact[] Outputs(LocalTask task)=>task.Kind switch
     {
-        string key = _key.Text; bool remember = _remember.Checked == true; _key.Text = "";
-        var connection = await _session.ConnectAsync(new ConnectRequest(key, remember), Token);
-        AholoHost.Ui(() => { SetConnection(connection); Feedback(global::Aholo.Core.UiText.Get("Connected. Submit tasks from World or RenderCloud. Service credits are determined by your Aholo account.")); });
-        await ReloadAsync();
+        "world"=>new[]{new TaskArtifact("ply","Gaussian scene","ply",LocalPath:task.PlyPath),new TaskArtifact("spz","Compressed Gaussian scene","spz",LocalPath:task.SpzPath),new TaskArtifact("image","Panorama","image",LocalPath:task.ImagePath)},
+        "render"=>new[]{new TaskArtifact("image","Rendered image","image",LocalPath:task.ImagePath)},_=>task.Artifacts
+    };
+    private void Describe()
+    {
+        var task=Selected;if(task is null){detail.Text=T("No task selected.");artifacts.DataStore=Array.Empty<TaskArtifact>();UpdateActions();return;}
+        string? key=SelectedArtifact?.Key;
+        string progress=task.Progress.HasValue?" · "+task.Progress.Value.ToString("0.##",CultureInfo.InvariantCulture):"";
+        string queried=task.LastQueriedAt.HasValue?task.LastQueriedAt.Value.ToLocalTime().ToString("g"):T("Not queried yet");
+        detail.Text=task.Name+"\n"+T(task.Kind)+" · "+UiText.Status(task.Status)+progress+"\nID: "+(TaskIdentity.From(task).RemoteId??"—")+"\n"+T("Last query")+": "+queried+(session.IsPaused(task.Id)?" · "+T("Polling paused"):"")+(task.Error is null?"":"\n"+UiText.TranslateKnownMessage(task.Error));
+        var rows=Outputs(task);artifacts.DataStore=rows;int index=Array.FindIndex(rows,a=>a.Key==key);artifacts.SelectedIndex=index>=0?index:rows.Length>0?0:-1;UpdateActions();
     }
-    private async Task ReadConnectionAsync()
+    private async Task CreateAsync()
+    {var request=form.Capture();var task=await session.Client.CreateServiceAsync(request,token);session.Observe(task);await RevealAsync(task);}
+    private async Task RevealAsync(LocalTask task)
     {
-        var connection = await _session.ReadConnectionAsync(Token);
-        AholoHost.Ui(() => SetConnection(connection));
+        if(disposed)return;
+        var page=await Task.Run(()=>session.Store.PageContaining(task.Id));
+        AholoHost.Ui(()=>{if(disposed)return;tabs.SelectedIndex=1;filter.SelectedIndex=0;search.Text="";offset=page.Offset;Report(task.Error is null?T("Task recorded. Library follows the original task; no automatic resubmission."):UiText.TranslateKnownMessage(task.Error));});
+        await ReloadAsync(task.Id);
     }
-    private async Task DisconnectAsync()
+    private async Task RefreshAsync()
+    {var task=Selected??throw new InvalidOperationException(T("Select a task first."));var updated=await session.Client.RefreshAsync(task.Id,token);session.Observe(updated);await ReloadAsync(task.Id);}
+    private async Task ContinueAsync()
+    {var task=Selected??throw new InvalidOperationException(T("Select a task first."));var updated=await session.ContinueRenderAsync(task.Id,token);session.Observe(updated);await ReloadAsync(task.Id);}
+    private async Task DownloadAsync()
     {
-        var connection = await _session.DisconnectAsync(Token);
-        AholoHost.Ui(() => { SetConnection(connection); _key.Text = ""; Feedback(global::Aholo.Core.UiText.Get("Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.")); });
+        var task=Selected??throw new InvalidOperationException(T("Select a task first."));var asset=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
+        var updated=await session.Client.DownloadAsync(new(task.Id,task.Kind is "world" or "render"?asset.Key:"artifact:"+asset.Key),token);session.Observe(updated);
+        string? path=Outputs(updated).FirstOrDefault(a=>a.Key==asset.Key)?.LocalPath;AholoHost.Ui(()=>Report(T("Saved locally")+":\n"+path));await ReloadAsync(task.Id);
     }
-    private void ChooseImage()
+    private void OpenImage()
     {
-        using var dialog = new OpenFileDialog { Title = global::Aholo.Core.UiText.Get("Choose a world-generation reference image"), MultiSelect = false };
-        dialog.Filters.Add(new FileFilter(global::Aholo.Core.UiText.Get("Images"), ".png", ".jpg", ".jpeg", ".webp"));
-        if (dialog.ShowDialog(this) == DialogResult.Ok) _image.Text = dialog.FileName;
+        var artifact=SelectedArtifact;if(artifact?.Format!="image"||artifact.LocalPath is null||!File.Exists(artifact.LocalPath))throw new InvalidOperationException(T("Download and select an image result first."));
+        Process.Start(new ProcessStartInfo(artifact.LocalPath){UseShellExecute=true});
     }
-    private async Task GenerateAsync()
+    private void OpenResultFolder()
+    {string? path=SelectedArtifact?.LocalPath;string folder=path is not null?Path.GetDirectoryName(path)!:Path.Combine(session.Store.Root,"assets");Process.Start(new ProcessStartInfo(folder){UseShellExecute=true});}
+    private void Pause(){if(Selected is{} task){session.PauseTask(task.Id);Describe();Report(T("Local polling paused. The remote task continues."));}}
+    private void Resume(){if(Selected is{} task){session.ResumeQueries(task.Id);Describe();}}
+    private double Scale()
+    {if(!double.TryParse(scale.Text,NumberStyles.Float,CultureInfo.InvariantCulture,out double value)||!double.IsFinite(value)||value<=0)throw new ArgumentException(T("Enter an import scale greater than zero, such as 1 or 1000."));return value;}
+    private string Axis()=>axis.SelectedIndex==1?"Z":axis.SelectedIndex==2?"Y":"Auto";
+    private async Task PlaceAsync()
     {
-        string prompt = _prompt.Text.Trim(), image = _image.Text.Trim(), name = _worldName.Text.Trim();
-        if (prompt.Length == 0 && image.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Enter a scene description or choose a reference image."));
-        if (name.Length == 0) name = prompt.Length == 0 ? global::Aholo.Core.UiText.Get("World from image") : prompt[..Math.Min(prompt.Length, 45)];
-        var task = await _client.GenerateWorldAsync(new GenerateWorldRequest(name, prompt, image.Length == 0 ? null : image), Token);
-        AholoHost.Ui(() => ObserveTask(task));
-        AholoHost.Ui(() => Feedback((task.Error is null ? null : UiText.TranslateKnownMessage(task.Error)) ?? global::Aholo.Core.UiText.Get("World task recorded. When generation finishes, download PLY and click Place in current document."), task.Error is not null));
+        var task=Selected??throw new InvalidOperationException(T("Select a task first."));var artifact=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
+        if(artifact.LocalPath is null||!File.Exists(artifact.LocalPath))throw new InvalidOperationException(T("Download the selected result first."));
+        var target=AholoHost.CaptureTarget(Document());
+        if(artifact.Format=="ply")
+        {string up=Axis()=="Auto"?task.UpAxis??"Z":Axis();string message=await GaussianDocument.ImportAsync(artifact.LocalPath,target,Scale(),up,task.Id,token);AholoHost.Ui(()=>Report(message));return;}
+        if(artifact.Format!="glb")throw new InvalidOperationException(T("This result format cannot be placed directly."));
+        if(!double.TryParse(objectHeight.Text,NumberStyles.Float,CultureInfo.InvariantCulture,out double height)||!double.IsFinite(height)||height<=0)throw new ArgumentException(T("Enter a positive model height in document units."));
+        var trace=new HostImportTrace(task.Id,serial,AholoPlugin.DisplayVersion,session.Store.Root);
+        try
+        {
+            using var snapshot=await Task.Run(()=>GlbImportSnapshot.Create(artifact.LocalPath,artifact.Sha256,trace),token);
+            await AholoHost.OnUi(()=>
+            {
+                token.ThrowIfCancellationRequested();var doc=Document();
+                if(doc.ModelUnitSystem!=target.Units||RhinoDoc.ActiveDoc?.RuntimeSerialNumber!=serial||doc.IsReadOnly||doc.IsClosing||doc.IsCommandRunning||doc.UndoRecordingIsActive)throw new InvalidOperationException(T("The target document changed. Retry placement in the intended document."));
+                Guid importId=new(SHA256.HashData(Encoding.UTF8.GetBytes(task.Id.ToString("N")+":"+artifact.Key)).AsSpan(0,16));
+                var host=AholoPlugin.MeshHost;var prior=host.FindReceipt(doc,importId);
+                if(prior is not null){Report(prior.State=="Imported"?T("This result is already in the document."):T("The earlier placement was removed. Use Rhino Redo to restore it."));return true;}
+                using var prepared=host.Prepare(snapshot,doc,trace);
+                int previousLayer=doc.Layers.CurrentLayerIndex;int visible=GaussianDocument.VisibleLayer(doc);
+                if(!doc.Layers.SetCurrentLayerIndex(visible,true))throw new InvalidOperationException(T("Cannot select a visible layer."));
+                ImportReceipt receipt;
+                try{receipt=host.Commit(prepared,new(global::Rhino.Geometry.Plane.WorldXY,global::Rhino.Geometry.Point3d.Origin,height,0),importId,task.Id,trace);}
+                finally{doc.Layers.SetCurrentLayerIndex(previousLayer,true);}
+                var obj=doc.Objects.FindId(receipt.ObjectId);if(obj is not null){doc.Objects.UnselectAll();obj.Select(true);doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(obj.Geometry.GetBoundingBox(true));doc.Views.Redraw();}
+                trace.Complete(receipt.State);Report(T("Model placed at the world origin. Rhino Undo removes this placement."));return true;
+            });
+        }
+        catch(Exception ex){trace.Fail(ex);throw;}
     }
-    private async Task ImportExistingWorldAsync()
+    private async Task ImportGsAsync()
     {
-        string id = _worldId.Text.Trim();
-        if (id.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Enter an existing World ID."));
-        var task = await _client.ImportWorldAsync(id, Token);
-        AholoHost.Ui(() => ObserveTask(task));
-        AholoHost.Ui(() => Feedback(global::Aholo.Core.UiText.Get("Loaded the original world task; no new generation was submitted.")));
+        using var dialog=new OpenFileDialog{Title=T("Import GS"),MultiSelect=false};dialog.Filters.Add(new FileFilter("Gaussian scene",".ply",".usd",".usda",".usdc",".usdz"));
+        if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
+        var target=AholoHost.CaptureTarget(Document());string message=await GaussianDocument.ImportSceneAsync(dialog.FileName,target,Scale(),Axis(),true,token);AholoHost.Ui(()=>Report(message));
     }
-    private async Task ContinueRenderAsync()
+    private async Task ExportGsAsync()
     {
-        var task = Selected("render");
-        var updated = await _session.ContinueRenderAsync(task.Id, Token);
-        AholoHost.Ui(() => ObserveTask(updated));
+        var snapshot=GaussianDocument.CaptureExport(Document(),selectedOnly:exportScope.SelectedIndex==0);using var dialog=GaussianExportDialogs.CreateSaveDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
+        string message=await GaussianDocument.ExportAsync(GaussianExportDialogs.NormalizePath(dialog),snapshot,token);AholoHost.Ui(()=>Report(message));
     }
     private async Task RenderAsync()
     {
-        int width = _resolution.SelectedIndex == 1 ? 1920 : 1280, height = _resolution.SelectedIndex == 1 ? 1080 : 720;
-        RenderSnapshot snapshot = AholoHost.CaptureRender(Document(), width, height);
-        CancellationToken ct = Token;
-        string path = Path.Combine(_session.Store.Root, "exports", Guid.NewGuid().ToString("N") + ".glb");
-        AholoHost.Ui(() => _operationName = global::Aholo.Core.UiText.Get("Preparing selection geometry"));
-        await Task.Run(() => { Directory.CreateDirectory(Path.GetDirectoryName(path)!); GlbWriter.Write(path, snapshot.Meshes, ct); }, ct);
-        // Capture already reflects the user's selected document and camera; no document mutations occur during submission.
-        AholoHost.Ui(() => _operationName = global::Aholo.Core.UiText.Get("Uploading selection and submitting render"));
-        var task = await _session.RenderAsync(new RenderRequest(snapshot.Name, path, snapshot.Camera, width, height), ct);
-        AholoHost.Ui(() => ObserveTask(task));
-        AholoHost.Ui(() => Feedback((task.Error is null ? null : UiText.TranslateKnownMessage(task.Error)) ?? global::Aholo.Core.UiText.Get("Selection render task recorded. Query the original task for mesh processing and rendering; download the render when finished."), task.Error is not null));
+        int width=resolution.SelectedIndex==1?1920:1280,height=resolution.SelectedIndex==1?1080:720;
+        var snapshot=AholoHost.CaptureRender(Document(),width,height);string path=Path.Combine(session.Store.Root,"exports",Guid.NewGuid().ToString("N")+".glb");
+        await Task.Run(()=>{Directory.CreateDirectory(Path.GetDirectoryName(path)!);GlbWriter.Write(path,snapshot.Meshes,token);},token);
+        var task=await session.RenderAsync(new(snapshot.Name,path,snapshot.Camera,width,height),token);await RevealAsync(task);
     }
-    private LocalTask Selected(string kind)
+    private void ShowSettings()
     {
-        var list = kind == "world" ? _worldTasks : _renderTasks;
-        return list.SelectedValue as LocalTask ?? throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Select a task first."));
+        var validation=new DropDown{DataStore=new[]{"World","Lux3D",T("Spatial understanding")},SelectedIndex=0};
+        var key=new PasswordBox();var remember=new CheckBox{Text=T("Save in secure local storage")};
+        var auto=new CheckBox{Text=T("Auto-refresh active tasks (every 8 seconds)"),Checked=session.AutoRefresh};auto.CheckedChanged+=(_,_)=>session.AutoRefresh=auto.Checked==true;
+        var settingsScale=new TextBox{Text=scale.Text};var settingsAxis=new DropDown{DataStore=axis.DataStore,SelectedIndex=axis.SelectedIndex};var settingsHeight=new TextBox{Text=objectHeight.Text};
+        var status=Info(session.Connection.Connected?"International · Connected":"International · Not connected");
+        using var dialog=new Dialog{Title=T("Settings"),ClientSize=new Size(460,620),Resizable=true};
+        var connect=Local("Validate and connect",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}string value=key.Text;bool save=remember.Checked==true;string service=validation.SelectedIndex switch{1=>"lux",2=>"spatial",_=>"world"};key.Text="";_=RunAsync("Connecting",async()=>{await session.ConnectAsync(new(value,save,service),token);AholoHost.Ui(()=>Report(T("Connected. Service permissions and credits are checked per operation.")));});});
+        var disconnect=Local("Disconnect and clear credentials",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}_=RunAsync("Disconnecting",async()=>{await session.DisconnectAsync(token);AholoHost.Ui(()=>Report(T("Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.")));});});
+        var close=new Button{Text=T("Close")};close.Click+=(_,_)=>dialog.Close();
+        // Dialog controls are snapshots; closing it preserves placement values in this panel.
+        dialog.Content=Column(status,Info("International API Key"),key,remember,Info("Validate access with"),validation,connect,disconnect,
+            Info("Validation queries the selected service history. Each service may need separate account permissions. OAuth login does not replace an API Key."),auto,
+            Info("GS import scale (document units per source unit)"),settingsScale,settingsAxis,Info("Mesh height (document units)"),settingsHeight,
+            Local("Open local asset folder",()=>Process.Start(new ProcessStartInfo(Path.Combine(session.Store.Root,"assets")){UseShellExecute=true})),
+            Info("Closing the panel keeps tasks running. Reopen it to view progress. Cancel stops local waiting only; remote tasks remain on the service."),
+            Info("Aholo3D for Rhino "+AholoPlugin.DisplayVersion+"\nCuriousArc · qrost"),close);
+        bool closed=false;
+        void UpdateSettings()=>Application.Instance.AsyncInvoke(()=>{if(!closed)status.Text=T(session.Connection.Connected?"International · Connected":"International · Not connected");});
+        session.Changed+=UpdateSettings;
+        try{dialog.ShowModal(this);}finally{closed=true;session.Changed-=UpdateSettings;}
+        scale.Text=settingsScale.Text;axis.SelectedIndex=settingsAxis.SelectedIndex;objectHeight.Text=settingsHeight.Text;
     }
-    private async Task ReloadAsync(Guid? selected = null)
-    {
-        var tasks = (await _session.ReadHistoryAsync(new TaskPageRequest(Limit: 100), Token)).Items;
-        AholoHost.Ui(() =>
-        {
-            if (_disposed) return;
-            Guid? world = selected ?? (_worldTasks.SelectedValue as LocalTask)?.Id, render = selected ?? (_renderTasks.SelectedValue as LocalTask)?.Id;
-            _records.Clear(); _records.AddRange(tasks);
-            SetList(_worldTasks, _records.Where(t => t.Kind == "world").ToArray(), world);
-            SetList(_renderTasks, _records.Where(t => t.Kind == "render").ToArray(), render);
-            DescribeTask("world"); DescribeTask("render");
-        });
-    }
-    private void ObserveTask(LocalTask task, bool select = true)
-    {
-        if (_disposed) return;
-        Guid? world = select && task.Kind == "world" ? task.Id : (_worldTasks.SelectedValue as LocalTask)?.Id;
-        Guid? render = select && task.Kind == "render" ? task.Id : (_renderTasks.SelectedValue as LocalTask)?.Id;
-        _records.RemoveAll(t => t.Id == task.Id); _records.Add(task);
-        var latest = _records.OrderByDescending(t => t.CreatedAt).Take(100).ToArray();
-        _records.Clear(); _records.AddRange(latest);
-        SetList(_worldTasks, latest.Where(t => t.Kind == "world").ToArray(), world);
-        SetList(_renderTasks, latest.Where(t => t.Kind == "render").ToArray(), render);
-        DescribeTask("world"); DescribeTask("render");
-    }
-    private static void SetList(ListBox list, LocalTask[] tasks, Guid? selected)
-    {
-        list.DataStore = tasks;
-        int index = Array.FindIndex(tasks, t => t.Id == selected);
-        list.SelectedIndex = index >= 0 ? index : tasks.Length > 0 ? 0 : -1;
-    }
-    private void DescribeTask(string kind)
-    {
-        var list = kind == "world" ? _worldTasks : _renderTasks;
-        var detail = kind == "world" ? _worldDetail : _renderDetail;
-        if (list.SelectedValue is not LocalTask task) { detail.Text = global::Aholo.Core.UiText.Get("No task selected."); return; }
-        string progress = task.Progress.HasValue ? global::Aholo.Core.UiText.Get(" · Progress ") + task.Progress.Value.ToString("0.##", CultureInfo.InvariantCulture) : "";
-        string id = task.WorldId is not null ? "\nWorld ID: " + task.WorldId : task.MeshTaskId is not null ? global::Aholo.Core.UiText.Get("\nMesh processing ID: ") + task.MeshTaskId : "";
-        if (task.OperationId is not null) id += global::Aholo.Core.UiText.Get("\nRender operation ID: ") + task.OperationId;
-        string cache = task.Kind == "world" ? global::Aholo.Core.UiText.Get("\nLocal assets: ") + (task.PlyPath is null ? global::Aholo.Core.UiText.Get("PLY not downloaded") : global::Aholo.Core.UiText.Get("PLY downloaded")) + " / " + (task.SpzPath is null ? global::Aholo.Core.UiText.Get("SPZ not downloaded") : global::Aholo.Core.UiText.Get("SPZ downloaded")) : global::Aholo.Core.UiText.Get("\nRender image: ") + (task.ImagePath is null ? global::Aholo.Core.UiText.Get("Not downloaded") : global::Aholo.Core.UiText.Get("Downloaded"));
-        detail.Text = task.Name + "\n" + UiText.Status(task.Status) + progress + id + cache + (string.IsNullOrWhiteSpace(task.Error) ? "" : "\n" + UiText.TranslateKnownMessage(task.Error));
-    }
-    private async Task RefreshSelectedAsync(string kind)
-    {
-        var selected = Selected(kind);
-        var task = await _client.RefreshAsync(selected.Id, Token);
-        AholoHost.Ui(() => ObserveTask(task));
-        AholoHost.Ui(() => Feedback(global::Aholo.Core.UiText.Get("Original task status: ") + UiText.Status(task.Status) + (task.Error is null ? "" : ". " + UiText.TranslateKnownMessage(task.Error)), task.Error is not null));
-    }
-    private async Task DownloadSelectedAsync(string kind, string asset)
-    {
-        LocalTask selected = Selected(kind);
-        var task = await _client.DownloadAsync(new DownloadRequest(selected.Id, asset), Token);
-        AholoHost.Ui(() => ObserveTask(task));
-        AholoHost.Ui(() => Feedback(asset.ToUpperInvariant() + global::Aholo.Core.UiText.Get(" saved to the local task asset folder.")));
-    }
-    private double ImportScale()
-    {
-        if ((!double.TryParse(_scale.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double scale) && !double.TryParse(_scale.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out scale)) || !double.IsFinite(scale) || scale <= 0)
-            throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Enter an import scale greater than zero, such as 1 or 1000."));
-        return scale;
-    }
-    private string ImportAxis(string? metadata) => _axis.SelectedIndex == 2 ? "Y" : _axis.SelectedIndex == 1 ? "Z" : string.Equals(metadata, "Y", StringComparison.OrdinalIgnoreCase) ? "Y" : "Z";
-    private async Task PlaceSelectedAsync()
-    {
-        LocalTask task = Selected("world");
-        var target = AholoHost.CaptureTarget(Document()); double scale = ImportScale(); int axisChoice = _axis.SelectedIndex;
-        CancellationToken ct = Token;
-        if (task.PlyPath is null || !File.Exists(task.PlyPath)) task = await _client.DownloadAsync(new DownloadRequest(task.Id, "ply"), ct);
-        if (task.PlyPath is null) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The original task has no PLY yet. Refresh generation status first."));
-        AholoHost.Ui(() => _operationName = global::Aholo.Core.UiText.Get("Reading complete GS and preparing native viewport"));
-        string axis = axisChoice == 2 ? "Y" : axisChoice == 1 ? "Z" : string.Equals(task.UpAxis, "Y", StringComparison.OrdinalIgnoreCase) ? "Y" : "Z";
-        string message = await GaussianDocument.ImportAsync(task.PlyPath, target, scale, axis, task.Id, ct);
-        AholoHost.Ui(() => ObserveTask(task));
-        AholoHost.Ui(() => Feedback(message));
-    }
-    private async Task ImportLocalGsAsync()
-    {
-        using var dialog = new OpenFileDialog { Title = global::Aholo.Core.UiText.Get("Choose complete 3DGS PLY / USD / USDZ"), MultiSelect = false };
-        dialog.Filters.Add(new FileFilter(global::Aholo.Core.UiText.Get("Gaussian Splat scene"), ".ply", ".usd", ".usda", ".usdc", ".usdz"));
-        if (dialog.ShowDialog(this) != DialogResult.Ok) return;
-        var target = AholoHost.CaptureTarget(Document());
-        double scale = ImportScale();
-        string axis = _axis.SelectedIndex == 2 ? "Y" : _axis.SelectedIndex == 1 ? "Z" : "Auto";
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Token);
-        _localGsOperation = cancellation; _cancelGs.Enabled = true;
-        try
-        {
-            var progress = new Progress<string>(message => AholoHost.Ui(() => { if (!_disposed && ReferenceEquals(_localGsOperation, cancellation)) _operationName = message; }));
-            string message = await GaussianDocument.ImportSceneAsync(dialog.FileName, target, scale, axis, true, cancellation.Token, progress).ConfigureAwait(false);
-            AholoHost.Ui(() => Feedback(message));
-        }
-        catch (OperationCanceledException) { AholoHost.Ui(() => Feedback(global::Aholo.Core.UiText.Get("Local GS import cancelled; the source file is retained."))); }
-        finally { await AholoHost.OnUi(() => { _localGsOperation = null; if (!_disposed) _cancelGs.Enabled = false; return true; }).ConfigureAwait(false); }
-    }
-    private async Task ExportLocalGsAsync()
-    {
-        var snapshot = GaussianDocument.CaptureExport(Document(), selectedOnly: _gsExportScope.SelectedIndex == 0);
-        using var dialog = GaussianExportDialogs.CreateSaveDialog();
-        if (dialog.ShowDialog(this) != DialogResult.Ok) return;
-        string path = GaussianExportDialogs.NormalizePath(dialog);
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Token);
-        _localGsOperation = cancellation; _cancelGs.Enabled = true;
-        Feedback(global::Aholo.Core.UiText.Format("Preparing to export {0:N0} GS instances using captured placements and units. The existing destination is retained until completion.", snapshot.Parts.Length));
-        try
-        {
-            string message = await GaussianDocument.ExportAsync(path, snapshot, cancellation.Token).ConfigureAwait(false);
-            AholoHost.Ui(() => Feedback(message));
-        }
-        catch (OperationCanceledException) { AholoHost.Ui(() => Feedback(global::Aholo.Core.UiText.Get("Local GS export cancelled; the existing destination is retained."))); }
-        finally { await AholoHost.OnUi(() => { _localGsOperation = null; if (!_disposed) _cancelGs.Enabled = false; return true; }).ConfigureAwait(false); }
-    }
-    private async Task ImportLocalPlyAsync()
-    {
-        using var dialog = new OpenFileDialog { Title = global::Aholo.Core.UiText.Get("Diagnostic: import only PLY centers and base colors"), MultiSelect = false };
-        dialog.Filters.Add(new FileFilter(global::Aholo.Core.UiText.Get("PLY point cloud"), ".ply"));
-        if (dialog.ShowDialog(this) != DialogResult.Ok) return;
-        var target = AholoHost.CaptureTarget(Document());
-        string message = await AholoHost.ImportAsync(dialog.FileName, target, ImportScale(), ImportAxis(null), null, Token);
-        AholoHost.Ui(() => Feedback(message));
-    }
-    private void OpenSelectedImage(string kind)
-    {
-        string? path = Selected(kind).ImagePath;
-        if (path is null || !File.Exists(path)) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Download this task's result image first."));
-        string full = Path.GetFullPath(path), root = Path.GetFullPath(Path.Combine(_session.Store.Root, "assets")) + Path.DirectorySeparatorChar;
-        if (!full.StartsWith(root, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal) || new FileInfo(full).LinkTarget is not null) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The render image is outside the plugin asset directory."));
-        Process.Start(new ProcessStartInfo(full) { UseShellExecute = true });
-    }
-    private void OpenAssetFolder()
-    {
-        string directory = Path.Combine(_session.Store.Root, "assets");
-        if (!Directory.Exists(directory)) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The asset directory does not exist yet. Load history or download a result first."));
-        Process.Start(new ProcessStartInfo(directory) { UseShellExecute = true });
-    }
-    private void SessionTaskChanged(LocalTask task)
-    {
-        Application.Instance.AsyncInvoke(() => { if(!_disposed) ObserveTask(task, false); });
-    }
-    private void SessionChanged()
-    {
-        Application.Instance.AsyncInvoke(() =>
-        {
-            if(_disposed)return;
-            SetConnection(_session.Connection);
-            var active=_session.Operations.Snapshot().FirstOrDefault(op=>op.State=="Running"&&op.Scope.StartsWith(AholoPlugin.DocumentScope(_serial),StringComparison.Ordinal));
-            _cancelGs.Enabled=active is not null || _localGsOperation is not null;
-            if(!_busy&&active is not null)_operation.Text=UiText.Get(active.Name);
-        });
-    }
-    public void PanelShown(uint documentSerialNumber, ShowPanelReason reason)
-    {
-        if (_disposed) return;
-        _shown = true;
-        if (!_busy) StartPanelSession();
-    }
-    private void StartPanelSession()
-    {
-        if (_disposed || !_shown) return;
-        if (_lifetime.IsCancellationRequested) { _lifetime.Dispose(); _lifetime = new CancellationTokenSource(); }
-        _session.Start();
-        _ = RunAsync(global::Aholo.Core.UiText.Get("Reading connection and history"), async () => { await ReadConnectionAsync(); await ReloadAsync(); }, true);
-    }
-    public void PanelHidden(uint documentSerialNumber, ShowPanelReason reason) { _shown = false; _elapsed.Stop(); }
-    public void PanelClosing(uint documentSerialNumber, bool onCloseDocument)
-    {
-        _shown = false; _elapsed.Stop();
-        if(onCloseDocument) { _lifetime.Cancel(); _session.Operations.CancelPrefix(AholoPlugin.DocumentScope(_serial)); }
-    }
+    private void SessionChanged()=>Application.Instance.AsyncInvoke(()=>{if(!disposed)UpdateActions();});
+    private void TaskChanged(LocalTask task)=>Application.Instance.AsyncInvoke(()=>{if(!disposed)_=ReloadAsync();});
+    public void PanelShown(uint documentSerialNumber,ShowPanelReason reason)
+    {if(disposed)return;session.Start();UpdateActions();_=ReloadAsync();}
+    public void PanelHidden(uint documentSerialNumber,ShowPanelReason reason){}
+    public void PanelClosing(uint documentSerialNumber,bool onCloseDocument)
+    {if(onCloseDocument){lifetime.Cancel();session.Operations.CancelPrefix(Scope);}}
     protected override void Dispose(bool disposing)
     {
-        if (disposing && !_disposed)
-        {
-            _disposed = true; _shown = false; _elapsed.Stop(); _elapsed.Dispose();
-            if(!_busy) _lifetime.Dispose();
-            _session.Changed -= SessionChanged; _session.TaskChanged -= SessionTaskChanged;
-        }
+        if(disposing&&!disposed){disposed=true;session.Changed-=SessionChanged;session.TaskChanged-=TaskChanged;elapsed.Stop();elapsed.Dispose();foreach(var draft in drafts.Values)draft.Dispose();drafts.Clear();if(!busy)lifetime.Dispose();}
         base.Dispose(disposing);
     }
 }

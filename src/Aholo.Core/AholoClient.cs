@@ -14,6 +14,7 @@ public interface IAholoServiceClient : IAsyncDisposable
     Task<TaskPage> GetTaskPageAsync(TaskPageRequest request,CancellationToken ct=default);
     Task<LocalTask> GenerateWorldAsync(GenerateWorldRequest request,CancellationToken ct=default);
     Task<LocalTask> RenderAsync(RenderRequest request,CancellationToken ct=default);
+    Task<LocalTask> CreateServiceAsync(CreateServiceRequest request,CancellationToken ct=default);
     Task<LocalTask> RefreshAsync(Guid id,CancellationToken ct=default);
     Task<LocalTask> ContinueRenderAsync(Guid id,CancellationToken ct=default);
     Task<LocalTask> DownloadAsync(DownloadRequest request,CancellationToken ct=default);
@@ -35,6 +36,7 @@ public sealed class AholoClient : IAholoServiceClient
     public Task<ConnectionState> DisconnectAsync(CancellationToken ct = default) => Call<ConnectionState>("disconnect", new { }, ct);
     public async Task<IReadOnlyList<LocalTask>> GetTasksAsync(CancellationToken ct = default) => await Call<LocalTask[]>("list", new { }, ct).ConfigureAwait(false);
     public Task<LocalTask> GenerateWorldAsync(GenerateWorldRequest request, CancellationToken ct = default) => Call<LocalTask>("generate", request, ct);
+    public Task<LocalTask> CreateServiceAsync(CreateServiceRequest request, CancellationToken ct = default) => Call<LocalTask>("createService", request, ct);
     public Task<LocalTask> RenderAsync(RenderRequest request, CancellationToken ct = default) => Call<LocalTask>("render", request, ct);
     public Task<LocalTask> RefreshAsync(Guid id, CancellationToken ct = default) => Call<LocalTask>("refresh", new { id }, ct);
     public Task<TaskPage> GetTaskPageAsync(TaskPageRequest request, CancellationToken ct = default) => Call<TaskPage>("page", request, ct);

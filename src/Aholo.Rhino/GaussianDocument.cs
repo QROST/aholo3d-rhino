@@ -26,7 +26,7 @@ internal static partial class GaussianDocument
         internal CancellationTokenSource? Cancellation;
     }
     internal sealed record Placement(InstanceObject Object, AssetData Asset, GaussianTransform Transform);
-    private static string CacheRoot => System.IO.Path.Combine(TaskStore.DefaultRoot, "assets", "gaussians");
+    private static string CacheRoot => System.IO.Path.Combine(AholoPlugin.Session.Store.Root, "assets", "gaussians");
 
     internal static void Initialize()
     {

@@ -1,6 +1,6 @@
 # Architecture and API evidence
 
-Maintainer: CuriousArc · qrost. API review date: 2026-11-01.
+Maintainer: CuriousArc · qrost. API review date: 2026-11-08. Complete current endpoint inventory: [API coverage](api-capabilities.md).
 
 Canonical source repository: [https://github.com/QROST/aholo3d-rhino](https://github.com/QROST/aholo3d-rhino); checkout directory: `aholo3d-rhino`. The repository rename does not rename installed package or persisted identifiers; see [compatibility details](repository-rename.md).
 
@@ -34,11 +34,11 @@ International base: `https://api.aholo.ai/global/`. `Authorization` contains the
 
 Sources: [official introduction](https://labs.aholo.ai/api-docs/en/intro), [quickstart](https://labs.aholo.ai/api-docs/en/quickstart), and [exact per-service snapshots](api/README.md). The RenderCloud OpenUSD guide is embedded in the `RenderCloudOpenUSDGuide` tag of the render specification. No .NET SDK is documented, so this implementation uses those REST schemas.
 
-World generation supports text only, one image, or both. The separate reconstruction endpoint exists but is not exposed in this version. World terminal states include SUCCEEDED, FAILED, CANCELED, TIMEOUT and REJECTED. Render operations carry their own boolean `done`; mesh processing uses numeric state 3 for success and 4 for failure. These formats are deliberately parsed separately.
+World generation supports text only, one image, or both. Reconstruction and the ten Lux3D operations have separate schema-backed forms. World terminal states include SUCCEEDED, FAILED, CANCELED, TIMEOUT and REJECTED. Render operations carry their own boolean `done`; mesh processing uses numeric state 3 for success and 4 for failure. These formats are deliberately parsed separately.
 
 ## Recovery and charging
 
-The journal writes `Submitting`, `MeshSubmitting` or `RenderSubmitting` atomically before a create request. A lost reply or process interruption becomes `SubmissionUnknown`; there is no automatic replay. A successful submit persists the returned ID immediately. Read-only polling may be repeated safely. After mesh processing succeeds, refresh advances that already-approved render flow once; the render intent is saved before the next POST. If the panel is closed at that stage, reopening and refreshing resumes it.
+The journal writes `Submitting`, `MeshSubmitting` or `RenderSubmitting` atomically before a create request. A lost reply or process interruption becomes `SubmissionUnknown`; there is no automatic replay. A successful submit persists the returned ID immediately. Read-only polling may be repeated safely. Refresh/download never submit the paid render phase. A shared per-process session may continue the original in-memory render intent once; panel closure preserves it. Pause, restart and transport reset remove that authority. Recovered MeshReady tasks require the separate explicit continuation action.
 
 Reference images and GLB input are snapshotted before upload. Keys bind task records through a hash, so switching Keys cannot poll/download another Key's records. Signed URLs are fetched fresh and omitted from the durable journal. File storage and record replacement are local; no journal content is synced by the plugin.
 
@@ -62,7 +62,7 @@ GLB writes triangle meshes with glTF's canonical metres/Y-up convention `(x,z,-y
 
 ## Deliberate first-version limits
 
-International endpoint only; no OAuth button or China endpoint; no reconstruction UI or realtime cloud viewport; basic diffuse mesh colors only; no blocks, custom render meshes, PBR textures or light export. Host/UI and service entitlement validation remain manual acceptance items.
+International endpoint only; no OAuth button or China endpoint; no realtime cloud viewport; basic diffuse cloud-render colors only; no custom render meshes, PBR textures or light export. Nested ordinary blocks are traversed with their placements; GS bounds are explicitly rejected. Host/UI and service entitlement validation remain manual acceptance items.
 
 ## Realtime protocol foundation
 
@@ -75,3 +75,11 @@ The published protocol exposes no depth, alpha, object IDs or camera/frame assoc
 ## Local GS exchange
 
 Local USD interchange uses the pinned OpenUSD Gaussian schema, separate from cloud RenderCloud USDA submission. The panel captures complete top-level GS block references, current transforms and document units on Rhino’s UI thread. Background work reads immutable hash-verified assets and preserves all instances, SH and affine transforms; export writes atomically. Import writes every part in one Undo transaction. See [the exchange contract](usd-exchange.md). No API Key is needed for this local path.
+
+## Integrated application and workspace
+
+One `AholoSession` per Rhino process owns the pipe, connection state, polling and operation registry. Panels and commands use it; history reads directly from the task store. Task-scoped disk locks serialize writes while unrelated tasks remain independently queryable. Draft forms are kept per operation. The Create / Library / Render workspace keeps credentials, polling and placement defaults in Settings. Library reads are paginated and an explicit restore locates the exact task page.
+
+Generic service submission validates the official request schema and local file mapping before uploading. Every input is snapshotted before the first upload. Submission barriers precede each charged request. Local-only Spatial input guarantees the plugin performed its Asset upload. Result decoders preserve ordered output/action identity, avoid raw server errors in diagnostics, and retain signed URLs only in memory. Downloads publish immutable hash-named files before the journal switches references, preserving old bytes across interrupted re-downloads.
+
+Static GLB placement uses adapted container validation, private snapshots, native headless preflight, limited degenerate-face/normal repair and native import/block wrapping from the sibling Lux3D integration. Independent Aholo mesh markers protect duplicate imports, Undo and recovery. The target document, units and state are rechecked before mutation. Render selection expands ordinary nested blocks without exploding user objects. These new native paths await host acceptance.

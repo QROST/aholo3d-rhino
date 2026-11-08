@@ -1594,5 +1594,769 @@
   {
     "English": "Local cancellation requested. Remote tasks are not cancelled.",
     "Chinese": "已请求取消本地操作；远程任务不会被取消。"
+  },
+  {
+    "English": "The GLB hash does not match the task record.",
+    "Chinese": "GLB 哈希与任务记录不一致。"
+  },
+  {
+    "English": "Invalid placement plane, point, reference height or source model height.",
+    "Chinese": "放置平面、点、参考高度或源模型高度无效。"
+  },
+  {
+    "English": "The preview asset is missing or changed. Reload it.",
+    "Chinese": "预览资产已丢失或发生变化，请重新加载。"
+  },
+  {
+    "English": "The imported asset directory must be an absolute path.",
+    "Chinese": "导入资产目录必须为绝对路径。"
+  },
+  {
+    "English": "Rhino document operations must run on the UI thread.",
+    "Chinese": "Rhino 文档操作必须在 UI 线程执行。"
+  },
+  {
+    "English": "Could not create an independent preview document.",
+    "Chinese": "无法创建独立预览文档。"
+  },
+  {
+    "English": "Preflight: Rhino's native GLB import threw an exception before mesh repair. ",
+    "Chinese": "预检阶段：Rhino 原生 GLB 导入发生异常，尚未进入网格修复。"
+  },
+  {
+    "English": "Preflight: Rhino's native GLB import failed before mesh repair.",
+    "Chinese": "预检阶段：Rhino 原生 GLB 导入失败，尚未进入网格修复。"
+  },
+  {
+    "English": "Preflight: could not replace the repaired temporary mesh.",
+    "Chinese": "预检阶段：无法替换已修复的临时网格。"
+  },
+  {
+    "English": "The document has duplicate or invalid task import markers. Inspect existing objects first.",
+    "Chinese": "文档内存在重复或无效的任务导入标记，请先核对已有对象。"
+  },
+  {
+    "English": "An imported object already exists, but its asset verification marker is missing. No duplicate was inserted.",
+    "Chinese": "文档已有导入对象，但资产校验标记缺失；未重复插入。"
+  },
+  {
+    "English": "The import ID has not been committed.",
+    "Chinese": "导入编号尚未提交。"
+  },
+  {
+    "English": "The import ID cannot be empty.",
+    "Chinese": "导入编号不能为空。"
+  },
+  {
+    "English": "The target document is closed.",
+    "Chinese": "目标文档已关闭。（The target document is closed.）"
+  },
+  {
+    "English": "The target document session has expired.",
+    "Chinese": "目标文档会话已失效。"
+  },
+  {
+    "English": "The target document units changed. Preview again.",
+    "Chinese": "目标文档单位已改变，请重新预览。"
+  },
+  {
+    "English": "The same import ID refers to different assets or placement settings.",
+    "Chinese": "相同导入编号对应了不同资产或放置参数。"
+  },
+  {
+    "English": "This import failed and cannot be replayed automatically. Inspect the document before explicitly creating a new import.",
+    "Chinese": "此导入已失败，不能自动重放；请核对文档后明确建立新导入。"
+  },
+  {
+    "English": "Finish the current Rhino command before accepting a candidate.",
+    "Chinese": "请等待当前 Rhino 命令结束后接受候选。"
+  },
+  {
+    "English": "Accept Aholo mesh candidate",
+    "Chinese": "接受 Aholo 模型 候选"
+  },
+  {
+    "English": "Could not create an undo record. Nothing was imported.",
+    "Chinese": "无法创建撤销记录，未导入。"
+  },
+  {
+    "English": "Could not create the Aholo mesh block.",
+    "Chinese": "创建 Aholo 模型 Block 失败。"
+  },
+  {
+    "English": "Document import: Rhino's native GLB import threw an exception before mesh repair. ",
+    "Chinese": "正式导入阶段：Rhino 原生 GLB 导入发生异常，尚未进入本次网格修复。"
+  },
+  {
+    "English": "Document import: Rhino's native GLB import failed before mesh repair.",
+    "Chinese": "正式导入阶段：Rhino 原生 GLB 导入失败，尚未进入本次网格修复。"
+  },
+  {
+    "English": "Imported geometry does not match the preview.",
+    "Chinese": "导入几何与预览结果不一致。"
+  },
+  {
+    "English": "Could not write Aholo mesh block geometry.",
+    "Chinese": "写入 Aholo 模型 Block 几何失败。"
+  },
+  {
+    "English": "Could not place the Aholo mesh block.",
+    "Chinese": "放置 Aholo 模型 Block 失败。"
+  },
+  {
+    "English": "Could not remove temporary top-level objects from this import.",
+    "Chinese": "无法移除本次导入的临时顶层对象。"
+  },
+  {
+    "English": "The import created unexpected top-level objects.",
+    "Chinese": "导入生成了非预期顶层对象。"
+  },
+  {
+    "English": "Import failed and automatic rollback could not be confirmed. Inspect the document and Undo history.",
+    "Chinese": "导入失败，自动回滚未能确认；请检查文档 Undo。"
+  },
+  {
+    "English": "Import failed; this operation's document changes were undone. ",
+    "Chinese": "导入失败；本次文档修改已撤销。"
+  },
+  {
+    "English": "The imported object exists, but its undo record could not be confirmed. Inspect the document; do not import again.",
+    "Chinese": "导入对象已建立，但无法确认撤销记录；请检查文档，不要重复导入。"
+  },
+  {
+    "English": "Could not locate the persistent local asset directory.",
+    "Chinese": "无法定位本机持久资产目录。"
+  },
+  {
+    "English": "Persistent import asset verification failed; the target document was not changed.",
+    "Chinese": "持久导入资产校验失败；没有修改目标文档。"
+  },
+  {
+    "English": "A GLB block references a missing definition.",
+    "Chinese": "GLB Block 引用了不存在的定义。"
+  },
+  {
+    "English": "A GLB block contains a cyclic reference.",
+    "Chinese": "GLB Block 存在循环引用。"
+  },
+  {
+    "English": "Invalid GLB block transform.",
+    "Chinese": "GLB Block 变换无效。"
+  },
+  {
+    "English": "The GLB contains unsupported non-mesh objects.",
+    "Chinese": "GLB 含不支持的非 Mesh 对象。"
+  },
+  {
+    "English": "Limited mesh repair did not pass validation. Original reason: ",
+    "Chinese": "网格有限修复未通过有效性检查。原原因："
+  },
+  {
+    "English": " After repair: ",
+    "Chinese": " 修复后："
+  },
+  {
+    "English": "Mesh repair changed more than degenerate-face removal and normal recomputation; the repair was rejected.",
+    "Chinese": "网格修复产生了退化面清理和法向重算以外的变化，已拒绝应用。"
+  },
+  {
+    "English": "This import references an invalid mesh definition already in the document. The existing block was not changed; inspect its definition first.",
+    "Chinese": "本次导入引用了已有文档中的无效网格定义；未修改用户原有 Block，请先检查该定义。"
+  },
+  {
+    "English": "Could not write the repaired mesh into the newly imported block definition.",
+    "Chinese": "无法把已修复网格写入本次导入的新 Block 定义。"
+  },
+  {
+    "English": "Invalid GLB mesh: ",
+    "Chinese": "GLB 网格无效："
+  },
+  {
+    "English": "The GLB contains no valid importable mesh.",
+    "Chinese": "GLB 没有可导入的有效网格。"
+  },
+  {
+    "English": "Global",
+    "Chinese": "国际区"
+  },
+  {
+    "English": "Next",
+    "Chinese": "下一页"
+  },
+  {
+    "English": "mm",
+    "Chinese": "毫米"
+  },
+  {
+    "English": "m",
+    "Chinese": "米"
+  },
+  {
+    "English": "in",
+    "Chinese": "英寸"
+  },
+  {
+    "English": "ft",
+    "Chinese": "英尺"
+  },
+  {
+    "English": "document units",
+    "Chinese": "文档单位"
+  },
+  {
+    "English": "Create",
+    "Chinese": "创作"
+  },
+  {
+    "English": "Library",
+    "Chinese": "资产库"
+  },
+  {
+    "English": "Render",
+    "Chinese": "渲染"
+  },
+  {
+    "English": "Settings",
+    "Chinese": "设置"
+  },
+  {
+    "English": "Not connected",
+    "Chinese": "尚未连接"
+  },
+  {
+    "English": "Search local history",
+    "Chinese": "搜索本地任务"
+  },
+  {
+    "English": "All tasks",
+    "Chinese": "全部任务"
+  },
+  {
+    "English": "Worlds",
+    "Chinese": "世界"
+  },
+  {
+    "English": "Objects and images",
+    "Chinese": "模型与图像"
+  },
+  {
+    "English": "Renders",
+    "Chinese": "渲染结果"
+  },
+  {
+    "English": "Spatial understanding",
+    "Chinese": "空间理解"
+  },
+  {
+    "English": "Previous",
+    "Chinese": "上一页"
+  },
+  {
+    "English": "Cancel local operation",
+    "Chinese": "取消本地操作"
+  },
+  {
+    "English": "Automatic up axis",
+    "Chinese": "自动读取向上轴"
+  },
+  {
+    "English": "Create · Uses service credits",
+    "Chinese": "开始创作 · 消耗服务额度"
+  },
+  {
+    "English": "Each click creates one paid task. Follow its progress in Library.",
+    "Chinese": "每次点击会创建一个收费任务，可在资产库跟踪进度。"
+  },
+  {
+    "English": "Download selected result",
+    "Chinese": "下载选中结果"
+  },
+  {
+    "English": "Place in current document",
+    "Chinese": "放入当前文档"
+  },
+  {
+    "English": "Open result folder",
+    "Chinese": "打开结果所在文件夹"
+  },
+  {
+    "English": "Open image",
+    "Chinese": "打开图像"
+  },
+  {
+    "English": "Pause local polling",
+    "Chinese": "暂停本地查询"
+  },
+  {
+    "English": "Resume polling",
+    "Chinese": "恢复自动查询"
+  },
+  {
+    "English": "Local files",
+    "Chinese": "本地文件"
+  },
+  {
+    "English": "Import GS",
+    "Chinese": "导入 GS"
+  },
+  {
+    "English": "Export selected GS",
+    "Chinese": "导出选中 GS"
+  },
+  {
+    "English": "GS viewport",
+    "Chinese": "GS 视图"
+  },
+  {
+    "English": "Diagnostics",
+    "Chinese": "诊断信息"
+  },
+  {
+    "English": "Restore World ID",
+    "Chinese": "恢复已有 World ID"
+  },
+  {
+    "English": "Select meshes, surfaces, extrusions or mesh blocks and use a perspective view. Geometry, base colors and camera will be uploaded.",
+    "Chinese": "选择网格、曲面、挤出体或包含网格的块，并使用透视视图。将上传几何、基础颜色和相机。"
+  },
+  {
+    "English": "Offline rendering uses a captured scene, including nested block placements. Results appear in Library. Textures, lights and GS ingestion are not converted yet.",
+    "Chinese": "离线渲染使用捕获的场景，包含嵌套块的位置。结果显示在资产库，暂不转换纹理、灯光或 GS。"
+  },
+  {
+    "English": "Realtime cloud rendering is still under development. Native depth compositing is not available from the documented image stream.",
+    "Chinese": "实时云渲染仍在开发中。公开图像流暂未提供原生遮挡合成所需的深度信息。"
+  },
+  {
+    "English": "Create assets, organize results and place them in this Rhino document.",
+    "Chinese": "创作资产、整理结果，并放入当前 Rhino 文档。"
+  },
+  {
+    "English": "Last query",
+    "Chinese": "最近查询"
+  },
+  {
+    "English": "Not queried yet",
+    "Chinese": "尚未查询"
+  },
+  {
+    "English": "Polling paused",
+    "Chinese": "查询已暂停"
+  },
+  {
+    "English": "world",
+    "Chinese": "世界（world）"
+  },
+  {
+    "English": "object",
+    "Chinese": "模型或图像"
+  },
+  {
+    "English": "render",
+    "Chinese": "渲染（render）"
+  },
+  {
+    "English": "spatial",
+    "Chinese": "空间理解（spatial）"
+  },
+  {
+    "English": "Task recorded. Library follows the original task; no automatic resubmission.",
+    "Chinese": "任务已记录。资产库跟踪原任务，不会自动重复提交。"
+  },
+  {
+    "English": "Select a result first.",
+    "Chinese": "请先选择一个结果。"
+  },
+  {
+    "English": "Saved locally",
+    "Chinese": "已保存到本机"
+  },
+  {
+    "English": "Download and select an image result first.",
+    "Chinese": "请先下载并选择一个图像结果。"
+  },
+  {
+    "English": "Local polling paused. The remote task continues.",
+    "Chinese": "已暂停本地查询；远程任务继续执行。"
+  },
+  {
+    "English": "Download the selected result first.",
+    "Chinese": "请先下载选中的结果。"
+  },
+  {
+    "English": "This result format cannot be placed directly.",
+    "Chinese": "此格式暂不能直接放入文档。"
+  },
+  {
+    "English": "Enter a positive model height in document units.",
+    "Chinese": "请输入大于零的模型高度，单位为当前文档单位。"
+  },
+  {
+    "English": "The target document changed. Retry placement in the intended document.",
+    "Chinese": "目标文档已变化，请回到预期文档后重新放置。"
+  },
+  {
+    "English": "This result is already in the document.",
+    "Chinese": "该结果已在当前文档中。"
+  },
+  {
+    "English": "The earlier placement was removed. Use Rhino Redo to restore it.",
+    "Chinese": "之前的放置已被移除，可使用 Rhino 重做恢复。"
+  },
+  {
+    "English": "Cannot select a visible layer.",
+    "Chinese": "无法选择可见图层。"
+  },
+  {
+    "English": "Model placed at the world origin. Rhino Undo removes this placement.",
+    "Chinese": "模型已放在世界原点，可用 Rhino 撤销移除本次放置。"
+  },
+  {
+    "English": "Wait for the current operation or cancel it before changing credentials.",
+    "Chinese": "请等待当前操作完成或先取消，再修改凭据。"
+  },
+  {
+    "English": "Connecting",
+    "Chinese": "正在连接"
+  },
+  {
+    "English": "Disconnecting",
+    "Chinese": "正在断开连接"
+  },
+  {
+    "English": "Connected. Service permissions and credits are checked per operation.",
+    "Chinese": "已连接。各服务权限和额度将在执行对应操作时检查。"
+  },
+  {
+    "English": "Validation queries the selected service history. Each service may need separate account permissions. OAuth login does not replace an API Key.",
+    "Chinese": "验证只查询选中服务的历史记录。各服务可能需要独立账户权限，OAuth 登录不能替代 API Key。"
+  },
+  {
+    "English": "Validate access with",
+    "Chinese": "选择验证服务"
+  },
+  {
+    "English": "GS import scale (document units per source unit)",
+    "Chinese": "GS 导入比例（每个源单位对应的文档单位）"
+  },
+  {
+    "English": "Mesh height (document units)",
+    "Chinese": "网格模型高度（文档单位）"
+  },
+  {
+    "English": "Generate world",
+    "Chinese": "生成世界"
+  },
+  {
+    "English": "Reconstruct world",
+    "Chinese": "重建世界"
+  },
+  {
+    "English": "Text to 3D",
+    "Chinese": "文字生成 3D"
+  },
+  {
+    "English": "Images to 3D",
+    "Chinese": "图像生成 3D"
+  },
+  {
+    "English": "Create image",
+    "Chinese": "生成图像"
+  },
+  {
+    "English": "Create four views",
+    "Chinese": "生成四视图"
+  },
+  {
+    "English": "Transfer material",
+    "Chinese": "转换材质"
+  },
+  {
+    "English": "Split model parts",
+    "Chinese": "拆分模型部件"
+  },
+  {
+    "English": "Convert model format",
+    "Chinese": "转换模型格式"
+  },
+  {
+    "English": "Articulate model",
+    "Chinese": "关节动画"
+  },
+  {
+    "English": "Rig character",
+    "Chinese": "角色绑定"
+  },
+  {
+    "English": "Animate character",
+    "Chinese": "角色动画"
+  },
+  {
+    "English": "Understand space",
+    "Chinese": "理解空间"
+  },
+  {
+    "English": "Description",
+    "Chinese": "描述"
+  },
+  {
+    "English": "Reference image",
+    "Chinese": "参考图像"
+  },
+  {
+    "English": "Reference images",
+    "Chinese": "多张参考图像"
+  },
+  {
+    "English": "Photos or video",
+    "Chinese": "照片或视频"
+  },
+  {
+    "English": "Cover image",
+    "Chinese": "封面图像"
+  },
+  {
+    "English": "Generation model",
+    "Chinese": "生成模型"
+  },
+  {
+    "English": "Target faces",
+    "Chinese": "目标面数"
+  },
+  {
+    "English": "Output formats",
+    "Chinese": "输出格式"
+  },
+  {
+    "English": "PBR materials",
+    "Chinese": "PBR 材质"
+  },
+  {
+    "English": "Predict model size",
+    "Chinese": "预测模型尺寸"
+  },
+  {
+    "English": "Style",
+    "Chinese": "风格"
+  },
+  {
+    "English": "Source GLB",
+    "Chinese": "源 GLB"
+  },
+  {
+    "English": "Source model",
+    "Chinese": "源模型"
+  },
+  {
+    "English": "Rigged GLB",
+    "Chinese": "已绑定的 GLB"
+  },
+  {
+    "English": "Indoor PLY",
+    "Chinese": "室内 PLY"
+  },
+  {
+    "English": "Target height (mm)",
+    "Chinese": "目标高度（毫米）"
+  },
+  {
+    "English": "Animations (choose 1–10)",
+    "Chinese": "动画（选择 1–10 项）"
+  },
+  {
+    "English": "Animation files",
+    "Chinese": "动画文件组织"
+  },
+  {
+    "English": "Output format",
+    "Chinese": "输出文件格式"
+  },
+  {
+    "English": "Animate in place",
+    "Chinese": "原地动画"
+  },
+  {
+    "English": "Scene type",
+    "Chinese": "场景类型"
+  },
+  {
+    "English": "Quality",
+    "Chinese": "质量"
+  },
+  {
+    "English": "Remove background",
+    "Chinese": "移除背景"
+  },
+  {
+    "English": "Alignment transform (metres)",
+    "Chinese": "对齐变换（米）"
+  },
+  {
+    "English": "Advanced options",
+    "Chinese": "高级选项"
+  },
+  {
+    "English": "No files selected",
+    "Chinese": "尚未选择文件"
+  },
+  {
+    "English": "Choose files",
+    "Chinese": "选择文件"
+  },
+  {
+    "English": "Supported inputs",
+    "Chinese": "支持的输入文件"
+  },
+  {
+    "English": "Public HTTPS URL; one per line for multiple images",
+    "Chinese": "公开 HTTPS 地址；多张图像每行一个地址"
+  },
+  {
+    "English": "Service default",
+    "Chinese": "使用服务默认值"
+  },
+  {
+    "English": "Yes",
+    "Chinese": "是"
+  },
+  {
+    "English": "No",
+    "Chinese": "否"
+  },
+  {
+    "English": "Apply alignment transform",
+    "Chinese": "应用对齐变换"
+  },
+  {
+    "English": "Unavailable",
+    "Chinese": "暂不可用"
+  },
+  {
+    "English": "A block transform could not be applied.",
+    "Chinese": "无法应用块的变换。"
+  },
+  {
+    "English": "Gaussian scenes cannot be exported as mesh bounds. Deselect GS objects before mesh rendering.",
+    "Chinese": "不能将高斯场景的包围盒当作网格导出；网格渲染前请取消选择 GS 对象。"
+  },
+  {
+    "English": "A selected block definition is missing.",
+    "Chinese": "选中块的定义缺失。"
+  },
+  {
+    "English": "A selected block has a cyclic reference.",
+    "Chinese": "选中块包含循环引用。"
+  },
+  {
+    "English": "A selected block transform is invalid.",
+    "Chinese": "选中块的变换无效。"
+  },
+  {
+    "English": "The selection contains unsupported geometry. Select meshes, surfaces, extrusions or blocks containing them.",
+    "Chinese": "选区含暂不支持的几何，请选择网格、曲面、挤出体或包含这些几何的块。"
+  },
+  {
+    "English": "photorealistic",
+    "Chinese": "写实"
+  },
+  {
+    "English": "cartoon",
+    "Chinese": "卡通"
+  },
+  {
+    "English": "anime",
+    "Chinese": "动漫"
+  },
+  {
+    "English": "hand_painted",
+    "Chinese": "手绘"
+  },
+  {
+    "English": "cyberpunk",
+    "Chinese": "赛博朋克"
+  },
+  {
+    "English": "fantasy",
+    "Chinese": "奇幻"
+  },
+  {
+    "English": "glass",
+    "Chinese": "玻璃"
+  },
+  {
+    "English": "model",
+    "Chinese": "单体模型"
+  },
+  {
+    "English": "space",
+    "Chinese": "空间"
+  },
+  {
+    "English": "low",
+    "Chinese": "预览"
+  },
+  {
+    "English": "normal",
+    "Chinese": "标准"
+  },
+  {
+    "English": "high",
+    "Chinese": "高质量"
+  },
+  {
+    "English": "separate",
+    "Chinese": "分别输出"
+  },
+  {
+    "English": "combined",
+    "Chinese": "合并片段"
+  },
+  {
+    "English": "Export GS",
+    "Chinese": "导出高斯场景"
+  },
+  {
+    "English": "Gaussian scene",
+    "Chinese": "高斯场景"
+  },
+  {
+    "English": "Compressed Gaussian scene",
+    "Chinese": "压缩高斯场景"
+  },
+  {
+    "English": "Panorama",
+    "Chinese": "全景图"
+  },
+  {
+    "English": "Rendered image",
+    "Chinese": "渲染图像"
+  },
+  {
+    "English": "Result {0}",
+    "Chinese": "结果 {0}"
+  },
+  {
+    "English": "Animation {0}",
+    "Chinese": "动画 {0}"
+  },
+  {
+    "English": "Front three-quarter",
+    "Chinese": "前四分之三视图"
+  },
+  {
+    "English": "Opposite three-quarter",
+    "Chinese": "后四分之三视图"
+  },
+  {
+    "English": "Side",
+    "Chinese": "侧视图"
+  },
+  {
+    "English": "Back",
+    "Chinese": "后视图"
+  },
+  {
+    "English": "The service returned an unavailable or unsupported result. Check the original task in the service console.",
+    "Chinese": "服务返回的结果不可用或尚不支持，请在服务控制台检查原任务。"
   }
 ]

@@ -3,7 +3,7 @@ using Aholo.Provider;
 namespace Aholo.Sidecar;
 
 /// <summary>Persist submit intent before network writes; never automatically replay an uncertain paid request.</summary>
-public sealed class Workflows(AholoApiClient api, TaskStore store, AssetDownloader downloader)
+public sealed partial class Workflows(AholoApiClient api, TaskStore store, AssetDownloader downloader)
 {
     public async Task<LocalTask> GenerateAsync(ApiKeyCredential key, GenerateWorldRequest request, CancellationToken ct)
     {
@@ -57,6 +57,7 @@ public sealed class Workflows(AholoApiClient api, TaskStore store, AssetDownload
         if (task.SchemaVersion != LocalTask.CurrentSchemaVersion) throw new IOException("Unsupported task journal version; the original file is retained.");
         if (task.Kind == "world" && task.WorldId is not null)
             return Save(ApplyWorld(task, await api.GetWorldAsync(key, task.WorldId, ct).ConfigureAwait(false)));
+        if(task.Kind is "object" or "spatial") return await RefreshServiceAsync(key,task,ct).ConfigureAwait(false);
         if (task.Kind != "render") return task;
         if (task.OperationId is not null)
             return Save(ApplyRender(task, await api.GetRenderAsync(key, task.OperationId, ct).ConfigureAwait(false)));
@@ -96,6 +97,7 @@ public sealed class Workflows(AholoApiClient api, TaskStore store, AssetDownload
     }
     public async Task<LocalTask> DownloadAsync(ApiKeyCredential key, DownloadRequest request, CancellationToken ct)
     {
+        if(request.Kind.StartsWith("artifact:",StringComparison.Ordinal))return await DownloadArtifactAsync(key,request.Id,request.Kind[9..],ct).ConfigureAwait(false);
         if (request.Kind is not ("ply" or "spz" or "image")) throw new ArgumentException("This download type is not supported.");
         using var gate = store.LockTask(request.Id);
         // Fetch fresh signed URLs rather than persisting expiring capabilities in task JSON.

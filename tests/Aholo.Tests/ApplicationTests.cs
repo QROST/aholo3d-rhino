@@ -82,6 +82,7 @@ public sealed class ApplicationTests : IDisposable
         {Continuations++;Task=store.Get(id) with{Status="Running",OperationId="op"};store.Save(Task);return System.Threading.Tasks.Task.FromResult(Task);}
         public Task<IReadOnlyList<LocalTask>> GetTasksAsync(CancellationToken ct=default)=>throw new NotSupportedException();
         public Task<TaskPage> GetTaskPageAsync(TaskPageRequest request,CancellationToken ct=default)=>throw new NotSupportedException();
+        public Task<LocalTask> CreateServiceAsync(CreateServiceRequest request,CancellationToken ct=default)=>throw new NotSupportedException();
         public Task<LocalTask> GenerateWorldAsync(GenerateWorldRequest request,CancellationToken ct=default)=>throw new NotSupportedException();
         public Task<LocalTask> DownloadAsync(DownloadRequest request,CancellationToken ct=default)=>throw new NotSupportedException();
         public Task<LocalTask> ImportWorldAsync(string worldId,CancellationToken ct=default)=>throw new NotSupportedException();

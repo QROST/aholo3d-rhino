@@ -120,14 +120,9 @@ internal static class AholoHost
         if (!double.IsFinite(mm) || mm <= 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot convert document units."));
         RhinoObject[] objects = doc.Objects.GetSelectedObjects(false, false).ToArray();
         if (objects.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Select the meshes, surfaces or solids to render in Rhino first."));
-        if (objects.Any(o => o.Geometry is not (Mesh or Brep or Extrusion))) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The selection contains unsupported objects. This version supports meshes, surfaces/polysurfaces and extrusions. Deselect other objects; use Explode on blocks first if needed."));
         var meshes = new List<MeshData>();
-        foreach (RhinoObject obj in objects)
+        foreach (var (obj, transform, color) in RenderObjects(objects, doc))
         {
-            Color color = obj.Attributes.DrawColor(doc);
-            // Export diffuse color only; Rhino textures and procedural materials are not translated in this version.
-            if (obj.Attributes.MaterialSource == ObjectMaterialSource.MaterialFromObject && obj.Attributes.MaterialIndex >= 0)
-                color = doc.Materials[obj.Attributes.MaterialIndex].DiffuseColor;
             Mesh[] generated = obj.Geometry switch
             {
                 Mesh mesh => new[] { mesh.DuplicateMesh() },
@@ -140,6 +135,8 @@ internal static class AholoHost
                 if (generated.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("A selected object cannot be converted to a mesh. Nothing has been uploaded."));
                 foreach (Mesh mesh in generated)
                 {
+                    if (!mesh.Transform(transform)) throw new InvalidOperationException(UiText.Get("A block transform could not be applied."));
+                    if(transform.Determinant < 0) mesh.Flip(true,true,true);
                     if (mesh.Vertices.Count == 0 || mesh.Faces.Count == 0 || !mesh.IsValid) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The selection contains empty or invalid meshes. Repair them in Rhino first."));
                     var positions = new float[checked(mesh.Vertices.Count * 3)];
                     for (int i = 0; i < mesh.Vertices.Count; i++)
@@ -168,6 +165,38 @@ internal static class AholoHost
         double verticalAperture = horizontalAperture * height / width;
         var camera = new RenderCamera(new[] { x.X, x.Y, x.Z, 0, y.X, y.Y, y.Z, 0, z.X, z.Y, z.Z, 0, location.X * mm, location.Y * mm, location.Z * mm, 1 }, focal, horizontalAperture, verticalAperture, near * mm, far * mm);
         return new RenderSnapshot(meshes, camera, string.IsNullOrWhiteSpace(doc.Name) ? global::Aholo.Core.UiText.Get("Rhino selection render") : Path.GetFileNameWithoutExtension(doc.Name) + global::Aholo.Core.UiText.Get(" · Selection render"));
+    }
+    private static IEnumerable<(RhinoObject Object,Transform Transform,Color Color)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc)
+    {
+        var ancestry=new HashSet<Guid>();
+        var stack=new Stack<(IEnumerator<RhinoObject> Objects,Transform Transform,Guid? Definition,Color? ParentColor)>();
+        stack.Push((roots.GetEnumerator(),Transform.Identity,null,null));
+        try
+        {
+            while(stack.Count>0)
+            {
+                var frame=stack.Peek();
+                if(!frame.Objects.MoveNext()){frame.Objects.Dispose();stack.Pop();if(frame.Definition.HasValue)ancestry.Remove(frame.Definition.Value);continue;}
+                var obj=frame.Objects.Current;
+                if(GaussianDocument.IsGaussian(obj)||obj.Attributes.GetUserString(GaussianDocument.ProxyKey) is not null)
+                    throw new InvalidOperationException(UiText.Get("Gaussian scenes cannot be exported as mesh bounds. Deselect GS objects before mesh rendering."));
+                Color color=obj.Attributes.DrawColor(doc);
+                if(obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromParent&&frame.ParentColor.HasValue)color=frame.ParentColor.Value;
+                else if(obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromObject&&obj.Attributes.MaterialIndex>=0)color=obj.GetMaterial(true).DiffuseColor;
+                else if(obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromLayer&&doc.Layers[obj.Attributes.LayerIndex].RenderMaterialIndex>=0)color=obj.GetMaterial(true).DiffuseColor;
+                if(obj is InstanceObject instance)
+                {
+                    var definition=instance.InstanceDefinition??throw new InvalidOperationException(UiText.Get("A selected block definition is missing."));
+                    if(!ancestry.Add(definition.Id))throw new InvalidOperationException(UiText.Get("A selected block has a cyclic reference."));
+                    var transform=frame.Transform*instance.InstanceXform;
+                    if(!transform.IsValid||Math.Abs(transform.Determinant)<1e-20)throw new InvalidOperationException(UiText.Get("A selected block transform is invalid."));
+                    stack.Push((((IEnumerable<RhinoObject>)definition.GetObjects()).GetEnumerator(),transform,definition.Id,color));
+                }
+                else if(obj.Geometry is Mesh or Brep or Extrusion)yield return(obj,frame.Transform,color);
+                else throw new InvalidOperationException(UiText.Get("The selection contains unsupported geometry. Select meshes, surfaces, extrusions or blocks containing them."));
+            }
+        }
+        finally{while(stack.Count>0)stack.Pop().Objects.Dispose();}
     }
     private static Mesh[] MeshExtrusion(Extrusion extrusion)
     {

@@ -4,15 +4,15 @@ Maintainer: CuriousArc · qrost. Official contract verification: 2026-11-08.
 
 The [official index](https://labs.aholo.ai/api-docs/en/llms.txt) lists five service schemas with 30 HTTP endpoints. Sources and exact download hashes are in [api/README.md](api/README.md). Endpoint coverage is distinct from Rhino workflow availability, optional parameter coverage and live service acceptance.
 
-The provider now has a callable route for every listed endpoint. The new create registry covers World generation/reconstruction, all ten Lux3D operations, and SpatialUnderstanding. Public request fields are checked against embedded official schemas plus cross-field rules. Existing World/RenderCloud workflows are being unified; the other new provider operations are not yet connected to the Rhino panel. No paid-service acceptance is claimed.
+The provider now has a callable route for every listed endpoint. The new create registry covers World generation/reconstruction, all ten Lux3D operations, and SpatialUnderstanding. Public request fields are checked against embedded official schemas plus cross-field rules. All 13 create operations now have schema-backed Rhino forms, shared journals, query and download paths. The existing offline rendering flow shares the same Library. No paid-service acceptance is claimed.
 
 | Service | Endpoints | Provider coverage | Rhino workflow at this milestone |
 | --- | ---: | --- | --- |
-| World | 4 | Generate/reconstruct/get/list; cover/scene/timestamps/LOD metadata and paginated filters | Generate, original-task recovery, download and GS placement; reconstruction pending |
-| Lux3D | 12 | Ten create operations; query and filtered paginated list; int64 IDs preserved as strings; ordered output content retained | Pending integrated task/asset/mesh workflow |
-| RenderCloud | 6 | Offline submit/query, mesh processing/create/query, realtime create/query/push/delete; ingestion supports fastUpload selection and all returned mesh IDs | Selected mesh/Brep/extrusion offline render; Block snapshots and shared continuation pending; realtime host preview pending |
-| Asset / OUS | 5 | Token plus streamed single/multipart upload and status | Used by existing input upload; custom metadata/prefix/name and resumed missing-part selection not exposed |
-| SpatialUnderstanding | 3 | Create, identity-checked detail, paginated filtered list; result retained as a DSL download URL | Pending upload/DSL asset workflow; no native wall reconstruction claim |
+| World | 4 | Generate/reconstruct/get/list; cover/scene/timestamps/LOD metadata and paginated filters | Generate/reconstruct forms, World-ID recovery, downloads and GS placement; live reconstruction acceptance pending |
+| Lux3D | 12 | Ten create operations; query and filtered paginated list; int64 IDs preserved as strings; ordered output content retained | All ten forms, local input upload, typed outputs/downloads and static GLB placement; animation playback and arbitrary output import are not implemented |
+| RenderCloud | 6 | Offline submit/query, mesh processing/create/query, realtime create/query/push/delete; ingestion supports fastUpload selection and all returned mesh IDs | Mesh/Brep/extrusion and nested Block snapshots, shared original-intent continuation; realtime host preview pending |
+| Asset / OUS | 5 | Token plus streamed single/multipart upload and status | Used by all local service inputs; custom metadata/prefix/name and resumed missing-part selection not exposed |
+| SpatialUnderstanding | 3 | Create, identity-checked detail, paginated filtered list; result retained as a DSL download URL | Local indoor PLY upload, create/query and DSL file download; no native wall reconstruction claim |
 
 ## Public operations
 
@@ -74,3 +74,9 @@ The provider now has a callable route for every listed endpoint. The new create 
 - The offline render docs disagree about requestId deduplication. Do not promise idempotence or retry an uncertain submission based on that field.
 
 Local API tests use mock HTTP. They verify request paths/bodies, validation before network, ID and output preservation, page conventions and no automatic retries. They are not live permission, quota, cost, render-quality or native UI evidence.
+
+## Remaining scope
+
+Cloud history APIs are provider-level; the Library currently pages local history and restores an existing World ID. Optional OUS metadata/prefix/name and missing-part resume, cloud GS ingestion, native realtime compositing and Spatial DSL-to-Brep reconstruction are not implemented. Settings can validate through World, Lux3D or Spatial history; this never proves all other service entitlements. Render texture/light export, animation playback, undocumented output formats and Windows native execution require separate work.
+
+Downloaded files use immutable content-addressed names. Missing remote outputs retain downloaded local references. Rig/animation GLB files can be uploaded/downloaded, but static placement rejects unsupported skins, animations or required glTF extensions before touching the document. This is a format-support boundary, not a geometry-count cap. Generation/articulation URLs without a recognized format extension remain explicit unsupported results. Archives are retained as files and are not extracted automatically.

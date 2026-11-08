@@ -5,9 +5,9 @@
     <LangVersion>latest</LangVersion>
     <Deterministic>true</Deterministic>
     <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
-    <Version>0.1.1-beta.2</Version>
+    <Version>0.2.0-alpha.1</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <AssemblyVersion>0.2.0.0</AssemblyVersion>
     <Company>CuriousArc</Company>
     <Authors>CuriousArc;qrost</Authors>
     <Product>Aholo for Rhino</Product>

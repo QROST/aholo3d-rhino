@@ -69,7 +69,8 @@ def main():
                  'docs/gs-host-acceptance.md','docs/gs-freeze-repair.md','docs/gs-visibility-stability.md','docs/decisions/0001-native-gaussian-viewport.md',
                  'docs/architecture.md','docs/repository-rename.md','docs/host-acceptance.md','docs/validation.md','docs/api/README.md',
                  'docs/api/world.openapi.json','docs/api/rendercloud.openapi.json','docs/api/asset.openapi.json',
-                 'docs/api/lux3d.openapi.json','docs/api/spatialunderstanding.openapi.json','docs/api-capabilities.md']:
+                 'docs/api/lux3d.openapi.json','docs/api/spatialunderstanding.openapi.json','docs/api-capabilities.md',
+                 'docs/implementation-progress.md','docs/integrated-acceptance.md']:
         required[name] = name
     for target, source in required.items():
         destination = stage / target; destination.parent.mkdir(parents=True, exist_ok=True)

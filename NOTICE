@@ -20,3 +20,9 @@ https://labs.aholo.ai/api-docs/ . Their sources and capture hashes are recorded
 in docs/api/README.md; no ownership of the service or its marks is implied.
 
 Gaussian projection, real spherical harmonics and reference alpha compositing are independently implemented from mathematical definitions. Gaussian fixtures and the alpha texture are synthetic assets created for this project. No Graphdeco training or CUDA implementation is included.
+
+GLB container validation, private import snapshots, diagnostics and native
+mesh import/repair/block wrapping were adapted from Lux3D for Rhino,
+Apache-2.0, source commit 29a73abbdd50587036930ba6c45436dcd6da2ea9.
+The original Tripo-Rhino attribution above also applies to these components.
+Aholo task identities and document markers remain independent.

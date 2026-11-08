@@ -43,7 +43,13 @@ while (true)
             case "connect":
                 var input = payload.Deserialize<ConnectRequest>(AholoJson.Options) ?? throw new ArgumentException("Invalid connection request.");
                 var candidate = new ApiKeyCredential(input.ApiKey);
-                await api.ValidateKeyAsync(candidate, ct);
+                switch(input.ValidationService)
+                {
+                    case "world": await api.ValidateKeyAsync(candidate, ct); break;
+                    case "lux": await api.ListLuxTasksAsync(candidate, pageSize: 1, ct: ct); break;
+                    case "spatial": await api.ListSpatialTasksAsync(candidate, pageSize: 1, ct: ct); break;
+                    default: throw new ArgumentException("Choose a service to validate.");
+                }
                 if (input.Remember) await credentials.SetAsync(Account, input.ApiKey, ct);
                 else await credentials.DeleteAsync(Account, ct);
                 key = candidate; loaded = true; remembered = input.Remember; result = State(); break;
@@ -53,6 +59,7 @@ while (true)
             case "page": result = store.Page(Read<TaskPageRequest>(payload)); break;
             case "continueRender": result = await workflow.ContinueRenderAsync(await RequireKeyAsync(ct), payload.GetProperty("id").GetGuid(), ct); break;
             case "generate": result = await workflow.GenerateAsync(await RequireKeyAsync(ct), Read<GenerateWorldRequest>(payload), ct); break;
+            case "createService": result = await workflow.CreateServiceAsync(await RequireKeyAsync(ct), Read<CreateServiceRequest>(payload), ct); break;
             case "render": result = await workflow.RenderAsync(await RequireKeyAsync(ct), Read<RenderRequest>(payload), ct); break;
             case "refresh": result = await workflow.RefreshAsync(await RequireKeyAsync(ct), payload.GetProperty("id").GetGuid(), ct); break;
             case "download": result = await workflow.DownloadAsync(await RequireKeyAsync(ct), Read<DownloadRequest>(payload), ct); break;

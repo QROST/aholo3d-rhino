@@ -2,6 +2,10 @@
 
 Maintainer: CuriousArc · qrost. Version: 0.1.1-beta.2. Date: 2026-11-06.
 
+## Integrated development candidate — 2026-11-08
+
+The working candidate is 0.2.0-alpha.1; the historical evidence below remains scoped to its original versions. Local Release build and 475 .NET tests passed at the integrated-workflow milestone. No authenticated service calls, Rhino GUI automation, installation or publication were performed. Current package receipts, when built, are separate evidence; Windows staging on a Mac is not Windows execution. See [implementation progress](implementation-progress.md) and [integrated acceptance](integrated-acceptance.md).
+
 ## Automatic language selection preview
 
 Version 0.1.1-beta.2 adds automatic English/Chinese interface selection to the USD exchange preview. A valid Rhino language takes precedence; system UI language is consulted only when Rhino provides no valid language. Chinese locales use Simplified Chinese; other locales and the fallback use English.

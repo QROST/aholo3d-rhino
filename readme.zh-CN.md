@@ -1,12 +1,14 @@
 # Aholo for Rhino
 
-在 Rhino 8 中生成世界并使用 RenderCloud 云渲染，由 **CuriousArc · qrost** 开发。
+在 Rhino 8 中创作世界与模型、显示高斯并使用云渲染，由 **CuriousArc · qrost** 开发。
 
 [English](readme.md) · [源码仓库](https://github.com/QROST/aholo3d-rhino)
 
 仓库和源码目录现为 **`aholo3d-rhino`**。已发布的 Yak 包继续使用 **`aholo-rhino`**，保持原有用户的更新渠道；插件标识、命令、凭据、任务/缓存及可选 USD 运行时路径保持兼容。详见[仓库改名与兼容说明](docs/repository-rename.md)。
 
-**0.1.1-beta.2，macOS 预览版，支持自动中英界面选择及 GS USD/USDZ 双向交换。** 之前 0.1.0 的生成与显示流程已在本机 Apple Silicon Mac 由用户测试通过；新增导入导出界面及双语原生布局仍待手动验收。 本项目是独立集成，不是 Manycore、Aholo 或 McNeel 官方产品。插件标识、命令、凭据和缓存均独立，不替换 Lux3D for Rhino。
+**0.2.0-alpha.1：集成开发候选版，尚未发布。** 旧 `0.1.1-beta.2` Yak 包已按用户要求撤下。新界面和服务流程已有本地构建及模拟测试证据，真实服务行为和 Rhino 原生布局仍待验收；先前 Mac GS 验收不自动覆盖本次新增能力。CuriousArc 开发的独立集成并非 Aholo 或 McNeel 官方产品。
+
+详见[实施进度](docs/implementation-progress.md)、[API 能力与剩余范围](docs/api-capabilities.md)、[集成验收清单](docs/integrated-acceptance.md)。
 
 ## 界面语言
 
@@ -16,11 +18,14 @@
 
 ## 当前功能
 
-- 通过文字、单张参考图或两者结合，调用 World API 生成世界。
+- 通过文字/参考图生成世界，或使用至少 20 张照片、支持的视频重建世界。
+- 接入 Lux3D 全部十种公开创作操作：模型、图像、四视图、材质、拆件、格式转换、关节动画、角色绑定和动作重定向。高级参数默认收起，各操作保留自己的草稿。
+- 上传室内 PLY 执行空间理解并下载 DSL 结果。
+- 在统一资产库中搜索、分页和下载分类型结果；支持的静态 GLB 可放为原生 Block，无人为顶点或面数上限。绑定/动画结果可下载，尚无 Rhino 动画播放能力。
 - 保留任务历史、按已有 World ID 恢复查询，下载原始 PLY/SPZ 及可用的全景图。
 - 将完整 3DGS PLY 放为原生块实例，在 **Aholo GS (Experimental)** 模式绘制各向异性高斯椭圆、不透明度和 SH 0–3 视角颜色。原文件与完整参数保留；已实现比例、轴向、变换和撤销逻辑，详细文档生命周期测试仍待验收。
 - `AholoGsProbe` 创建离线视口试验，`AholoImportGs` 导入本地 GS，`AholoGsDiagnostics` 输出状态。`AholoImportPly` 仅作为显式中心点诊断保留。
-- 上传选中的 Mesh/Brep/Extrusion，以当前透视视口相机提交离线云渲染，下载并打开结果图。
+- 上传选中的 Mesh/Brep/Extrusion 及普通嵌套块，以当前透视视口相机提交离线云渲染，下载并打开结果图。
 - 可选将 Key 保存至 macOS 钥匙串或 Windows 当前用户 DPAPI；不保存时仅保留在后台进程内存。
 - 持久记录提交意图和任务 ID；遇到未知结果时不自动重提，避免重复创建可能扣费的任务。
 
@@ -30,7 +35,7 @@
 
 用户已在本机 Apple Silicon Mac 确认红/青色测试高斯、世界彩色显示、导航改善及基础裁切交互。beta.4/beta.5 修复显示稳定性与启动错误后，用户于 2026-11-02 确认复测通过，版本定为 0.1.0。完整透明度/遮挡/排序和 Windows 表现仍待验收。透明 Rhino 对象任意交错、嵌套块、布局细节、打印/视图捕获、立体视图与 Raytraced 集成尚不支持。显示 RGB 为 8 位且会在混合前截断 HDR；透明度使用 256 级图集，量化误差最多 0.5/255，不改变源数据。CPU 参考保留浮点数据，不能将两者说成像素完全一致。用户已观察到 Mac 基础裁切平面交互；多平面与边缘行为仍属实验范围。
 
-实时云渲染 REST/WebSocket 及经过模拟测试的会话清理已形成协议基础，**尚未开放实时云视口**。公开流只有 JPEG，没有深度、alpha 或可关联相机的帧号；World GS 入库到云 meshId 的桥接也需验证。整场景云渲染按能力门槛继续推进。本版本不包含视频/多图重建和完整 Rhino PBR/贴图/灯光。官方当前说明世界生成主要适用于室内场景。
+实时云渲染 REST/WebSocket 及经过模拟测试的会话清理已形成协议基础，**尚未开放实时云视口**。公开流只有 JPEG，没有深度、alpha 或可关联相机的帧号；World GS 入库到云 meshId 的桥接也需验证。整场景云渲染按能力门槛继续推进。已接入视频/多图重建表单；完整 Rhino PBR/贴图/灯光暂不参与云渲染场景导出。官方当前说明世界生成主要适用于室内场景。
 
 详见[阶段方案与依据](docs/decisions/0001-native-gaussian-viewport.md)及 [GS 验收步骤](docs/gs-host-acceptance.md)。
 
@@ -53,24 +58,20 @@
 
 官方 REST 接口目前要求在 `Authorization` 请求头使用**对应区域的原始 API Key**。Manycore OAuth 登录不能替代 World/RenderCloud 的这个凭据。本首版直接连接国际站 Key，不提供 OAuth 登录按钮；尚未启用中国区域端点。
 
-请按[官方快速开始](https://labs.aholo.ai/api-docs/en/quickstart)在 Aholo 平台创建/管理 Key，不要放进问题报告或源码。连接操作通过查询世界列表验证 Key，不创建世界。World 可用并不代表账户同时拥有渲染权限或足够额度。
+请按[官方快速开始](https://labs.aholo.ai/api-docs/en/quickstart)在 Aholo 平台创建/管理 Key，不要放进问题报告或源码。设置中可选择 World、Lux3D 或空间理解的历史查询来验证 Key，不创建任务。各服务的权限和额度独立检查。
 
 生成和渲染可能消耗 Aholo 服务额度。点击提交按钮会启动对应流程，包括参考图或所选几何的上传、渲染前的模型解析。关闭面板或停止本地等待**不会**取消云端任务或退回额度。离线渲染的 `requestId` 只是追踪标识，**不能用来保证重复请求只扣一次费**。
 
 ## 安装
 
-本预览包面向 macOS；Windows 发布仍待原生验收。安装已发布的预览版时，在 Rhino PackageManager 中启用预发行包并搜索 `aholo-rhino`。也可使用 `scripts/build-package.sh` 生成的本地 `.yak`，通过 Rhino 附带的 Yak CLI 安装：`yak install /absolute/path/to/package.yak`。安装或更新后请手动重启 Rhino，勿将 macOS 包用于 Windows。
+本候选版仅在本地构建，未自动安装或发布；之前的 Yak 预览版已撤下。请按下文脚本打包，审核后安装对应平台的包，并手动重启 Rhino。
 
-1. 运行 `AholoPanel`。
-2. 在连接页输入国际站 API Key，选择是否保存。
-3. 在世界页填写描述，可选一张参考图，提交一次后刷新或开启轮询。
-4. 成功后下载 PLY，通过 GS 实验模式放入当前文档。服务返回上轴信息，但没有为生成世界明确绝对长度单位；默认每个 PLY 单位对应一个 Rhino 文档单位，请按需要调整比例。
-5. 云渲染时选中 Mesh/Brep/Extrusion，激活透视视口，选择输出尺寸并提交。保持面板开启和轮询，或手动刷新，使模型解析完成后继续提交渲染。
-6. 在渲染历史中下载/打开结果图。
-
-首次 GS 测试请使用空文档，运行 `AholoGsProbe`。它离线创建合成高斯、Brep 和 Mesh，不连接 Aholo，两次 Undo 可移除测试内容。`AholoImportGs` 可加载 `fixtures/gaussian-anisotropic.ply` 或 `fixtures/gaussian-sh3.ply`，`AholoGsMode` 可启用/重载模式。[GS 验收步骤](docs/gs-host-acceptance.md)列出预期与限制。`fixtures/tiny-world.ply` 仅供 `AholoImportPly` 中心点诊断使用。
-
-出现 `SubmissionUnknown` 时，先核对 Aholo 平台历史，避免直接再提交。已有 World ID 可重新加入历史；若渲染提交的 operation ID 丢失，目前无法自动对账。已保存 ID 的任务可以继续查询。
+1. 运行 `AholoPanel`，在右上角“设置”输入国际站 Key 并选择验证服务；本地 GS 导入导出和本地历史无需 Key。
+2. 在“创作”选择操作，填写内容后提交一次；可选模型和输出参数位于“高级选项”。
+3. 在“资产库”跟踪原任务，选择具体结果再下载；反馈显示完整保存路径，“打开结果所在文件夹”定位文件。
+4. 下载支持的静态 GLB 或高斯 PLY 后点击“放入当前文档”。设置中调整 GS 比例/轴向或网格高度；模型放在世界原点，可撤销，同一放置记录不会因重复点击而重复导入。生成面数范围不用于限制导入几何。
+5. 在“渲染”使用透视相机提交支持的选中几何。原会话可继续原始渲染意图；重启或连接重置后，必须明确点击继续。查询和下载不会创建新的收费请求。
+6. `AholoCancel` 或底部按钮取消本地等待/准备，不取消远程任务；关闭面板保留共享后台与任务历史。
 
 ## 坐标与渲染边界
 

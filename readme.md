@@ -1,12 +1,14 @@
 # Aholo for Rhino
 
-World generation and RenderCloud rendering inside Rhino 8, by **CuriousArc · qrost**.
+Worlds, objects, Gaussian viewing and cloud rendering inside Rhino 8, by **CuriousArc · qrost**.
 
 [简体中文](readme.zh-CN.md) · [Source repository](https://github.com/QROST/aholo3d-rhino)
 
 The repository and checkout directory are now **`aholo3d-rhino`**. The existing Yak package remains **`aholo-rhino`** so installed users keep the same update channel. Plug-in identity, commands, credentials, state/cache and optional USD runtime locations remain compatible. See [repository rename and compatibility](docs/repository-rename.md).
 
-**0.1.1-beta.2 — macOS preview with automatic English/Chinese interface selection and GS USD/USDZ interchange.** The preceding 0.1.0 generation/display workflow was user-tested on Apple Silicon Mac; the new import/export UI and bilingual native layout still need manual acceptance. This is an independent integration, not an official Manycore, Aholo, or McNeel product. It is a new project with separate commands, plug-in identity, credentials, and cache; it does not replace Lux3D for Rhino.
+**0.2.0-alpha.1 — integrated development candidate, not published.** The previous `0.1.1-beta.2` Yak release was unlisted at the user's request. The new interface and service workflows have local build/mock-test evidence; their live service behavior and native Rhino layout are not yet accepted. Earlier Mac GS acceptance applies only to the earlier implementation. CuriousArc's independent integration is not an official Aholo or McNeel product.
+
+See [implementation progress](docs/implementation-progress.md), [API coverage and remaining scope](docs/api-capabilities.md) and [integrated acceptance](docs/integrated-acceptance.md).
 
 ## Interface language
 
@@ -16,11 +18,14 @@ Panels, command messages, GS diagnostics and known task errors follow this selec
 
 ## What works in this version
 
-- Generate a world from text, one reference image, or both using Aholo's World API.
+- Create worlds from text/images, or reconstruct from at least 20 photos or supported video.
+- Use all ten public Lux3D create operations: object/image/four-view generation, material transfer, part splitting, format conversion, articulation, rigging and retargeting. Advanced options stay collapsed; each operation keeps its draft.
+- Upload an indoor PLY for SpatialUnderstanding and download its DSL result.
+- Browse one searchable, paginated local Library. Download typed outputs and place supported static GLB as a native Block with no artificial vertex/face ceiling. Animation/rig files can be downloaded; native animation playback is not implemented.
 - Follow persisted jobs, reconnect to an existing world by its ID, and download original PLY/SPZ or the available panorama.
 - Import a full 3DGS PLY as a normal Rhino block reference and draw anisotropic Gaussian ellipses with opacity and SH 0–3 view-dependent colors in **Aholo GS (Experimental)**. Source files and parameters are retained. Scale, axis conversion, transforms and Undo are implemented; detailed document-lifecycle checks remain open.
 - Run `AholoGsProbe` for an offline native-viewport experiment, `AholoImportGs` for a local GS PLY or USD/USDZ scene, and `AholoGsDiagnostics` for status. `AholoImportPly` is a separate center-point diagnostic only.
-- Upload selected Mesh/Brep/Extrusion objects, preserve basic diffuse colors, and submit an offline RenderCloud job using the active perspective camera. Download and open the resulting image.
+- Upload selected Mesh/Brep/Extrusion objects and ordinary nested Blocks, preserve basic diffuse colors, and submit an offline RenderCloud job using the active perspective camera. Download and open the resulting image.
 - Store an API Key in macOS Keychain or Windows current-user DPAPI if requested; otherwise keep it only in the background process.
 - Preserve task IDs and uncertain submission records rather than automatically repeating a request that might already have been charged.
 
@@ -30,7 +35,7 @@ This is an **experimental renderer**. Beta.3 replaces the per-Gaussian native re
 
 The user confirmed red/teal probe colors, colored world display, faster navigation and basic clipping-plane interaction on the local Apple Silicon Mac. After the visibility and startup fixes in beta.4/beta.5, the user confirmed the retest passed on 2026-11-02 and approved version 0.1.0. Detailed alpha/depth/sorting and Windows acceptance remain pending. Arbitrary interleaving with transparent Rhino objects, nested blocks, layout details, printing/view capture, stereo and Raytraced integration are not supported. Display RGB is 8-bit and clips HDR before blending; opacity uses 256 atlas levels (at most 0.5/255 opacity rounding), without altering the source. The CPU oracle retains floating-point data and is not a claim of pixel-identical host rendering. Basic clipping-plane interaction was observed by the user on Mac; multi-plane/edge behavior is still experimental.
 
-Realtime RenderCloud REST/WebSocket transport and mock-tested session cleanup are implemented as a library foundation. **There is no realtime cloud viewport yet.** The published stream returns JPEG without depth, alpha or camera-associated frame IDs; World GS assets also need a validated bridge to cloud mesh IDs. Full-scene cloud rendering remains a planned stage, with explicit capability gates. Video/multi-image reconstruction and full Rhino PBR/textures/lights remain outside this version. World generation is best suited to indoor scenes according to the official documentation.
+Realtime RenderCloud REST/WebSocket transport and mock-tested session cleanup are implemented as a library foundation. **There is no realtime cloud viewport yet.** The published stream returns JPEG without depth, alpha or camera-associated frame IDs; World GS assets also need a validated bridge to cloud mesh IDs. Full-scene cloud rendering remains a planned stage, with explicit capability gates. Reconstruction is exposed; full Rhino PBR/textures/lights remain outside cloud scene export. World generation is best suited to indoor scenes according to the official documentation.
 
 See the [staged plan and evidence](docs/decisions/0001-native-gaussian-viewport.md) and [GS acceptance procedure](docs/gs-host-acceptance.md).
 
@@ -42,7 +47,7 @@ Existing GS modes are checked and reused, initialization waits for UI idle, and 
 | --- | --- |
 | Rhino | Rhino 8.32 or later; host assembly targets .NET 7 |
 | Background runtime | .NET 8 Runtime matching the host architecture |
-| Service | International Aholo API Key with World/RenderCloud access and sufficient service credits |
+| Service | International Aholo API Key with access to each selected service and sufficient credits |
 | macOS | Apple Silicon: user confirmed World generation/import, GS colors/navigation/basic clipping, and passed the beta.5 startup/display retest; detailed matrix remains open |
 | Windows | Cross-platform source and Windows credential storage included; Windows build, installer execution and Rhino host acceptance pending |
 | Intel Mac | Not yet host-tested |
@@ -51,26 +56,22 @@ Installing the package does not require the .NET SDK. USD import/export addition
 
 ## Authentication and cost
 
-The official REST API currently documents **a raw regional API Key in the `Authorization` header**. Manycore OAuth sign-in does not replace this credential for World or RenderCloud. This first version asks directly for the international Key and does not provide an OAuth sign-in button. China-region endpoints are not enabled in this version.
+The official REST API currently documents **a raw regional API Key in the `Authorization` header**. Manycore OAuth sign-in does not replace this credential for World, Lux3D or RenderCloud. This plugin asks directly for the international Key and does not provide an OAuth sign-in button. China-region endpoints are not enabled in this version.
 
-Create/manage the Key in the official Aholo platform, following the [official quickstart](https://labs.aholo.ai/api-docs/en/quickstart). Never paste a Key into an issue or commit it to source control. The connection action checks the Key through a world-list request; it does not create a world. Rendering permissions and credits may differ from World access.
+Create/manage the Key in the official Aholo platform, following the [official quickstart](https://labs.aholo.ai/api-docs/en/quickstart). Never paste a Key into an issue or commit it to source control. Settings validates the Key through the selected World, Lux3D or Spatial history service without creating a task. Each service has its own permissions and credits.
 
 Generating a world or starting a render can consume your Aholo service credits. Clicking the corresponding submit button authorizes that flow, including the selected file/geometry upload and mesh processing for rendering. Closing the panel or stopping local waiting does **not** cancel a cloud task or refund credits. Offline render `requestId` is a tracing ID, **not an idempotency key**.
 
 ## Install
 
-This preview targets macOS; Windows publication awaits native acceptance. For published previews, enable pre-release packages in Rhino's PackageManager and search for `aholo-rhino`. For a local package, install the `.yak` produced by `scripts/build-package.sh` with Rhino's bundled Yak CLI (`yak install /absolute/path/to/package.yak`). Restart Rhino manually after installing or updating. Do not use a macOS-tagged package on Windows.
+This alpha is built locally; it has not been installed or published automatically. The earlier Yak preview is unlisted. Build a local package with the scripts below and install the matching platform archive only after review. Restart Rhino manually after installation.
 
-1. Run `AholoPanel`.
-2. In the connection tab, enter an international API Key and choose whether to remember it.
-3. In the World tab, enter a prompt and optionally choose a reference image. Submit once and refresh or enable polling until the task succeeds.
-4. Download the PLY and place it in the current document using the experimental GS mode. Check the import scale: the World API reports the up axis but does not establish an absolute unit for generated scenes. The default is one Rhino document unit per PLY unit.
-5. For cloud rendering, select Mesh/Brep/Extrusion objects and activate a perspective viewport. Choose the render size and submit. Keep the panel open with polling enabled, or manually refresh the job to advance mesh processing into rendering.
-6. Download/open the finished image from the render history.
-
-For the first offline GS test, use an empty document and run `AholoGsProbe`. It adds synthetic Gaussians, a Brep and a mesh without contacting Aholo; two Undo operations remove the test. `AholoImportGs` can load `fixtures/gaussian-anisotropic.ply` or `fixtures/gaussian-sh3.ply`. Use `AholoGsMode` to activate/reload the mode. [GS acceptance steps](docs/gs-host-acceptance.md) describe the expected result and current limits. `fixtures/tiny-world.ply` is only for the explicit `AholoImportPly` center-point diagnostic.
-
-If submission is marked `SubmissionUnknown`, inspect Aholo's task history before creating another job. World IDs can be added to local history. Render requests with a lost operation ID cannot currently be reconciled automatically. A saved operation ID is safe to poll.
+1. Run `AholoPanel`, open **Settings**, enter an international API Key and choose a service for validation. Local GS import/export and local history work without a Key.
+2. Choose an operation in **Create**, fill its fields and submit once. **Advanced options** contains optional model/output settings.
+3. In **Library**, follow status, select a result and download it. The exact path appears in feedback; **Open result folder** reveals its directory.
+4. Use **Place in current document** for a downloaded supported GLB or Gaussian PLY. Settings controls GS units/axis and mesh height. Models are placed at the world origin with Undo; repeated clicks do not duplicate an existing receipt. The generation face-count range is a service rule, not an import limit.
+5. In **Render**, submit selected supported geometry from a perspective view. The original live session may advance mesh processing once; after restart/reset, use **Continue original render** explicitly. Query/download never creates another paid request.
+6. `AholoCancel` or the footer button stops local waiting/preparation. It does not cancel remote work. Closing the panel preserves the shared session and task history.
 
 ## Local GS USD / USDZ import and export
 

@@ -16,10 +16,12 @@ public sealed class AholoPlugin : PlugIn
         new AholoClient(Path.Combine(Path.GetDirectoryName(typeof(AholoPlugin).Assembly.Location)!, "sidecar")),
         new TaskStore(Environment.GetEnvironmentVariable("AHOLO_RHINO_STATE_DIR") ?? TaskStore.DefaultRoot)));
     internal static AholoSession Session => SharedSession.Value;
+    private static MeshHostService? meshHost;
+    internal static MeshHostService MeshHost => meshHost ??= new MeshHostService(Session.Store.Root);
     internal static IAholoServiceClient CreateClient() => Session.Client;
     internal static string DocumentScope(uint serial) => "document:" + serial.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":";
     private static void OnDocumentClosed(object? sender, global::Rhino.DocumentEventArgs e)
-    { if(SharedSession.IsValueCreated)Session.Operations.CancelPrefix(DocumentScope(e.Document.RuntimeSerialNumber)); }
+    { if(SharedSession.IsValueCreated)Session.Operations.CancelPrefix(DocumentScope(e.Document.RuntimeSerialNumber)); meshHost?.Forget(e.Document.RuntimeSerialNumber); }
     protected override LoadReturnCode OnLoad(ref string errorMessage)
     {
         int? language = null;
@@ -36,6 +38,7 @@ public sealed class AholoPlugin : PlugIn
     {
         global::Rhino.RhinoDoc.CloseDocument -= OnDocumentClosed;
         if(SharedSession.IsValueCreated)_ = Session.DisposeAsync().AsTask();
+        meshHost?.Dispose();meshHost=null;
         GaussianViewport.Shutdown();
         base.OnShutdown();
     }

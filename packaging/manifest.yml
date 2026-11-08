@@ -1,19 +1,16 @@
 name: aholo-rhino
-version: 0.1.1-beta.2
+version: 0.2.0-alpha.1
 authors:
   - CuriousArc
   - qrost
 description: >-
-  Aholo for Rhino by CuriousArc and qrost. Generate worlds from text or one
-  image, preserve original PLY/SPZ assets, display full Gaussian splats in
-  an experimental native viewport mode, import/export official Gaussian USD/USDZ
-  with an optional private OpenUSD runtime, and render selected meshes/surfaces
-  through offline RenderCloud. Rhino 8.32+ and .NET 8 Runtime required;
-  cloud calls require an international Aholo API Key. Local Apple Silicon Mac
-  startup and GS workflow user-tested; detailed rendering and Windows validation
-  remain pending. English is the default interface; Chinese follows the Rhino
-  language, with the system UI language used only as a fallback.
-  Realtime cloud transport is experimental; no cloud viewport is enabled.
+  Aholo3D for Rhino by CuriousArc and qrost. Integrated World generation and
+  reconstruction, Lux3D object/image/material/animation workflows, native static
+  GLB placement, experimental Gaussian viewing and USD exchange, and offline
+  RenderCloud rendering. Create, Library and Render workspace with separate Settings.
+  International API Key required for cloud services. Rhino 8.32+ and .NET 8 required.
+  Development alpha: new workflows and native UI await live service and host acceptance.
+  English default, Chinese follows Rhino/system UI language. No realtime cloud viewport.
 url: https://github.com/QROST/aholo3d-rhino
 keywords:
   - D1D17217-1169-41BB-B63A-FEE17DFA777F
