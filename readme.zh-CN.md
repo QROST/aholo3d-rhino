@@ -124,3 +124,5 @@ Windows 可运行 `powershell -File scripts/build-package.ps1`（需要 Python 3
 ## 许可证与署名
 
 Apache-2.0，见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。运行时发现、管道通信、安全凭据存储及下载传输参考现有 Lux3D/Tripo 项目。维护者为 **CuriousArc · qrost**。反馈问题时提供版本、平台、任务状态和复现步骤，不包含 Key 或带签名的 URL。
+
+设置中的**恢复已保存的连接**可恢复停止的后台连接。更换或清除 Key 后，其他运行实例会在下一次服务请求前失效。已发送的请求仍可能完成；重新连接后，准备好的渲染需要明确点击继续，不会自动重新提交。

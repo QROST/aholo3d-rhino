@@ -1,14 +1,14 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 namespace Aholo.Core;
-public sealed record RpcRequest(int Version, Guid Id, string Method, JsonElement Payload);
-public sealed record RpcResponse(int Version, Guid Id, JsonElement? Result, string? Error);
+public sealed record RpcRequest(int Version, Guid Id, string Method, JsonElement Payload, string? CredentialEpoch = null);
+public sealed record RpcResponse(int Version, Guid Id, JsonElement? Result, string? Error, string? ErrorCode = null);
 public static class AholoJson
 {
     public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
     public static JsonElement Element<T>(T value) => JsonSerializer.SerializeToElement(value, Options);
 }
-public sealed record ConnectionState(bool Connected, string? ConnectionId, bool Remembered);
+public sealed record ConnectionState(bool Connected, string? ConnectionId, bool Remembered, string? CredentialEpoch = null);
 public sealed record ConnectRequest(string ApiKey, bool Remember, string ValidationService = "world");
 public sealed record GenerateWorldRequest(string Name, string Prompt, string? ImagePath = null);
 // Row-vector pose, translation in row 4, distances in millimetres; camera looks along local -Z.

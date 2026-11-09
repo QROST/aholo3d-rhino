@@ -13,6 +13,7 @@ public sealed partial class AholoApiClient
     private static readonly Uri ApiOrigin = new("https://api.aholo.ai/global/");
     private readonly HttpClient _apiHttp;
     private readonly HttpClient _uploadHttp;
+    public Func<CancellationToken, Task<IDisposable>>? RequestAdmission { get; set; }
     private const int JsonLimit = 2 * 1024 * 1024;
     public AholoApiClient(HttpClient apiHttp, HttpClient uploadHttp)
     {
@@ -171,17 +172,23 @@ public sealed partial class AholoApiClient
 
     private async Task<T> CreateAsync<T>(HttpRequestMessage request, Func<JsonElement, T> parse, CancellationToken ct)
     {
-        ct.ThrowIfCancellationRequested(); // Definitely not sent yet.
+        if (ct.IsCancellationRequested) throw NotSent();
         try { return parse(await SendAsync(_apiHttp, request, ct, isCreate: true).ConfigureAwait(false)); }
         catch (ProviderException ex) when (ex.Code == "invalid_response") { throw UnknownSubmission(); }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException or OverflowException or ArgumentException) { throw UnknownSubmission(); }
     }
 
-    private static async Task<JsonElement> SendAsync(HttpClient http, HttpRequestMessage request, CancellationToken ct, bool isCreate = false)
+    private async Task<JsonElement> SendAsync(HttpClient http, HttpRequestMessage request, CancellationToken ct, bool isCreate = false)
     {
+        IDisposable? admission;
+        try { admission = RequestAdmission is null ? null : await RequestAdmission(ct).ConfigureAwait(false); }
+        catch (Exception ex) when (isCreate && ex is IOException or OperationCanceledException) { throw NotSent(); }
         try
         {
-            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            HttpResponseMessage admitted;
+            using (admission)
+                admitted = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            using var response = admitted;
             if (!response.IsSuccessStatusCode)
             {
                 string code = response.StatusCode switch { HttpStatusCode.Unauthorized => "unauthenticated", HttpStatusCode.Forbidden => "permission_denied", HttpStatusCode.TooManyRequests => "rate_limited", _ => "http_error" };
@@ -208,6 +215,8 @@ public sealed partial class AholoApiClient
             throw new ProviderException("request_failed", "The service request failed or its response format is invalid.");
         }
     }
+
+    private static ProviderException NotSent() => new("request_not_sent", "The request stopped before it was sent. Restore the connection and explicitly continue the original task.");
 
     private static WorldResult ParseWorld(JsonElement root)
     {

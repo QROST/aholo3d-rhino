@@ -31,3 +31,10 @@ Record platform, Rhino/runtime versions, source commit, package hash, observed r
 - On Mac and Windows, rotate/zoom, stop, resize, and move Rhino between displays with different scaling. Display must settle without endless preparation; a true camera/window change must rebuild.
 - Hide all GS, switch to a layout, or use a view with no projected splats. Diagnostics must describe that state rather than report zero-input success. With one valid and one missing asset, the valid scene remains usable and the overlay reports partial readiness.
 - With disposable fixture copies, damage the local cache then re-import the original. Verify one corrupt backup and restored full counts. A document whose only recorded source is the corrupt cache must keep bounds and an actionable error. Never damage real model files for this check.
+
+## Shared connection recovery
+
+- Open two Rhino instances (including different task-directory overrides). Change or disconnect the saved Key in one. The other must reject its next authenticated request and clear automatic render continuation, then allow Settings → Restore saved connection. A session-only Key is never loaded into a different process.
+- End a disposable background process between queries, restore the connection, and inspect history. The original task must remain; a MeshReady result needs an explicit Continue action.
+- Pause/resume during mesh processing, and change connection while continuation is queued. Queued unsent rendering must be cancelled. A request already accepted by the service is not recalled.
+- With a pending offline render, close/reopen the panel. Query recovery must work without creating another render; connection errors remain visible in Settings.

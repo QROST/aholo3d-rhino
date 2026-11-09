@@ -21,6 +21,13 @@ public sealed class AholoSession : IAsyncDisposable
     private readonly object startGate=new();
     private Task? loop;
     private int cursor;
+    private readonly object intentGate = new();
+    private readonly HashSet<Guid> revoked = new();
+    private readonly Dictionary<Guid,long> taskVersions = new();
+    private long generation;
+    private CancellationTokenSource authority = new();
+    private string? lastError;
+    public string? LastError => Volatile.Read(ref lastError);
     public AholoSession(IAholoServiceClient client,TaskStore store,TimeSpan? pollInterval=null)
     {
         Client=client;Store=store;this.pollInterval=pollInterval??TimeSpan.FromSeconds(8);
@@ -29,28 +36,59 @@ public sealed class AholoSession : IAsyncDisposable
     }
     public void Start()
     {lock(startGate)loop??=Task.Run(RunLoopAsync);}
-    public async Task<ConnectionState> ReadConnectionAsync(CancellationToken ct=default)=>SetConnection(await Client.GetConnectionAsync(ct).ConfigureAwait(false));
+    public async Task<ConnectionState> ReadConnectionAsync(CancellationToken ct=default)
+    {
+        long expected; lock(intentGate) expected=generation;
+        try
+        {
+            var state=await Client.GetConnectionAsync(ct).ConfigureAwait(false);
+            SetError(null);return SetConnection(state,expected);
+        }
+        catch { SetError("The saved connection could not be restored. Use Settings to restore or reconnect.");throw; }
+    }
     public async Task<ConnectionState> ConnectAsync(ConnectRequest request,CancellationToken ct=default)
-    {renderIntents.Clear();paused.Clear();return SetConnection(await Client.ConnectAsync(request,ct).ConfigureAwait(false));}
+    {
+        Invalidate();SetConnection(new(false,null,false));
+        long expected;lock(intentGate)expected=generation;
+        var state=await Client.ConnectAsync(request,ct).ConfigureAwait(false);SetError(null);return SetConnection(state,expected);
+    }
     public async Task<ConnectionState> DisconnectAsync(CancellationToken ct=default)
-    {renderIntents.Clear();paused.Clear();Operations.CancelPrefix("task:");return SetConnection(await Client.DisconnectAsync(ct).ConfigureAwait(false));}
+    {
+        Invalidate();SetConnection(new(false,null,false));Operations.CancelPrefix("task:");
+        long expected;lock(intentGate)expected=generation;
+        var state=await Client.DisconnectAsync(ct).ConfigureAwait(false);SetError(null);return SetConnection(state,expected);
+    }
     public Task<TaskPage> ReadHistoryAsync(TaskPageRequest request,CancellationToken ct=default)=>Task.Run(()=>Store.Page(request),ct);
     public async Task<LocalTask> RenderAsync(RenderRequest request,CancellationToken ct=default)
     {
+        long expected; lock(intentGate)expected=generation;
         var task=await Client.RenderAsync(request,ct).ConfigureAwait(false);
-        if(task.Status=="MeshProcessing"&&!ct.IsCancellationRequested)renderIntents.TryAdd(task.Id,0);
+        lock(intentGate)
+            if(expected==generation && task.Status=="MeshProcessing"&&!ct.IsCancellationRequested&&!paused.ContainsKey(task.Id)&&!revoked.Contains(task.Id))renderIntents.TryAdd(task.Id,0);
         Observe(task);return task;
     }
     public void PauseTask(Guid id)
-    {paused[id]=0;renderIntents.TryRemove(id,out _);Operations.Cancel("task:"+id.ToString("N"));Notify();}
+    {
+        lock(intentGate){paused[id]=0;revoked.Add(id);taskVersions[id]=taskVersions.GetValueOrDefault(id)+1;renderIntents.TryRemove(id,out _);}
+        Operations.Cancel("task:"+id.ToString("N"));Notify();
+    }
     public void ResumeQueries(Guid id){paused.TryRemove(id,out _);Notify();}
     public bool IsPaused(Guid id)=>paused.ContainsKey(id);
     public async Task<LocalTask> ContinueRenderAsync(Guid id,CancellationToken ct=default)
     {
-        paused.TryRemove(id,out _);
-        var task=await Client.ContinueRenderAsync(id,ct).ConfigureAwait(false);
-        if((task.Status is "MeshProcessing" or "MeshReady")&&!ct.IsCancellationRequested&&!paused.ContainsKey(id))renderIntents[id]=0;
-        else renderIntents.TryRemove(id,out _);
+        long expected,version;CancellationToken authorityToken;
+        lock(intentGate){paused.TryRemove(id,out _);expected=generation;version=taskVersions.GetValueOrDefault(id);authorityToken=authority.Token;}
+        using var continuation=CancellationTokenSource.CreateLinkedTokenSource(ct,authorityToken);
+        continuation.Token.ThrowIfCancellationRequested();
+        var task=await Client.ContinueRenderAsync(id,continuation.Token).ConfigureAwait(false);
+        lock(intentGate)
+        {
+            if(expected==generation&&version==taskVersions.GetValueOrDefault(id))
+            {
+                if(task.Error is null&&(task.Status is "MeshProcessing" or "MeshReady")&&!ct.IsCancellationRequested&&!paused.ContainsKey(id))renderIntents[id]=0;
+                else renderIntents.TryRemove(id,out _);
+            }
+        }
         Observe(task);return task;
     }
     public async Task PollOnceAsync(CancellationToken ct=default)
@@ -67,13 +105,22 @@ public sealed class AholoSession : IAsyncDisposable
             await Operations.RunAsync(scope,"Refresh task",async token=>
             {
                 var updated=await Client.RefreshAsync(task.Id,token).ConfigureAwait(false);Observe(updated);
-                if(renderIntents.ContainsKey(task.Id)&&TaskCapabilities.For(updated).CanContinueRender&&!paused.ContainsKey(task.Id))
+                CancellationToken authorityToken=default;bool canContinue;
+                lock(intentGate)
                 {
-                    updated=await Client.ContinueRenderAsync(task.Id,token).ConfigureAwait(false);Observe(updated);
+                    canContinue=updated.Error is null&&renderIntents.ContainsKey(task.Id)&&TaskCapabilities.For(updated).CanContinueRender&&!paused.ContainsKey(task.Id);
+                    if(canContinue)authorityToken=authority.Token;
                 }
-                if(updated.OperationId is not null||updated.Status is "SubmissionUnknown" or "FAILED" or "CANCELED" or "SUCCEEDED")renderIntents.TryRemove(task.Id,out _);
+                if(canContinue)
+                {
+                    using var continuation=CancellationTokenSource.CreateLinkedTokenSource(token,authorityToken);
+                    continuation.Token.ThrowIfCancellationRequested();
+                    updated=await Client.ContinueRenderAsync(task.Id,continuation.Token).ConfigureAwait(false);Observe(updated);
+                }
+                if(updated.Error is not null||updated.OperationId is not null||updated.Status is "SubmissionUnknown" or "FAILED" or "CANCELED" or "SUCCEEDED")renderIntents.TryRemove(task.Id,out _);
             },ct).ConfigureAwait(false);
         }
+        catch(Exception) when(!ct.IsCancellationRequested){SetError("Background refresh failed. Restore the connection or refresh the original task; do not resubmit it.");throw;}
         finally{pollGate.Release();}
     }
     private async Task RunLoopAsync()
@@ -87,12 +134,34 @@ public sealed class AholoSession : IAsyncDisposable
         }
         catch(OperationCanceledException){ }
     }
-    private ConnectionState SetConnection(ConnectionState state){Volatile.Write(ref connection,state);Notify();return state;}
+    private ConnectionState SetConnection(ConnectionState state,long? expected=null)
+    {
+        CancellationTokenSource? previous=null;
+        lock(intentGate)
+        {
+            if(expected.HasValue&&expected!=generation)return Connection;
+            if(Connection.ConnectionId!=state.ConnectionId||Connection.CredentialEpoch!=state.CredentialEpoch)previous=RevokeUnderLock();
+            Volatile.Write(ref connection,state);
+        }
+        CancelAuthority(previous);Notify();return state;
+    }
+    private CancellationTokenSource RevokeUnderLock()
+    {
+        generation++;renderIntents.Clear();paused.Clear();revoked.Clear();taskVersions.Clear();
+        var previous=authority;authority=new();return previous;
+    }
+    private void Invalidate()
+    {
+        CancellationTokenSource previous;lock(intentGate)previous=RevokeUnderLock();
+        CancelAuthority(previous);
+    }
+    private static void CancelAuthority(CancellationTokenSource? previous)
+    {if(previous is not null){previous.Cancel();previous.Dispose();}}
+    private void SetError(string? error){Volatile.Write(ref lastError,error);Notify();}
     private void TransportReset()
     {
-        renderIntents.Clear();SetConnection(new(false,null,false));
-        // A restarted transport cannot inherit authority to continue a paid phase.
-        // Reconnection is explicit; retained journals can always be viewed locally.
+        Invalidate();SetConnection(new(false,null,false));
+        SetError("The background connection stopped. Restore it in Settings; paid render continuation requires a new explicit action.");
     }
     public void Observe(LocalTask task)
     {
@@ -102,9 +171,9 @@ public sealed class AholoSession : IAsyncDisposable
     private void Notify(){foreach(Action observer in Changed?.GetInvocationList()??Array.Empty<Delegate>())try{observer();}catch(Exception){ }}
     public async ValueTask DisposeAsync()
     {
-        lifetime.Cancel();renderIntents.Clear();Operations.CancelPrefix("");
+        lifetime.Cancel();Invalidate();Operations.CancelPrefix("");
         if(loop is not null)try{await loop.ConfigureAwait(false);}catch(OperationCanceledException){ }
         Client.TransportReset-=TransportReset;Operations.Changed-=Notify;
-        await Client.DisposeAsync().ConfigureAwait(false);lifetime.Dispose();pollGate.Dispose();
+        await Client.DisposeAsync().ConfigureAwait(false);lifetime.Dispose();pollGate.Dispose();authority.Dispose();
     }
 }

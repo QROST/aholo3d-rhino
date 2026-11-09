@@ -29,6 +29,7 @@ public sealed class AholoClient : IAholoServiceClient
     private readonly SemaphoreSlim _gate = new(1);
     private Process? _process;
     private bool _disposed;
+    private string? _credentialEpoch;
     public AholoClient(string sidecarDirectory) { _directory = Path.GetFullPath(sidecarDirectory); }
 
     public Task<ConnectionState> GetConnectionAsync(CancellationToken ct = default) => Call<ConnectionState>("connection", new { }, ct);
@@ -46,6 +47,7 @@ public sealed class AholoClient : IAholoServiceClient
 
     private async Task<T> Call<T>(string method, object payload, CancellationToken ct)
     {
+        string? expectedEpoch = _credentialEpoch;
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
@@ -55,7 +57,7 @@ public sealed class AholoClient : IAholoServiceClient
             timeout.Token.ThrowIfCancellationRequested();
             EnsureProcess();
             var id = Guid.NewGuid();
-            string request = JsonSerializer.Serialize(new RpcRequest(1, id, method, AholoJson.Element(payload)), AholoJson.Options);
+            string request = JsonSerializer.Serialize(new RpcRequest(1, id, method, AholoJson.Element(payload), expectedEpoch), AholoJson.Options);
             if (request.Length > 128 * 1024) throw new InvalidOperationException("The request is too long.");
             await _process!.StandardInput.WriteLineAsync(request.AsMemory(), timeout.Token).ConfigureAwait(false);
             await _process.StandardInput.FlushAsync().WaitAsync(timeout.Token).ConfigureAwait(false);
@@ -63,7 +65,13 @@ public sealed class AholoClient : IAholoServiceClient
                 ?? throw new IOException("The Aholo background process stopped. Recover the task from history; do not resubmit generations with unknown results.");
             var response = JsonSerializer.Deserialize<RpcResponse>(line, AholoJson.Options) ?? throw new IOException("Invalid background response.");
             if (response.Version != 1 || response.Id != id) throw new IOException("Background protocol mismatch.");
+            if (response.ErrorCode == "credential_changed") StopProcess();
             if (response.Error is not null) throw new InvalidOperationException(response.Error);
+            if (typeof(T) == typeof(ConnectionState))
+            {
+                var state = response.Result!.Value.Deserialize<ConnectionState>(AholoJson.Options)!;
+                _credentialEpoch = state.CredentialEpoch;
+            }
             return response.Result!.Value.Deserialize<T>(AholoJson.Options) ?? throw new IOException("The background response is empty.");
         }
         catch (Exception ex) when (ex is OperationCanceledException or IOException or JsonException)
@@ -77,7 +85,11 @@ public sealed class AholoClient : IAholoServiceClient
     private void EnsureProcess()
     {
         if (_process is { HasExited: false }) return;
-        _process?.Dispose();
+        if (_process is not null)
+        {
+            StopProcess();
+            throw new IOException("The Aholo background process exited. Restore the connection before continuing; no operation was resubmitted.");
+        }
         string executable = Path.Combine(_directory, OperatingSystem.IsWindows() ? "Aholo.Sidecar.exe" : "Aholo.Sidecar");
         string dll = Path.Combine(_directory, "Aholo.Sidecar.dll");
         bool standalone = File.Exists(executable);
@@ -104,7 +116,7 @@ public sealed class AholoClient : IAholoServiceClient
     {
         if (_process is null) return;
         try { if (!_process.HasExited) _process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
-        _process.Dispose(); _process = null;
+        _process.Dispose(); _process = null; _credentialEpoch = null;
         TransportReset?.Invoke();
     }
     public async ValueTask DisposeAsync()

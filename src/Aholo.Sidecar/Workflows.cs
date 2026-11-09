@@ -124,6 +124,8 @@ public sealed partial class Workflows(AholoApiClient api, TaskStore store, Asset
     private static bool Expected(Exception error) => error is ProviderException or IOException or OperationCanceledException or ArgumentException or HttpRequestException;
     private static LocalTask Failure(LocalTask task, Exception error)
     {
+        if (task.Status == "RenderSubmitting" && error is ProviderException { Code: "request_not_sent" or "credential_changed" })
+            return task with { Status = "MeshReady", Error = error.Message };
         bool submitting = task.Status is "Submitting" or "MeshSubmitting" or "RenderSubmitting";
         bool unknown = submitting && (error is not ProviderException p || p.SubmissionMayHaveSucceeded);
         return task with { Status = unknown ? "SubmissionUnknown" : "FAILED", Error = unknown ? "The request was sent but its result is unknown. Check Aholo history; automatic resubmission is prohibited." : error is ProviderException or ArgumentException ? error.Message : "Preparation or network operation failed. The original task is retained." };

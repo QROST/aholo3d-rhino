@@ -119,6 +119,7 @@ public sealed class AholoPanel : Panel,IPanel
     {
         if(disposed)return;
         bool connected=session.Connection.Connected;
+        connection.ToolTip=UiText.TranslateKnownMessage(session.LastError??"");
         connection.Text=connected?T("International · Connected"):T("International · Not connected");
         foreach(var button in actions)button.Enabled=!busy;
         submit.Enabled=render.Enabled=!busy&&connected;
@@ -250,19 +251,21 @@ public sealed class AholoPanel : Panel,IPanel
         var auto=new CheckBox{Text=T("Auto-refresh active tasks (every 8 seconds)"),Checked=session.AutoRefresh};auto.CheckedChanged+=(_,_)=>session.AutoRefresh=auto.Checked==true;
         var settingsScale=new TextBox{Text=scale.Text};var settingsAxis=new DropDown{DataStore=axis.DataStore,SelectedIndex=axis.SelectedIndex};var settingsHeight=new TextBox{Text=objectHeight.Text};
         var status=Info(session.Connection.Connected?"International · Connected":"International · Not connected");
+        var connectionError=Info(session.LastError??"");
         using var dialog=new Dialog{Title=T("Settings"),ClientSize=new Size(460,620),Resizable=true};
         var connect=Local("Validate and connect",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}string value=key.Text;bool save=remember.Checked==true;string service=validation.SelectedIndex switch{1=>"lux",2=>"spatial",_=>"world"};key.Text="";_=RunAsync("Connecting",async()=>{await session.ConnectAsync(new(value,save,service),token);AholoHost.Ui(()=>Report(T("Connected. Service permissions and credits are checked per operation.")));});});
         var disconnect=Local("Disconnect and clear credentials",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}_=RunAsync("Disconnecting",async()=>{await session.DisconnectAsync(token);AholoHost.Ui(()=>Report(T("Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.")));});});
+        var restore=Local("Restore saved connection",()=>{if(busy)return;_=RunAsync("Restoring connection",async()=>{await session.ReadConnectionAsync(token);});});
         var close=new Button{Text=T("Close")};close.Click+=(_,_)=>dialog.Close();
         // Dialog controls are snapshots; closing it preserves placement values in this panel.
-        dialog.Content=Column(status,Info("International API Key"),key,remember,Info("Validate access with"),validation,connect,disconnect,
+        dialog.Content=Column(status,connectionError,restore,Info("International API Key"),key,remember,Info("Validate access with"),validation,connect,disconnect,
             Info("Validation queries the selected service history. Each service may need separate account permissions. OAuth login does not replace an API Key."),auto,
             Info("GS import scale (document units per source unit)"),settingsScale,settingsAxis,Info("Mesh height (document units)"),settingsHeight,
             Local("Open local asset folder",()=>Process.Start(new ProcessStartInfo(Path.Combine(session.Store.Root,"assets")){UseShellExecute=true})),
             Info("Closing the panel keeps tasks running. Reopen it to view progress. Cancel stops local waiting only; remote tasks remain on the service."),
             Info("Aholo3D for Rhino "+AholoPlugin.DisplayVersion+"\nCuriousArc · qrost"),close);
         bool closed=false;
-        void UpdateSettings()=>Application.Instance.AsyncInvoke(()=>{if(!closed)status.Text=T(session.Connection.Connected?"International · Connected":"International · Not connected");});
+        void UpdateSettings()=>Application.Instance.AsyncInvoke(()=>{if(!closed){status.Text=T(session.Connection.Connected?"International · Connected":"International · Not connected");connectionError.Text=UiText.TranslateKnownMessage(session.LastError??"");}});
         session.Changed+=UpdateSettings;
         try{dialog.ShowModal(this);}finally{closed=true;session.Changed-=UpdateSettings;}
         scale.Text=settingsScale.Text;axis.SelectedIndex=settingsAxis.SelectedIndex;objectHeight.Text=settingsHeight.Text;

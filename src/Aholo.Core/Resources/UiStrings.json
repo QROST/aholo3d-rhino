@@ -2454,5 +2454,37 @@
   {
     "English": "Could not recover the corrupt GS cache from its original reference. Cache and source retained; re-import the original file.",
     "Chinese": "GS 缓存损坏且未能从原引用恢复；坏缓存和源文件均保留，请重新导入原始文件。"
+  },
+  {
+    "English": "Restore saved connection",
+    "Chinese": "恢复已保存的连接"
+  },
+  {
+    "English": "Restoring connection",
+    "Chinese": "正在恢复连接"
+  },
+  {
+    "English": "The saved connection could not be restored. Use Settings to restore or reconnect.",
+    "Chinese": "无法恢复已保存的连接。请在设置中恢复或重新连接。"
+  },
+  {
+    "English": "The background connection stopped. Restore it in Settings; paid render continuation requires a new explicit action.",
+    "Chinese": "后台连接已停止。请在设置中恢复；继续付费渲染需要重新明确操作。"
+  },
+  {
+    "English": "Background refresh failed. Restore the connection or refresh the original task; do not resubmit it.",
+    "Chinese": "后台刷新失败。请恢复连接或刷新原任务，不要重新提交。"
+  },
+  {
+    "English": "The saved connection changed or is incomplete. Restore the connection or explicitly reconnect. Existing tasks are retained.",
+    "Chinese": "已保存的连接已变化或不完整。请恢复连接或明确重新连接；现有任务已保留。"
+  },
+  {
+    "English": "The request stopped before it was sent. Restore the connection and explicitly continue the original task.",
+    "Chinese": "请求在发送前已停止。请恢复连接，并明确继续原任务。"
+  },
+  {
+    "English": "The Aholo background process exited. Restore the connection before continuing; no operation was resubmitted.",
+    "Chinese": "Aholo 后台进程已退出。请先恢复连接再继续；没有重新提交操作。"
   }
 ]

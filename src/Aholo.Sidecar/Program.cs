@@ -15,10 +15,9 @@ using var publicHttp = new HttpClient(new SocketsHttpHandler
 }) { Timeout = TimeSpan.FromMinutes(15) };
 var api = new AholoApiClient(apiHttp, publicHttp);
 var workflow = new Workflows(api, store, new AssetDownloader(publicHttp, store));
-ICredentialStore credentials = CredentialStoreFactory.CreateDefault();
-ApiKeyCredential? key = null;
-bool loaded = false, remembered = false;
-const string Account = "international-api-key";
+var credentials = new CredentialCoordinator(CredentialStoreFactory.CreateDefault());
+CredentialSnapshot? connection = null;
+string? requestEpoch = null;
 while (true)
 {
     string? line;
@@ -36,10 +35,13 @@ while (true)
         var ct = deadline.Token;
         var payload = request.Payload;
         object result;
+        requestEpoch = request.CredentialEpoch;
+        bool authenticated = request.Method is "continueRender" or "generate" or "createService" or "render" or "refresh" or "download" or "importWorld";
+        api.RequestAdmission = authenticated ? token => credentials.AcquireRequestAsync(requestEpoch, token) : null;
         switch (request.Method)
         {
             case "connection":
-                await LoadKeyAsync(ct); result = State(); break;
+                connection = await credentials.ReadAsync(ct); result = State(); break;
             case "connect":
                 var input = payload.Deserialize<ConnectRequest>(AholoJson.Options) ?? throw new ArgumentException("Invalid connection request.");
                 var candidate = new ApiKeyCredential(input.ApiKey);
@@ -50,11 +52,9 @@ while (true)
                     case "spatial": await api.ListSpatialTasksAsync(candidate, pageSize: 1, ct: ct); break;
                     default: throw new ArgumentException("Choose a service to validate.");
                 }
-                if (input.Remember) await credentials.SetAsync(Account, input.ApiKey, ct);
-                else await credentials.DeleteAsync(Account, ct);
-                key = candidate; loaded = true; remembered = input.Remember; result = State(); break;
+                connection = await credentials.ConnectAsync(candidate, input.Remember, ct); result = State(); break;
             case "disconnect":
-                await credentials.DeleteAsync(Account, ct); key = null; loaded = true; remembered = false; result = State(); break;
+                connection = await credentials.DisconnectAsync(ct); result = State(); break;
             case "list": result = store.List(); break;
             case "page": result = store.Page(Read<TaskPageRequest>(payload)); break;
             case "continueRender": result = await workflow.ContinueRenderAsync(await RequireKeyAsync(ct), payload.GetProperty("id").GetGuid(), ct); break;
@@ -66,6 +66,8 @@ while (true)
             case "importWorld": result = await workflow.ImportWorldAsync(await RequireKeyAsync(ct), payload.GetProperty("worldId").GetString() ?? "", ct); break;
             default: throw new ArgumentException("Unknown background operation.");
         }
+        // A workflow may have persisted a provider failure. Still signal credential invalidation to the shared host session.
+        if (authenticated) { using var admission = await credentials.AcquireRequestAsync(requestEpoch, ct); }
         response = new RpcResponse(1, id, AholoJson.Element(result), null);
     }
     catch (Exception error)
@@ -79,7 +81,7 @@ while (true)
             IOException => "File or background operation failed. Check local disk space, permissions or activity in other Aholo panels.",
             _ => "Background operation failed. Task history is retained; reopen the panel and retry the query."
         };
-        response = new RpcResponse(1, id, null, message);
+        response = new RpcResponse(1, id, null, message, (error as ProviderException)?.Code);
     }
     await Console.Out.WriteLineAsync(JsonSerializer.Serialize(response, AholoJson.Options));
     await Console.Out.FlushAsync();
@@ -87,15 +89,5 @@ while (true)
 return;
 
 T Read<T>(JsonElement payload) => payload.Deserialize<T>(AholoJson.Options) ?? throw new ArgumentException("The request is missing parameters.");
-ConnectionState State() => new(key is not null, key?.ConnectionId, remembered);
-async Task LoadKeyAsync(CancellationToken ct)
-{
-    if (loaded) return;
-    string? stored = await credentials.GetAsync(Account, ct);
-    if (!string.IsNullOrWhiteSpace(stored)) { key = new ApiKeyCredential(stored); remembered = true; }
-    loaded = true;
-}
-async Task<ApiKeyCredential> RequireKeyAsync(CancellationToken ct)
-{
-    await LoadKeyAsync(ct); return key ?? throw new InvalidOperationException("Connect an international API Key first.");
-}
+ConnectionState State() => new(connection?.Key is not null, connection?.Key?.ConnectionId, connection?.Remembered == true, connection?.Epoch);
+Task<ApiKeyCredential> RequireKeyAsync(CancellationToken ct) => credentials.RequireAsync(requestEpoch, ct);

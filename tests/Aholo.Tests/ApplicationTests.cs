@@ -66,20 +66,93 @@ public sealed class ApplicationTests : IDisposable
         await registry.RunAsync("local","Work",_=>Task.CompletedTask);Assert.False(registry.IsActive("local"));
         Assert.Equal("Succeeded",Assert.Single(registry.Snapshot()).State);
     }
+    [Theory][InlineData("reset")][InlineData("disconnect")][InlineData("connect")][InlineData("pause")]
+    public async Task LateRenderCannotReauthorizeAfterConnectionOrPauseChange(string change)
+    {
+        var store=Store;var client=new FakeClient(store){RenderCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously)};
+        await using var session=new AholoSession(client,store);await session.ReadConnectionAsync();
+        var pending=session.RenderAsync(Request);
+        switch(change)
+        {
+            case "reset":client.Reset();break;
+            case "disconnect":await session.DisconnectAsync();break;
+            case "connect":await session.ConnectAsync(new("fixture",false));break;
+            default:session.PauseTask(client.Task.Id);session.ResumeQueries(client.Task.Id);break;
+        }
+        client.RenderCompletion.SetResult(client.Task);await pending;
+        await session.ReadConnectionAsync();await session.PollOnceAsync();Assert.Equal(0,client.Continuations);
+    }
+    [Fact]public async Task LateExplicitContinuationCannotRestoreIntentAfterReset()
+    {
+        var store=Store;var client=new FakeClient(store);await using var session=new AholoSession(client,store);
+        await session.ReadConnectionAsync();await session.RenderAsync(Request);session.PauseTask(client.Task.Id);
+        client.ContinueCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pending=session.ContinueRenderAsync(client.Task.Id);client.Reset();
+        client.ContinueCompletion.SetResult(client.Task);await pending;await session.ReadConnectionAsync();
+        await session.PollOnceAsync();Assert.Equal(1,client.Continuations);
+    }
+    [Fact]public async Task FailedInitialConnectionCanBeExplicitlyRestoredWithoutPaidWork()
+    {
+        var store=Store;var client=new FakeClient(store){FailConnection=true};await using var session=new AholoSession(client,store);
+        await Assert.ThrowsAsync<IOException>(()=>session.ReadConnectionAsync());Assert.NotNull(session.LastError);
+        client.FailConnection=false;await session.ReadConnectionAsync();await session.PollOnceAsync();
+        Assert.True(session.Connection.Connected);Assert.Null(session.LastError);Assert.Equal(0,client.Continuations);
+    }
+    [Fact]public async Task EpochChangeWithSameAccountRevokesOriginalRenderIntent()
+    {
+        var store=Store;var client=new FakeClient(store);await using var session=new AholoSession(client,store);
+        await session.ReadConnectionAsync();await session.RenderAsync(Request);client.Epoch="changed";
+        await session.ReadConnectionAsync();await session.PollOnceAsync();Assert.Equal(0,client.Continuations);
+    }
+    [Fact]public async Task IdleExitedTransportRejectsTheCurrentContinuationBeforeRestart()
+    {
+        using var process=System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.GetFullPath(Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(),"../../..",OperatingSystem.IsWindows()?"dotnet.exe":"dotnet")),"--version")
+            {UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true})!;
+        await process.WaitForExitAsync();
+        await using var client=new AholoClient(root);int resets=0;client.TransportReset+=()=>resets++;
+        typeof(AholoClient).GetField("_process",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.SetValue(client,process);
+        await Assert.ThrowsAsync<IOException>(()=>client.ContinueRenderAsync(Guid.NewGuid()));
+        Assert.Equal(1,resets);Assert.Null(typeof(AholoClient).GetField("_process",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.GetValue(client));
+    }
+    [Fact]public async Task DisconnectCancelsManualContinuationStillWaitingToSend()
+    {
+        var store=Store;var client=new FakeClient(store){WaitBeforeContinue=new(TaskCreationOptions.RunContinuationsAsynchronously)};
+        await using var session=new AholoSession(client,store);await session.ReadConnectionAsync();await session.RenderAsync(Request);
+        var pending=session.ContinueRenderAsync(client.Task.Id);await session.DisconnectAsync();
+        client.WaitBeforeContinue.SetResult();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>pending);Assert.Equal(0,client.Continuations);
+    }
+    [Fact]public async Task LateConnectCannotOverrideNewerDisconnect()
+    {
+        var client=new FakeClient(Store){ConnectCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously)};
+        await using var session=new AholoSession(client,Store);
+        var pending=session.ConnectAsync(new("fixture",false));await session.DisconnectAsync();
+        client.ConnectCompletion.SetResult(new(true,"account",false,"old"));await pending;
+        Assert.False(session.Connection.Connected);
+    }
     private sealed class FakeClient(TaskStore store) : IAholoServiceClient
     {
         public event Action? TransportReset;
         public void Reset()=>TransportReset?.Invoke();
         public LocalTask Task {get;private set;}=new(){Kind="render",ConnectionId="account",Status="MeshProcessing",MeshTaskId="mesh-task",Render=Request};
         public int Continuations,Queries;
-        public Task<ConnectionState> GetConnectionAsync(CancellationToken ct=default)=>System.Threading.Tasks.Task.FromResult(new ConnectionState(true,"account",false));
-        public Task<ConnectionState> ConnectAsync(ConnectRequest request,CancellationToken ct=default)=>GetConnectionAsync(ct);
+        public bool FailConnection;public string Epoch="initial";
+        public TaskCompletionSource<LocalTask>? RenderCompletion,ContinueCompletion;
+        public TaskCompletionSource? WaitBeforeContinue;
+        public TaskCompletionSource<ConnectionState>? ConnectCompletion;
+        public Task<ConnectionState> GetConnectionAsync(CancellationToken ct=default)=>FailConnection?System.Threading.Tasks.Task.FromException<ConnectionState>(new IOException("Fixture unavailable")):System.Threading.Tasks.Task.FromResult(new ConnectionState(true,"account",false,Epoch));
+        public Task<ConnectionState> ConnectAsync(ConnectRequest request,CancellationToken ct=default)=>ConnectCompletion?.Task??GetConnectionAsync(ct);
         public Task<ConnectionState> DisconnectAsync(CancellationToken ct=default)=>System.Threading.Tasks.Task.FromResult(new ConnectionState(false,null,false));
-        public Task<LocalTask> RenderAsync(RenderRequest request,CancellationToken ct=default){store.Save(Task);return System.Threading.Tasks.Task.FromResult(Task);}
+        public Task<LocalTask> RenderAsync(RenderRequest request,CancellationToken ct=default){store.Save(Task);return RenderCompletion?.Task??System.Threading.Tasks.Task.FromResult(Task);}
         public Task<LocalTask> RefreshAsync(Guid id,CancellationToken ct=default)
         {Queries++;Task=store.Get(id);if(Task.Status=="MeshProcessing")Task=Task with{Status="MeshReady",MeshId="mesh"};store.Save(Task);return System.Threading.Tasks.Task.FromResult(Task);}
-        public Task<LocalTask> ContinueRenderAsync(Guid id,CancellationToken ct=default)
-        {Continuations++;Task=store.Get(id) with{Status="Running",OperationId="op"};store.Save(Task);return System.Threading.Tasks.Task.FromResult(Task);}
+        public async Task<LocalTask> ContinueRenderAsync(Guid id,CancellationToken ct=default)
+        {
+            if(WaitBeforeContinue is not null)await WaitBeforeContinue.Task.WaitAsync(ct);
+            ct.ThrowIfCancellationRequested();Continuations++;
+            if(ContinueCompletion is not null)return await ContinueCompletion.Task;
+            Task=store.Get(id) with{Status="Running",OperationId="op"};store.Save(Task);return Task;
+        }
         public Task<IReadOnlyList<LocalTask>> GetTasksAsync(CancellationToken ct=default)=>throw new NotSupportedException();
         public Task<TaskPage> GetTaskPageAsync(TaskPageRequest request,CancellationToken ct=default)=>throw new NotSupportedException();
         public Task<LocalTask> CreateServiceAsync(CreateServiceRequest request,CancellationToken ct=default)=>throw new NotSupportedException();

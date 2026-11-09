@@ -125,3 +125,5 @@ The packaging script creates a fresh staging directory, checks the archive and w
 ## License and attribution
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Runtime discovery, pipe communication, credential protection and download transport draw on the existing Lux3D/Tripo integrations. Maintained by **CuriousArc · qrost**. Report issues through the project maintainer with version, platform, task status and reproducible steps; omit credentials and signed URLs.
+
+Settings → **Restore saved connection** recovers a stopped background connection. Changing or clearing a Key invalidates other running instances before their next service request. Already-sent requests can finish. A prepared render requires an explicit continuation after reconnect; it is never automatically resubmitted.
