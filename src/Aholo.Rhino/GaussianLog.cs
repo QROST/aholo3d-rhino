@@ -7,7 +7,7 @@ internal static class GaussianLog
 {
     private static readonly Channel<string> Queue = Channel.CreateBounded<string>(new BoundedChannelOptions(256)
     { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true, SingleWriter = false });
-    public static string FilePath => Path.Combine(TaskStore.DefaultRoot, "logs", "gs-viewport.log");
+    public static string FilePath => Path.Combine(Environment.GetEnvironmentVariable("AHOLO_RHINO_STATE_DIR") ?? TaskStore.DefaultRoot, "logs", "gs-viewport.log");
     static GaussianLog() { _ = Task.Run(DrainAsync); }
 
     public static void Write(string eventName, string message)

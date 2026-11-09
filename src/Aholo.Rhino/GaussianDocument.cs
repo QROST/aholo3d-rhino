@@ -138,16 +138,9 @@ internal static partial class GaussianDocument
         {
             AssetData data = await Task.Run(() =>
             {
-                string path = System.IO.Path.Combine(CacheRoot, hash + ".ply");
-                if (!File.Exists(path))
-                {
-                    if (string.IsNullOrWhiteSpace(savedPath) || !System.IO.Path.IsPathFullyQualified(savedPath) || savedPath.StartsWith("\\\\", StringComparison.Ordinal))
-                        throw new IOException(global::Aholo.Core.UiText.Get("The original GS asset cannot be found. Re-import the original PLY; bounds are retained."));
-                    path = savedPath;
-                }
-                if (!string.Equals(Hash(path, ct), hash, StringComparison.OrdinalIgnoreCase))
-                    throw new IOException(global::Aholo.Core.UiText.Get("The GS asset hash does not match the document record. Bounds are retained; re-import the asset."));
-                return ReadAsset(path, hash, ct);
+                var reference = new GaussianReferenceMetadata(GaussianReferenceMetadata.NativePrefix, hash, savedPath);
+                GaussianReferenceData loaded = GaussianReferenceAsset.Load(reference, CacheRoot, ct);
+                return PrepareAsset(loaded.Splats, loaded.Path, hash, ct);
             }, ct).ConfigureAwait(false);
             await AholoHost.OnUi(() =>
             {
@@ -251,12 +244,7 @@ internal static partial class GaussianDocument
             string hash = Hash(temp, ct);
             AssetData data = ReadAsset(temp, hash, ct);
             string destination = System.IO.Path.Combine(CacheRoot, hash + ".ply");
-            if (!File.Exists(destination))
-            {
-                try { File.Move(temp, destination); }
-                catch (IOException) when (File.Exists(destination)) { } // Another import can publish the identical snapshot.
-            }
-            if (Hash(destination, ct) != hash) throw new IOException(global::Aholo.Core.UiText.Get("Local GS cache verification failed. The original file is unchanged."));
+            GaussianCachePublisher.Publish(temp, destination, hash, ct);
             return data with { Path = destination };
         }
         finally { if (File.Exists(temp)) File.Delete(temp); }
@@ -320,6 +308,13 @@ internal static partial class GaussianDocument
         int index=doc.Layers.Add("Aholo GS "+Guid.NewGuid().ToString("N")[..6],Color.FromArgb(105,170,200));
         if(index<0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create a visible GS layer."));
         return index;
+    }
+    internal sealed record DocumentStatus(int Instances, int Loaded, int Loading, int Errors);
+    internal static DocumentStatus Status(RhinoDoc doc)
+    {
+        Documents.TryGetValue(doc.RuntimeSerialNumber, out var assets);
+        return new(Instances(doc, null, true).Count(), assets?.Values.Count(a => a.Data is not null) ?? 0,
+            assets?.Values.Count(a => a.Loading) ?? 0, assets?.Values.Count(a => a.Error is not null) ?? 0);
     }
     internal static string Diagnostics(RhinoDoc doc)
     {

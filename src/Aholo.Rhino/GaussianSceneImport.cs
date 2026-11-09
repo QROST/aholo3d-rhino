@@ -194,7 +194,7 @@ internal static partial class GaussianDocument
         string extension = System.IO.Path.GetExtension(path).ToLowerInvariant();
         if (!GaussianSceneReader.Extensions.Contains(extension))
             throw new ArgumentException(global::Aholo.Core.UiText.Get("Choose a PLY, SPLAT, SPZ, USD, USDA, USDC or USDZ file."));
-        string directory = System.IO.Path.Combine(TaskStore.DefaultRoot, "sources");
+        string directory = System.IO.Path.Combine(AholoPlugin.Session.Store.Root, "sources");
         CreatePrivateDirectory(directory);
         string temporary = System.IO.Path.Combine(directory, Guid.NewGuid().ToString("N") + ".tmp");
         try
@@ -231,14 +231,7 @@ internal static partial class GaussianDocument
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
     private static void Publish(string temporary, string destination, string hash, CancellationToken ct)
-    {
-        if (!File.Exists(destination))
-        {
-            try { File.Move(temporary, destination); }
-            catch (IOException) when (File.Exists(destination)) { }
-        }
-        if (Hash(destination, ct) != hash) throw new IOException(global::Aholo.Core.UiText.Get("Local cache verification failed. The original file is unchanged."));
-    }
+        => GaussianCachePublisher.Publish(temporary, destination, hash, ct);
     private static AssetData PrepareAsset(GaussianSplat[] source, string path, string hash, CancellationToken ct)
     {
         BoundingBox bounds = BoundingBox.Empty;

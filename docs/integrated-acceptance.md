@@ -25,3 +25,9 @@ These require user-selected input data and paid-service authorization. They were
 - Pause local polling, reset the connection, restart Rhino and recover MeshReady. Query/download must not submit a render; explicit Continue is required after authority is lost. Never interrupt/resubmit paid creations repeatedly for testing; verify official account records first.
 
 Record platform, Rhino/runtime versions, source commit, package hash, observed result and sanitized identifiers. Do not record keys, signed URLs or private prompts. Realtime native mixed-depth cloud rendering is outside this alpha's acceptance claim.
+
+## GS stability and recovery additions
+
+- On Mac and Windows, rotate/zoom, stop, resize, and move Rhino between displays with different scaling. Display must settle without endless preparation; a true camera/window change must rebuild.
+- Hide all GS, switch to a layout, or use a view with no projected splats. Diagnostics must describe that state rather than report zero-input success. With one valid and one missing asset, the valid scene remains usable and the overlay reports partial readiness.
+- With disposable fixture copies, damage the local cache then re-import the original. Verify one corrupt backup and restored full counts. A document whose only recorded source is the corrupt cache must keep bounds and an actionable error. Never damage real model files for this check.

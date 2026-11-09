@@ -45,7 +45,7 @@ internal sealed class GaussianViewport : DisplayConduit
     private string _backend=global::Aholo.Core.UiText.Get("Not drawn yet; backend not detected");
     private int _skippedPreviews;
     private DateTime _lastViewRefresh;
-    private sealed record NativeView(uint Document,Size ViewportSize,Size ClientSize);
+    private sealed record NativeView(uint Document,Size ViewportSize,Size ClientSize,Size WindowSize,GaussianNativeSampling? Sampling);
     private sealed record NativeSizeRetry(Size FrameSize,double Dpi);
     private sealed record ViewCandidate(GaussianNativeRequest Request,DateTime ChangedAt,string Reason);
     private sealed class ViewDiagnostics
@@ -255,11 +255,8 @@ internal sealed class GaussianViewport : DisplayConduit
         RhinoView? view=e.RhinoDoc.Views.GetViewList(ViewTypeFilter.Model).FirstOrDefault(v=>v.MainViewport.Id==e.Viewport.Id);
         if(view is not null&&!IsMode(view.MainViewport))RemoveView(e.Viewport.Id,"display_mode_exit");
     }
-    private static bool Matches(Size actual,Size logical,double dpi)
-    {
-        if(actual==logical)return true;
-        return double.IsFinite(dpi)&&dpi>0&&Math.Abs(actual.Width-Math.Round(logical.Width*dpi))<=1&&Math.Abs(actual.Height-Math.Round(logical.Height*dpi))<=1;
-    }
+    private static bool Matches(Size actual,Size native,double dpi)=>
+        GaussianFramePolicy.MatchesNativeSampling(actual.Width,actual.Height,native.Width,native.Height,dpi);
     private void OnBeginSave(object? sender,global::Rhino.DocumentSaveEventArgs e)
     {
         _saving.TryGetValue(e.DocumentSerialNumber,out int depth);_saving[e.DocumentSerialNumber]=depth+1;
@@ -299,9 +296,22 @@ internal sealed class GaussianViewport : DisplayConduit
         _backend=e.Display.IsOpenGL?global::Aholo.Core.UiText.Get("OpenGL (current viewport)"):global::Aholo.Core.UiText.Get("Non-OpenGL (this alone does not confirm Metal)");
         try
         {
-            GaussianCamera camera=Camera(e.Viewport,e.Display.FrameSize.Width,e.Display.FrameSize.Height);
             var placements=GaussianDocument.Placements(e.RhinoDoc,e.Viewport);
-            string key=PlacementKey(placements);
+            if(placements.Count==0)
+            {
+                // A loading, hidden or unrecognized scene has no frame to prepare. Asset completion and
+                // native object changes will redraw again; camera motion must not enqueue empty generations.
+                RemoveView(e.Viewport.Id,"no_ready_placements");
+                return;
+            }
+            NativeView native=_nativeViews[e.Viewport.Id];
+            // SupportFailure already authenticated FrameSize against real native inventory. Preserve the first grid
+            // across rounded DPI representations; only independent window bounds can start a resized scene identity.
+            GaussianNativeSampling sampling=GaussianFramePolicy.ObserveNativeWindow(native.Sampling,e.Display.FrameSize.Width,e.Display.FrameSize.Height,native.WindowSize.Width,native.WindowSize.Height);
+            _nativeViews[e.Viewport.Id]=native with{Sampling=sampling};
+            GaussianCamera camera=GaussianFramePolicy.NormalizeSampling(Camera(e.Viewport,e.Display.FrameSize.Width,e.Display.FrameSize.Height),sampling);
+            string windowKey=FormattableString.Invariant($"window={sampling.WindowWidth}x{sampling.WindowHeight}|");
+            string key=windowKey+PlacementKey(placements);
             bool sameScene=previous is not null&&previous.Request.Key==key;
             if(sameScene&&GaussianFramePolicy.CanReuse(previous!.Request.Camera,camera))
             {
@@ -310,7 +320,8 @@ internal sealed class GaussianViewport : DisplayConduit
                 if(!previous.DrawAccepted)LogDrawRejected(e.Viewport.Id,previous.Error is not null?"frame_error":previous.Pending is not null?"uploading":"preparing",e.Display.FrameSize);
                 return;
             }
-            string reason=previous is null?"first_frame":!sameScene?"placements_changed":
+            string reason=previous is null?"first_frame":!sameScene?
+                (previous.Request.Key.StartsWith(windowKey,StringComparison.Ordinal)?"placements_changed":"native_window_resized"):
                 GaussianFramePolicy.SameProjection(previous.Request.Camera,camera)?"depth_coverage":"projection_changed";
             if(sameScene&&GaussianFramePolicy.SameProjection(previous!.Request.Camera,camera))
                 camera=GaussianFramePolicy.CoverDepthRange(previous.Request.Camera,camera);
@@ -367,8 +378,9 @@ internal sealed class GaussianViewport : DisplayConduit
         if(!Supported(e))return;
         _views.TryGetValue(e.Viewport.Id,out var state);
         bool candidate=_candidates.ContainsKey(e.Viewport.Id);
-        if(!candidate&&(state is null||state.DrawAccepted&&state.Error is null))return;
-        string progress=candidate?global::Aholo.Core.UiText.Get("Aholo GS: waiting for a stable view before preparing display"):state!.Error is not null?global::Aholo.Core.UiText.Get("Aholo GS: preparation failed; bounds retained. Run AholoGsDiagnostics"):state.Pending is not null?global::Aholo.Core.UiText.Format("Aholo GS: uploading {0:N0}/{1:N0} batches; display starts when fully ready", state.Batches.Count, state.TotalBatches):state.Started?global::Aholo.Core.UiText.Get("Aholo GS: projecting and sorting in the background; complete source data retained"):global::Aholo.Core.UiText.Get("Aholo GS: waiting for a stable view before preparing display");
+        GaussianDisplayPhase phase=DisplayPhase(e.RhinoDoc,e.Viewport,state,candidate,true,true);
+        if(!GaussianDisplayStatus.ShouldShowOverlay(phase,state?.DrawAccepted==true))return;
+        string progress="Aholo GS: "+DisplayText(phase,state);
         e.Display.Draw2dText(progress,Color.FromArgb(45,135,175),new Point2d(18,38),false,14);
     }
     private void AcceptStableCandidates()
@@ -465,10 +477,11 @@ internal sealed class GaussianViewport : DisplayConduit
             foreach(RhinoView view in doc.Views.GetViewList(ViewTypeFilter.Model))
             {
                 Guid id=view.MainViewport.Id;live.Add(id);
-                // Inventory only: native logical/client sizes may change representation across DPI callbacks.
-                // Neither a size observation nor a polled display-mode mismatch is a frame invalidation or redraw.
-                bool discovered=!_nativeViews.ContainsKey(id);
-                var native=new NativeView(doc.RuntimeSerialNumber,view.MainViewport.Size,view.ClientRectangle.Size);
+                // Inventory only: native viewport/client sizes may change representation across DPI callbacks.
+                // Window bounds are observed independently outside rendering; preserve the accepted grid until a real
+                // window resize. Never invalidate or redraw solely because polling observed another size representation.
+                bool discovered=!_nativeViews.TryGetValue(id,out var previous);
+                var native=new NativeView(doc.RuntimeSerialNumber,view.MainViewport.Size,view.ClientRectangle.Size,view.Bounds.Size,previous?.Sampling);
                 _nativeViews[id]=native;
                 bool retry=_nativeSizeRetries.TryGetValue(id,out var rejected)&&
                     (Matches(rejected.FrameSize,native.ViewportSize,rejected.Dpi)||Matches(rejected.FrameSize,native.ClientSize,rejected.Dpi));
@@ -565,6 +578,39 @@ internal sealed class GaussianViewport : DisplayConduit
         }
         return key.ToString();
     }
+    private static GaussianDisplayPhase DisplayPhase(RhinoDoc doc,RhinoViewport? viewport,ViewState? frame,bool candidate,bool modelView,bool gsMode)
+    {
+        GaussianDocument.DocumentStatus document=GaussianDocument.Status(doc);
+        return GaussianDisplayStatus.Evaluate(new GaussianDisplayFacts
+        {
+            DocumentInstances=document.Instances,LoadedResources=document.Loaded,LoadingResources=document.Loading,ResourceErrors=document.Errors,
+            VisibleInstances=viewport is null?0:GaussianDocument.Instances(doc,viewport).Count(),
+            ReadyPlacements=viewport is null?0:GaussianDocument.Placements(doc,viewport).Count,
+            IsModelView=modelView,IsGsMode=gsMode,HasCandidate=candidate,HasFrame=frame is not null,
+            FrameComplete=frame?.Complete==true,UploadPending=frame?.Pending is not null,FrameFailed=frame?.Error is not null,
+            InputCount=frame?.InputCount??0,ProjectedCount=frame?.VisibleCount??0
+        });
+    }
+    private static string DisplayText(GaussianDisplayPhase phase,ViewState? frame)=>phase switch
+    {
+        GaussianDisplayPhase.NoRecognizedInstances=>UiText.Get("No GS references recognized in the document. Import an original GS file."),
+        GaussianDisplayPhase.WaitingForModelView=>UiText.Get("Activate a native modeling viewport."),
+        GaussianDisplayPhase.NoVisibleInstances=>UiText.Get("No visible GS objects in this view. Check visibility and layers."),
+        GaussianDisplayPhase.WaitingForResources=>UiText.Get("GS recognized; waiting for local resources. Bounding boxes retained."),
+        GaussianDisplayPhase.LoadingResources=>UiText.Get("GS recognized; loading resources. Bounding boxes retained."),
+        GaussianDisplayPhase.ResourceLoadFailed=>UiText.Get("GS resource loading failed. Bounding boxes retained; check resource errors or restore the original file."),
+        GaussianDisplayPhase.NoRenderablePlacements=>UiText.Get("Visible GS cannot be rendered yet. Check instance transforms and resources."),
+        GaussianDisplayPhase.WaitingForGsMode=>UiText.Get("Resources loaded. Switch to the Aholo GS display mode."),
+        GaussianDisplayPhase.WaitingForStableView=>UiText.Get("View changed; waiting for a stable view before preparation."),
+        GaussianDisplayPhase.WaitingForFrame=>UiText.Get("Resources loaded; waiting for the modeling viewport."),
+        GaussianDisplayPhase.Preparing=>UiText.Get("Projecting and sorting in the background; bounding boxes retained."),
+        GaussianDisplayPhase.Uploading=>UiText.Format("Uploading batches {0:N0}/{1:N0}; display starts when fully ready.", frame?.Batches.Count??0, frame?.TotalBatches??0),
+        GaussianDisplayPhase.PreparationFailed=>UiText.Get("Display preparation failed. Bounding boxes retained; run AholoGsDiagnostics for errors."),
+        GaussianDisplayPhase.NoProjectedGaussians=>UiText.Get("GS loaded, but no splats project into this view. Check the camera and clipping range."),
+        GaussianDisplayPhase.PartiallyReady=>UiText.Get("Some GS are ready; other visible instances are loading or have errors."),
+        GaussianDisplayPhase.Ready=>UiText.Get("Visible GS in the current view are ready."),
+        _=>UiText.Get("Unknown display status.")
+    };
     internal static string Diagnostics(RhinoDoc doc)
     {
         var conduit=_instance;
@@ -575,7 +621,8 @@ internal sealed class GaussianViewport : DisplayConduit
         ViewDiagnostics? diagnostics=null;
         if(active is not null)conduit?._diagnostics.TryGetValue(active.Id,out diagnostics);
         bool candidate=active is not null&&conduit?._candidates.ContainsKey(active.Id)==true;
-        string status=candidate?global::Aholo.Core.UiText.Get("View changed; waiting for stability before preparation"):state is null?global::Aholo.Core.UiText.Get("Waiting for a native model viewport"):state.Error is not null?global::Aholo.Core.UiText.Get("Preparation failed; bounds retained"):state.Complete?global::Aholo.Core.UiText.Get("All visible GS is ready"):state.Pending is not null?global::Aholo.Core.UiText.Format("Uploading {0:N0}/{1:N0} batches", state.Batches.Count, state.TotalBatches):global::Aholo.Core.UiText.Get("Background projection/sorting");
+        bool modelView=active is not null&&doc.Views.ActiveView is not RhinoPageView;
+        string status=DisplayText(DisplayPhase(doc,active,state,candidate,modelView,active is not null&&IsMode(active)),state);
         return global::Aholo.Core.UiText.Get("Aholo GS batch experiment; ")+(conduit?._backend??global::Aholo.Core.UiText.Get("Not initialized"))+".\n"+GaussianDocument.Diagnostics(doc)+"\n"+
             global::Aholo.Core.UiText.Format("Status: {0}; input: {1:N0}; projected visible: {2:N0}; batches this frame: {3:N0}; up to {4} GS per batch (no total-count cap).\n", status, state?.InputCount??0, state?.VisibleCount??0, state?.Batches.Count??0, GaussianNativeBatchBuilder.SplatsPerBatch)+
             global::Aholo.Core.UiText.Format("Background preparation {0:F1} ms; longest batch upload {1:F1} ms; latest draw {2:F1} ms; skipped thumbnail/non-native-size draws {3:N0}.\n", state?.PreparationMilliseconds??0, state?.MaxUploadMilliseconds??0, state?.LastDrawMilliseconds??0, conduit?._skippedPreviews??0)+

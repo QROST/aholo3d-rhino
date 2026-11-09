@@ -2370,5 +2370,89 @@
   {
     "English": "This task already has GS instances; the view is focused on them. Use Rhino Move/Rotate/Scale to adjust them.",
     "Chinese": "此任务已有 GS 实例，已定位到它们。可用 Rhino 移动／旋转／缩放调整。"
+  },
+  {
+    "English": "No GS references recognized in the document. Import an original GS file.",
+    "Chinese": "文档中未识别到 GS 引用；请导入原始 GS 文件。"
+  },
+  {
+    "English": "Activate a native modeling viewport.",
+    "Chinese": "请激活原生模型视图。"
+  },
+  {
+    "English": "No visible GS objects in this view. Check visibility and layers.",
+    "Chinese": "当前视图没有可见 GS 对象；检查隐藏状态和图层。"
+  },
+  {
+    "English": "GS recognized; waiting for local resources. Bounding boxes retained.",
+    "Chinese": "已识别 GS，等待读取本地资源；保留包围盒。"
+  },
+  {
+    "English": "GS recognized; loading resources. Bounding boxes retained.",
+    "Chinese": "已识别 GS，资源加载中；保留包围盒。"
+  },
+  {
+    "English": "GS resource loading failed. Bounding boxes retained; check resource errors or restore the original file.",
+    "Chinese": "GS 资源加载失败；保留包围盒，请查看资源错误或恢复原始文件。"
+  },
+  {
+    "English": "Visible GS cannot be rendered yet. Check instance transforms and resources.",
+    "Chinese": "当前可见 GS 尚不能绘制；检查实例变换或资源状态。"
+  },
+  {
+    "English": "Resources loaded. Switch to the Aholo GS display mode.",
+    "Chinese": "资源已加载；请切换到 Aholo GS 显示模式。"
+  },
+  {
+    "English": "View changed; waiting for a stable view before preparation.",
+    "Chinese": "视角变化，等待稳定后准备显示。"
+  },
+  {
+    "English": "Resources loaded; waiting for the modeling viewport.",
+    "Chinese": "资源已加载，等待模型视图准备显示。"
+  },
+  {
+    "English": "Projecting and sorting in the background; bounding boxes retained.",
+    "Chinese": "后台投影与排序中；保留包围盒。"
+  },
+  {
+    "English": "Uploading batches {0:N0}/{1:N0}; display starts when fully ready.",
+    "Chinese": "上传 {0:N0}/{1:N0} 批；完整就绪后显示。"
+  },
+  {
+    "English": "Display preparation failed. Bounding boxes retained; run AholoGsDiagnostics for errors.",
+    "Chinese": "显示准备失败；保留包围盒，运行 AholoGsDiagnostics 查看错误。"
+  },
+  {
+    "English": "GS loaded, but no splats project into this view. Check the camera and clipping range.",
+    "Chinese": "GS 已加载，当前视角投影可见数量为 0；检查视角和裁切范围。"
+  },
+  {
+    "English": "Some GS are ready; other visible instances are loading or have errors.",
+    "Chinese": "部分 GS 已就绪；其他可见实例仍待加载或存在错误。"
+  },
+  {
+    "English": "Visible GS in the current view are ready.",
+    "Chinese": "当前视图可见 GS 已就绪。"
+  },
+  {
+    "English": "Unknown display status.",
+    "Chinese": "显示状态未知。"
+  },
+  {
+    "English": "The recovery resource SHA-256 does not match. Existing cache and source files are unchanged.",
+    "Chinese": "待恢复资源的 SHA-256 不匹配；现有缓存和源文件未修改。"
+  },
+  {
+    "English": "Timed out waiting for another GS cache operation. Existing cache is unchanged; try again later.",
+    "Chinese": "等待其他 GS 缓存操作超时；现有缓存未修改，请稍后重试。"
+  },
+  {
+    "English": "GS cache is corrupt and the original reference is unavailable. Corrupt cache retained; re-import the original file.",
+    "Chinese": "GS 缓存损坏，原引用也不可用；坏缓存已保留，请重新导入原始文件。"
+  },
+  {
+    "English": "Could not recover the corrupt GS cache from its original reference. Cache and source retained; re-import the original file.",
+    "Chinese": "GS 缓存损坏且未能从原引用恢复；坏缓存和源文件均保留，请重新导入原始文件。"
   }
 ]

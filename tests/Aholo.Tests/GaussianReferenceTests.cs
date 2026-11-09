@@ -111,15 +111,150 @@ public sealed class GaussianReferenceTests : IDisposable
         => Assert.Throws<IOException>(()=>GaussianReferenceAsset.Load(new("LegacyViewer.GS",new string('a',64),source),Path.Combine(directory,"cache")));
 
     [Fact]
-    public void MissingAndCorruptCachesHaveExplicitErrorsAndRemainUnchanged()
+    public void CorruptCacheRecoversFromVerifiedSourceAndKeepsBadBytes()
     {
-        string source=Source(),cache=Path.Combine(directory,"cache"),hash=Hash(source);
-        var reference=new GaussianReferenceMetadata("LegacyViewer.GS",hash,source);
-        string destination=GaussianReferenceAsset.Load(reference,cache).Path;
-        File.WriteAllText(destination,"corrupt");
-        Assert.Throws<IOException>(()=>GaussianReferenceAsset.Load(reference,cache)); Assert.Equal("corrupt",File.ReadAllText(destination));
-        File.Delete(destination); File.Delete(source);
-        Assert.Throws<FileNotFoundException>(()=>GaussianReferenceAsset.Load(reference,cache));
+        string source = Source(), cache = Path.Combine(directory, "cache"), hash = Hash(source);
+        byte[] original = File.ReadAllBytes(source);
+        var reference = new GaussianReferenceMetadata("LegacyViewer.GS", hash, source);
+        string destination = GaussianReferenceAsset.Load(reference, cache).Path;
+        File.WriteAllText(destination, "damaged cache");
+
+        GaussianReferenceData recovered = GaussianReferenceAsset.Load(reference, cache);
+
+        Assert.True(recovered.CopiedToCache);
+        Assert.Equal(original, File.ReadAllBytes(destination));
+        Assert.Equal(original, File.ReadAllBytes(source));
+        Assert.Equal("damaged cache", File.ReadAllText(Assert.Single(Directory.GetFiles(cache, "*.corrupt-*"))));
+        Assert.Equal(3, Assert.Single(recovered.Splats).Degree);
+        Assert.Empty(Directory.GetFiles(cache, "*.tmp"));
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("invalid")]
+    [InlineData("same")]
+    public void CorruptCacheWithoutValidSourceIsPreserved(string kind)
+    {
+        string source = Source(), cache = Path.Combine(directory, "cache"), hash = Hash(source);
+        string destination = GaussianReferenceAsset.Load(new("Aholo.GS", hash, source), cache).Path;
+        File.WriteAllText(destination, "bad target");
+        if (kind == "missing") File.Delete(source);
+        else if (kind == "invalid") File.WriteAllText(source, "bad source");
+        else source = destination;
+        var reference = new GaussianReferenceMetadata("Aholo.GS", hash, source);
+
+        Assert.Throws<IOException>(() => GaussianReferenceAsset.Load(reference, cache));
+
+        Assert.Equal("bad target", File.ReadAllText(destination));
+        if (kind == "invalid") Assert.Equal("bad source", File.ReadAllText(source));
+        Assert.Empty(Directory.GetFiles(cache, "*.corrupt-*"));
+        Assert.Empty(Directory.GetFiles(cache, "*.tmp"));
+    }
+
+    [Fact]
+    public void MissingSourceAndCacheHaveExplicitError()
+    {
+        string source = Source(), cache = Path.Combine(directory, "cache"), hash = Hash(source);
+        File.Delete(source);
+        Assert.Throws<FileNotFoundException>(() => GaussianReferenceAsset.Load(new("Aholo.GS", hash, source), cache));
+    }
+
+    [Fact]
+    public void ValidCacheIsReusedWithoutReplacingItOrReadingMissingSource()
+    {
+        string source = Source(), cache = Path.Combine(directory, "cache"), hash = Hash(source);
+        var reference = new GaussianReferenceMetadata("Aholo.GS", hash, source);
+        string destination = GaussianReferenceAsset.Load(reference, cache).Path;
+        File.SetLastWriteTimeUtc(destination, new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        DateTime stamp = File.GetLastWriteTimeUtc(destination);
+        File.Delete(source);
+
+        Assert.False(GaussianReferenceAsset.Load(reference, cache).CopiedToCache);
+        Assert.Equal(stamp, File.GetLastWriteTimeUtc(destination));
+        Assert.Empty(Directory.GetFiles(cache, "*.corrupt-*"));
+    }
+
+    [Fact]
+    public void PublishingFreshAndExistingContentHasExplicitOwnership()
+    {
+        string source = Source(), hash = Hash(source), destination = Path.Combine(directory, hash + ".ply");
+        string first = Path.Combine(directory, "first.tmp"), second = Path.Combine(directory, "second.tmp");
+        File.Copy(source, first); File.Copy(source, second);
+        Assert.True(GaussianCachePublisher.Publish(first, destination, hash));
+        Assert.False(File.Exists(first));
+        File.SetLastWriteTimeUtc(destination, new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        DateTime stamp = File.GetLastWriteTimeUtc(destination);
+        Assert.False(GaussianCachePublisher.Publish(second, destination, hash));
+        Assert.True(File.Exists(second));
+        Assert.Equal(stamp, File.GetLastWriteTimeUtc(destination));
+        Assert.Equal(hash, Hash(destination)); Assert.Equal(hash, Hash(source));
+        Assert.Empty(Directory.GetFiles(directory, "*.corrupt-*"));
+    }
+
+    [Fact]
+    public void UnverifiedReplacementAndSamePathCannotDestroyExistingData()
+    {
+        string source = Source(), hash = Hash(source), destination = Path.Combine(directory, hash + ".ply");
+        File.WriteAllText(destination, "keep corrupt target");
+        string invalid = Path.Combine(directory, "invalid.tmp"); File.WriteAllText(invalid, "invalid replacement");
+        Assert.Throws<IOException>(() => GaussianCachePublisher.Publish(invalid, destination, hash));
+        Assert.Equal("keep corrupt target", File.ReadAllText(destination));
+        Assert.Equal("invalid replacement", File.ReadAllText(invalid));
+        Assert.False(GaussianCachePublisher.Publish(source, source, hash));
+        Assert.Throws<IOException>(() => GaussianCachePublisher.Publish(destination, destination, hash));
+        Assert.Equal(hash, Hash(source)); Assert.Equal("keep corrupt target", File.ReadAllText(destination));
+        Assert.Empty(Directory.GetFiles(directory, "*.corrupt-*"));
+    }
+
+    [Fact]
+    public async Task CancellationWhileWaitingForRepairLockPreservesFilesAndCleansSnapshot()
+    {
+        string source = Source(), cache = Path.Combine(directory, "cache"), hash = Hash(source);
+        var reference = new GaussianReferenceMetadata("Aholo.GS", hash, source);
+        string destination = GaussianReferenceAsset.Load(reference, cache).Path;
+        File.WriteAllText(destination, "keep on cancellation");
+        string lockPath = Path.Combine(cache, ".locks", Path.GetFileName(destination) + ".lock");
+        using var held = new FileStream(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        using var cancellation = new CancellationTokenSource();
+        Task<GaussianReferenceData> repair = Task.Run(() => GaussianReferenceAsset.Load(reference, cache, cancellation.Token));
+        Assert.True(SpinWait.SpinUntil(() => Directory.GetFiles(cache, "*.tmp").Length != 0, TimeSpan.FromSeconds(5)));
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await repair.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal("keep on cancellation", File.ReadAllText(destination)); Assert.Equal(hash, Hash(source));
+        Assert.Empty(Directory.GetFiles(cache, "*.corrupt-*")); Assert.Empty(Directory.GetFiles(cache, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task ConcurrentPublishersRepairOnceAndPreserveTheSameCorruptBackup()
+    {
+        string source = Source(), hash = Hash(source), destination = Path.Combine(directory, hash + ".ply");
+        File.WriteAllText(destination, "one corrupt version");
+        string[] candidates = Enumerable.Range(0, 12).Select(i => Path.Combine(directory, $"candidate-{i}.tmp")).ToArray();
+        foreach (string candidate in candidates) File.Copy(source, candidate);
+        bool[] published = await Task.WhenAll(candidates.Select(candidate => Task.Run(() =>
+        {
+            try { return GaussianCachePublisher.Publish(candidate, destination, hash); }
+            finally { if (File.Exists(candidate)) File.Delete(candidate); }
+        })));
+        Assert.Equal(1, published.Count(value => value));
+        Assert.Equal(hash, Hash(destination)); Assert.Equal(hash, Hash(source));
+        Assert.Equal("one corrupt version", File.ReadAllText(Assert.Single(Directory.GetFiles(directory, "*.corrupt-*"))));
+        Assert.Empty(Directory.GetFiles(directory, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task ConcurrentReferencesRecoverAllSplatsWithoutTemporaryLeaks()
+    {
+        string source = Source(), cache = Path.Combine(directory, "cache"), hash = Hash(source);
+        var reference = new GaussianReferenceMetadata("Aholo.GS", hash, source);
+        string destination = GaussianReferenceAsset.Load(reference, cache).Path;
+        File.WriteAllText(destination, "bad before concurrent loads");
+        GaussianReferenceData[] loaded = await Task.WhenAll(Enumerable.Range(0, 12)
+            .Select(_ => Task.Run(() => GaussianReferenceAsset.Load(reference, cache))));
+        Assert.All(loaded, item => { Assert.Equal(destination, item.Path); Assert.Equal(3, Assert.Single(item.Splats).Degree); });
+        Assert.Equal(1, loaded.Count(item => item.CopiedToCache));
+        Assert.Equal(hash, Hash(destination)); Assert.Equal(hash, Hash(source));
+        Assert.Single(Directory.GetFiles(cache, "*.corrupt-*")); Assert.Empty(Directory.GetFiles(cache, "*.tmp"));
     }
 
     [Fact]

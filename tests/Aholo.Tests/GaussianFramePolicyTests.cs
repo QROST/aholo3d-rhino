@@ -24,6 +24,105 @@ public sealed class GaussianFramePolicyTests
         Assert.Same(logical, GaussianFramePolicy.CoverDepthRange(logical, physical));
     }
 
+    private static GaussianCamera PixelGrid(GaussianCamera camera, int width, int height) => camera with
+    {
+        Width = width, Height = height, Fx = camera.Fx / camera.Width * width, Fy = camera.Fy / camera.Height * height,
+        Cx = (camera.Cx + .5) / camera.Width * width - .5, Cy = (camera.Cy + .5) / camera.Height * height - .5
+    };
+
+    [Theory]
+    [InlineData(1.25, 1599, 999, true)]
+    [InlineData(1.25, 1599, 999, false)]
+    [InlineData(1.5, 1918, 1198, true)]
+    [InlineData(1.5, 1918, 1198, false)]
+    public void ConfirmedFractionalDpiSamplingPreservesFrustumAndDepth(double dpi, int width, int height, bool perspective)
+    {
+        GaussianCamera logical = PixelGrid(Camera() with { Perspective = perspective }, 1279, 799);
+        GaussianCamera physical = PixelGrid(logical, width, height);
+        Assert.True(GaussianFramePolicy.MatchesNativeSampling(width, height, logical.Width, logical.Height, dpi));
+        Assert.False(GaussianFramePolicy.SameProjection(logical, physical)); // Integer aspect ratios genuinely differ.
+        var sampling = GaussianFramePolicy.ObserveNativeWindow(null, logical.Width, logical.Height, 1283, 829);
+        GaussianCamera normalized = GaussianFramePolicy.NormalizeSampling(physical, sampling);
+        Assert.True(GaussianFramePolicy.CanReuse(logical, normalized));
+        Assert.True((logical.WorldAtPixel(123, 234, 5) - normalized.WorldAtPixel(123, 234, 5)).Length < 1e-12);
+        Assert.Same(logical, GaussianFramePolicy.NormalizeSampling(logical, sampling));
+        GaussianCamera expanded = GaussianFramePolicy.NormalizeSampling(physical with { Near = .05, Far = 200 }, sampling);
+        Assert.False(GaussianFramePolicy.CanReuse(logical, expanded));
+        Assert.True(GaussianFramePolicy.CanReuse(GaussianFramePolicy.CoverDepthRange(logical, expanded), expanded));
+    }
+
+    [Theory]
+    [InlineData(1.25, 1599, 999, false)]
+    [InlineData(1.25, 1599, 999, true)]
+    [InlineData(1.5, 1918, 1198, false)]
+    [InlineData(1.5, 1918, 1198, true)]
+    public void LogicalDeviceInventorySwitchesKeepOneAcceptedGridAndFinishUploads(double dpi, int physicalWidth, int physicalHeight, bool physicalFirst)
+    {
+        GaussianCamera logical = PixelGrid(Camera(), 1279, 799), physical = PixelGrid(Camera(), physicalWidth, physicalHeight);
+        GaussianCamera? accepted = null;
+        GaussianNativeSampling? sampling = null;
+        int generations = 0, uploaded = 0;
+        for (int tick = 0; tick < 256; tick++)
+        {
+            // Inventory and framebuffer can independently report logical/device dimensions for the same real window.
+            GaussianCamera inventory = tick % 2 == 0 ? logical : physical;
+            GaussianCamera observed = (tick % 3 == 0) == physicalFirst ? physical : logical;
+            Assert.True(GaussianFramePolicy.MatchesNativeSampling(observed.Width, observed.Height, inventory.Width, inventory.Height, dpi));
+            sampling = GaussianFramePolicy.ObserveNativeWindow(sampling, observed.Width, observed.Height, 1283, 829);
+            GaussianCamera normalized = GaussianFramePolicy.NormalizeSampling(observed, sampling.Value);
+            if (accepted is null) { accepted = normalized; generations++; }
+            else Assert.True(GaussianFramePolicy.CanReuse(accepted, normalized));
+            uploaded = Math.Min(104, uploaded + 1);
+        }
+        Assert.Equal(1, generations); Assert.Equal(104, uploaded);
+        Assert.Equal(physicalFirst ? physicalWidth : logical.Width, sampling!.Value.Width);
+        Assert.Equal(physicalFirst ? physicalHeight : logical.Height, sampling.Value.Height);
+    }
+
+    [Theory]
+    [InlineData(1280, 799, 1284, 829)]
+    [InlineData(2558, 1598, 2566, 1658)]
+    public void ActualNativeWindowResizeChangesSceneIdentityEvenIfProjectionIsProportional(int frameWidth, int frameHeight, int windowWidth, int windowHeight)
+    {
+        GaussianCamera original = PixelGrid(Camera(), 1279, 799);
+        var before = GaussianFramePolicy.ObserveNativeWindow(null, 1279, 799, 1283, 829);
+        var after = GaussianFramePolicy.ObserveNativeWindow(before, frameWidth, frameHeight, windowWidth, windowHeight);
+        // The adapter includes these independent window bounds in its scene key before checking projection reuse.
+        Assert.NotEqual((before.WindowWidth, before.WindowHeight), (after.WindowWidth, after.WindowHeight));
+        Assert.Equal(frameWidth, after.Width); Assert.Equal(frameHeight, after.Height);
+        GaussianCamera resized = GaussianFramePolicy.NormalizeSampling(PixelGrid(original, frameWidth, frameHeight), after);
+        Assert.Equal(frameWidth, resized.Width); Assert.Equal(frameHeight, resized.Height);
+    }
+
+    [Fact]
+    public void NativeSizeAuthenticationRejectsUnrelatedPreviewsAndAllowsOnlyOneRoundingPixel()
+    {
+        Assert.True(GaussianFramePolicy.MatchesNativeSampling(1600, 1000, 1279, 799, 1.25));
+        Assert.False(GaussianFramePolicy.MatchesNativeSampling(1601, 1001, 1279, 799, 1.25));
+        Assert.False(GaussianFramePolicy.MatchesNativeSampling(256, 256, 1279, 799, 1.25));
+        Assert.False(GaussianFramePolicy.MatchesNativeSampling(1599, 799, 1279, 799, 1.25));
+        Assert.False(GaussianFramePolicy.MatchesNativeSampling(0, 799, 1279, 799, 1.25));
+        Assert.False(GaussianFramePolicy.MatchesNativeSampling(1599, 999, 1279, 799, double.NaN));
+    }
+
+    [Fact]
+    public void SamplingNormalizationNeverHidesRealMotionZoomPrincipalPointOrProjectionChanges()
+    {
+        GaussianCamera original = PixelGrid(Camera(), 1279, 799), physical = PixelGrid(original, 1599, 999);
+        var sampling = GaussianFramePolicy.ObserveNativeWindow(null, original.Width, original.Height, 1283, 829);
+        GaussianCamera[] changed =
+        {
+            physical with { Eye = physical.Eye + new GaussianVector(1e-10, 0, 0) },
+            physical with { Right = new(1, 1e-6, 0), Up = new(-1e-6, 1, 0) },
+            physical with { Fx = physical.Fx * 1.001 },
+            physical with { Cx = physical.Cx + .01 },
+            physical with { Perspective = false },
+            physical with { Cx = original.Cx * 1.25, Cy = original.Cy * 1.25 }
+        };
+        foreach (GaussianCamera camera in changed)
+            Assert.False(GaussianFramePolicy.SameProjection(original, GaussianFramePolicy.NormalizeSampling(camera, sampling)));
+    }
+
     [Fact]
     public void HalfPixelConventionIsRequiredForDpiEquivalence()
     {

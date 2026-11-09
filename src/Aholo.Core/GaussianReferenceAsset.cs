@@ -14,12 +14,21 @@ public static class GaussianReferenceAsset
         if (hash.Length != 64 || hash.Any(c => !Uri.IsHexDigit(c))) throw new InvalidDataException("Invalid GS reference hash.");
         hash = hash.ToLowerInvariant();
         string destination = Path.Combine(cacheDirectory, hash + ".ply");
-        if (File.Exists(destination)) return ReadVerified(destination, hash, false, ct);
+        Exception? cacheError = null;
+        if (File.Exists(destination))
+        {
+            try { return ReadVerified(destination, hash, false, ct); }
+            catch (Exception ex) when (ex is IOException or InvalidDataException) { cacheError = ex; }
+        }
         string? source = reference.AssetPath;
         if (string.IsNullOrWhiteSpace(source) || !Path.IsPathFullyQualified(source) || source.StartsWith("\\\\", StringComparison.Ordinal) ||
             source.StartsWith("//", StringComparison.Ordinal) || !string.Equals(Path.GetExtension(source), ".ply", StringComparison.OrdinalIgnoreCase))
-            throw new IOException("This GS has no local PLY reference. Restore its cache or re-import the original file with AholoPanel. Bounds are retained.");
-        if (!File.Exists(source)) throw new FileNotFoundException("The GS reference PLY cache is missing. Restore the cache or re-import with AholoPanel. Bounds are retained.");
+            throw new IOException(UiText.Get("This GS has no local PLY reference. Restore its cache or re-import the original file with AholoPanel. Bounds are retained."));
+        if (!File.Exists(source))
+        {
+            if (cacheError is not null) throw new IOException(UiText.Get("GS cache is corrupt and the original reference is unavailable. Corrupt cache retained; re-import the original file."), cacheError);
+            throw new FileNotFoundException(UiText.Get("The GS reference PLY cache is missing. Restore the cache or re-import with AholoPanel. Bounds are retained."));
+        }
         Directory.CreateDirectory(cacheDirectory);
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(cacheDirectory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         string temporary = Path.Combine(cacheDirectory, Guid.NewGuid().ToString("N") + ".tmp");
@@ -36,28 +45,28 @@ public static class GaussianReferenceAsset
             }
             // Validate the snapshot, not a mutable source file. No unvalidated or partial cache is published.
             GaussianReferenceData data = ReadVerified(temporary, hash, true, ct);
-            ct.ThrowIfCancellationRequested();
-            try { File.Move(temporary, destination); }
-            catch (IOException) when (File.Exists(destination))
-            {
-                if (Digest(destination, ct) != hash) throw new IOException("The local GS cache hash does not match the document record. Original assets are unchanged.");
-            }
-            return data with { Path = destination };
+            bool published = GaussianCachePublisher.Publish(temporary, destination, hash, ct);
+            return data with { Path = destination, CopiedToCache = published };
+        }
+        catch (Exception ex) when (cacheError is not null && (ex is IOException or InvalidDataException))
+        {
+            throw new IOException(UiText.Get("Could not recover the corrupt GS cache from its original reference. Cache and source retained; re-import the original file."), ex);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
     private static GaussianReferenceData ReadVerified(string path, string hash, bool copied, CancellationToken ct)
     {
-        if (Digest(path, ct) != hash) throw new IOException("The GS asset hash does not match the document record. Bounds are retained; restore the cache or re-import.");
+        if (Digest(path, ct) != hash) throw new IOException(UiText.Get("The GS asset hash does not match the document record. Bounds are retained; restore the cache or re-import."));
         GaussianSplat[] splats = PlyReader.ReadGaussians(path, ct).ToArray();
-        if (splats.Length == 0) throw new InvalidDataException("The referenced PLY has no complete Gaussian data.");
+        if (splats.Length == 0) throw new InvalidDataException(UiText.Get("The referenced PLY has no complete Gaussian data."));
         return new(path, splats, copied);
     }
 
     private static string Digest(string path, CancellationToken ct)
     {
-        using var input = File.OpenRead(path);
+        // Permit atomic cache replacement while a reader finishes hashing the previous file.
+        using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = new byte[131072]; int count;
         while ((count = input.Read(buffer)) > 0) { ct.ThrowIfCancellationRequested(); hash.AppendData(buffer, 0, count); }

@@ -1,5 +1,8 @@
 namespace Aholo.Core;
 
+/// <summary>A stable sampling grid associated with the independently observed native window size.</summary>
+public readonly record struct GaussianNativeSampling(int Width, int Height, int WindowWidth, int WindowHeight);
+
 /// <summary>
 /// Separates a Gaussian frame's projective camera identity from its CPU depth-culling coverage.
 /// Sampling dimensions may scale proportionally (logical versus physical DPI pixels). The accepted frame keeps its original
@@ -13,6 +16,54 @@ public static class GaussianFramePolicy
     public const double AspectRelativeTolerance = 1e-12;
     public const double BasisAbsoluteTolerance = 1e-12;
     public const double DepthCoverageRelativePadding = 1e-9;
+
+    /// <summary>
+    /// Accept only a real native size or its DPI conversion, allowing one pixel of integer rounding in either direction.
+    /// The native size must come from the model view inventory outside a display callback, never from a preview viewport.
+    /// Logical/device inventory representations may alternate, so the conversion is intentionally symmetric.
+    /// </summary>
+    public static bool MatchesNativeSampling(int width, int height, int nativeWidth, int nativeHeight, double dpi)
+    {
+        if (width <= 0 || height <= 0 || nativeWidth <= 0 || nativeHeight <= 0) return false;
+        if (width == nativeWidth && height == nativeHeight) return true;
+        if (!double.IsFinite(dpi) || dpi <= 0) return false;
+        return RoundedScale(width, height, nativeWidth, nativeHeight, dpi) || RoundedScale(nativeWidth, nativeHeight, width, height, dpi);
+    }
+
+    /// <summary>
+    /// Keep the first accepted framebuffer grid while the independent native window bounds stay unchanged. Inventory
+    /// logical/device size changes alone cannot replace it. A real window resize starts a new grid and must also change
+    /// the adapter's scene key, even for a proportional resize whose normalized camera happens to remain identical.
+    /// </summary>
+    public static GaussianNativeSampling ObserveNativeWindow(GaussianNativeSampling? previous, int frameWidth, int frameHeight, int windowWidth, int windowHeight)
+    {
+        if (frameWidth <= 0 || frameHeight <= 0 || windowWidth <= 0 || windowHeight <= 0)
+            throw new ArgumentOutOfRangeException(nameof(frameWidth), "Native frame and window sizes must be positive.");
+        if (previous is { Width: > 0, Height: > 0 } stable && stable.WindowWidth == windowWidth && stable.WindowHeight == windowHeight) return stable;
+        return new(frameWidth, frameHeight, windowWidth, windowHeight);
+    }
+
+    /// <summary>
+    /// Resample a camera only after MatchesNativeSampling has confirmed that this is a native framebuffer. This removes
+    /// fractional-DPI integer aspect drift without relaxing any pose/frustum comparison. The half-pixel convention and
+    /// the full observed pose and depth interval are preserved; the first grid also preserves its original pixel filter.
+    /// </summary>
+    public static GaussianCamera NormalizeSampling(GaussianCamera camera, GaussianNativeSampling sampling)
+    {
+        ArgumentNullException.ThrowIfNull(camera); camera.Validate();
+        if (sampling.Width <= 0 || sampling.Height <= 0 || sampling.WindowWidth <= 0 || sampling.WindowHeight <= 0)
+            throw new ArgumentOutOfRangeException(nameof(sampling));
+        if (camera.Width == sampling.Width && camera.Height == sampling.Height) return camera;
+        double x = (double)sampling.Width / camera.Width, y = (double)sampling.Height / camera.Height;
+        return camera with
+        {
+            Width = sampling.Width, Height = sampling.Height, Fx = camera.Fx * x, Fy = camera.Fy * y,
+            Cx = (camera.Cx + .5) * x - .5, Cy = (camera.Cy + .5) * y - .5
+        };
+    }
+
+    private static bool RoundedScale(int width, int height, int nativeWidth, int nativeHeight, double dpi) =>
+        Math.Abs(width - Math.Round(nativeWidth * dpi)) <= 1 && Math.Abs(height - Math.Round(nativeHeight * dpi)) <= 1;
 
     /// <summary>
     /// Near/far are deliberately excluded. Normalized intrinsics include the half-pixel center convention.
