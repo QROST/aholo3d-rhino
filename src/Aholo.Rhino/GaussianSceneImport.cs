@@ -14,7 +14,7 @@ internal static partial class GaussianDocument
     private sealed record PreparedImport(SourceArchive Source, GaussianScene Scene, PreparedPart[] Parts);
 
     internal static async Task<string> ImportSceneAsync(string path, ImportTarget target, double scale, string upAxis,
-        bool useSourceUnits, CancellationToken ct, IProgress<string>? progress = null)
+        bool useSourceUnits, CancellationToken ct, IProgress<string>? progress = null, Guid? taskId = null)
     {
         if (!double.IsFinite(scale) || scale <= 0) throw new ArgumentException(global::Aholo.Core.UiText.Get("GS scale must be finite and greater than zero."));
         if (upAxis is not ("Auto" or "Y" or "Z")) throw new ArgumentException(global::Aholo.Core.UiText.Get("The up axis must be Auto, Y or Z."));
@@ -33,7 +33,7 @@ internal static partial class GaussianDocument
             }).ConfigureAwait(false);
             PreparedImport prepared = await Task.Run(() => PrepareImport(path, token, progress), token).ConfigureAwait(false);
             progress?.Report(global::Aholo.Core.UiText.Get("Complete assets are ready; writing to the target document…"));
-            return await AholoHost.OnUi(() => CommitImport(prepared, target, scale, upAxis, useSourceUnits, token)).ConfigureAwait(false);
+            return await AholoHost.OnUi(() => CommitImport(prepared, target, scale, upAxis, useSourceUnits, taskId, token)).ConfigureAwait(false);
         }
         finally
         {
@@ -79,12 +79,24 @@ internal static partial class GaussianDocument
         return new(original, scene, parts);
     }
     private static string CommitImport(PreparedImport prepared, ImportTarget target, double scale, string axis,
-        bool useSourceUnits, CancellationToken ct)
+        bool useSourceUnits, Guid? taskId, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         RhinoDoc doc = RequireTarget(target.Serial);
         if (doc.ModelUnitSystem != target.Units) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Document units changed while reading. Confirm the import scale again."));
         if (doc.IsCommandRunning || doc.UndoRecordingIsActive) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Finish the current Rhino command before importing GS."));
+        if (taskId.HasValue)
+        {
+            var existing = Instances(doc, null, true).Where(o => o.Attributes.GetUserString("Aholo.TaskId") == taskId.Value.ToString("D")).ToArray();
+            if (existing.Length > 0)
+            {
+                BoundingBox bounds = BoundingBox.Empty;
+                doc.Objects.UnselectAll();
+                foreach (var instance in existing) { doc.Objects.Select(instance.Id); bounds.Union(instance.Geometry.GetBoundingBox(true)); }
+                doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(bounds); GaussianViewport.Activate(doc);
+                return global::Aholo.Core.UiText.Get("This task already has GS instances; the view is focused on them. Use Rhino Move/Rotate/Scale to adjust them.");
+            }
+        }
         string upAxis = axis == "Auto" ? prepared.Scene.UpAxis ?? "Z" : axis;
         if (upAxis is not ("Y" or "Z")) throw new InvalidDataException(global::Aholo.Core.UiText.Get("The scene up axis is not supported Y or Z. Choose an up axis and retry."));
         double unitScale = 1;
@@ -120,7 +132,7 @@ internal static partial class GaussianDocument
             {
                 ct.ThrowIfCancellationRequested();
                 added.Add(AddBlock(doc, prepared.Parts[i], transforms[i], prepared.Source, prepared.Scene,
-                    effectiveScale, upAxis, layer));
+                    effectiveScale, upAxis, layer, taskId));
             }
         }
         catch (Exception failure)
@@ -180,8 +192,8 @@ internal static partial class GaussianDocument
     private static SourceArchive ArchiveSource(string path, CancellationToken ct)
     {
         string extension = System.IO.Path.GetExtension(path).ToLowerInvariant();
-        if (extension is not (".ply" or ".usd" or ".usda" or ".usdc" or ".usdz"))
-            throw new ArgumentException(global::Aholo.Core.UiText.Get("Choose a PLY, USD, USDA, USDC or USDZ file."));
+        if (!GaussianSceneReader.Extensions.Contains(extension))
+            throw new ArgumentException(global::Aholo.Core.UiText.Get("Choose a PLY, SPLAT, SPZ, USD, USDA, USDC or USDZ file."));
         string directory = System.IO.Path.Combine(TaskStore.DefaultRoot, "sources");
         CreatePrivateDirectory(directory);
         string temporary = System.IO.Path.Combine(directory, Guid.NewGuid().ToString("N") + ".tmp");
@@ -244,7 +256,7 @@ internal static partial class GaussianDocument
         return new(source, GaussianPreparedAsset.Prepare(source, ct), bounds, hash, path);
     }
     private static (Guid Id, int Definition) AddBlock(RhinoDoc doc, PreparedPart part, Transform transform,
-        SourceArchive source, GaussianScene scene, double scale, string upAxis, int layer)
+        SourceArchive source, GaussianScene scene, double scale, string upAxis, int layer, Guid? taskId)
     {
         AssetData data = part.Asset;
         var geometry = data.Bounds.GetEdges().Select(line => (GeometryBase)new LineCurve(line)).ToArray();
@@ -258,6 +270,7 @@ internal static partial class GaussianDocument
             if (definition < 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create the GS block definition."));
             using var attrs = new ObjectAttributes { Name = scene.Format.StartsWith("OpenUSD", StringComparison.Ordinal) ? part.Name : "Aholo · " + System.IO.Path.GetFileNameWithoutExtension(source.Name) + " · " + part.Name, LayerIndex = layer };
             attrs.SetUserString(Marker,"1"); attrs.SetUserString(HashKey,data.Hash); attrs.SetUserString(PathKey,data.Path);
+            if (taskId.HasValue) attrs.SetUserString("Aholo.TaskId",taskId.Value.ToString("D"));
             attrs.SetUserString("Aholo.GS.SourceName",source.Name);
             attrs.SetUserString("Aholo.GS.SourceSha256",source.Hash);
             attrs.SetUserString("Aholo.GS.SourceArchivePath",source.Path);

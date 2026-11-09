@@ -53,6 +53,10 @@ def main():
     stage = pathlib.Path(tempfile.mkdtemp(prefix='package-' + args.platform + '.', dir=artifacts))
     required = {
         'Aholo.Rhino.rhp': 'src/Aholo.Rhino/bin/Release/net7.0/Aholo.Rhino.rhp',
+        'ZstdSharp.dll': 'src/Aholo.Rhino/bin/Release/net7.0/ZstdSharp.dll',
+        'sidecar/ZstdSharp.dll': 'src/Aholo.Sidecar/bin/Release/net8.0/ZstdSharp.dll',
+        'docs/licenses/SPZ.txt': 'docs/licenses/SPZ.txt',
+        'docs/licenses/ZstdSharp.txt': 'docs/licenses/ZstdSharp.txt',
         'Aholo.Core.dll': 'src/Aholo.Rhino/bin/Release/net7.0/Aholo.Core.dll',
         'sidecar/Aholo.Sidecar.dll': 'src/Aholo.Sidecar/bin/Release/net8.0/Aholo.Sidecar.dll',
         'sidecar/Aholo.Sidecar.deps.json': 'src/Aholo.Sidecar/bin/Release/net8.0/Aholo.Sidecar.deps.json',

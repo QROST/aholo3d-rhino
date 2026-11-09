@@ -3,7 +3,7 @@ namespace Aholo.Core;
 /// <summary>Single local import entry point. Fully decodes and validates before the host changes a document.</summary>
 public static class GaussianSceneReader
 {
-    public static readonly IReadOnlyList<string> Extensions = Array.AsReadOnly(new[] { ".ply", ".usd", ".usda", ".usdc", ".usdz" });
+    public static readonly IReadOnlyList<string> Extensions = Array.AsReadOnly(new[] { ".ply", ".splat", ".spz", ".usd", ".usda", ".usdc", ".usdz" });
 
     public static GaussianScene Read(string path, CancellationToken ct = default)
     {
@@ -12,8 +12,10 @@ public static class GaussianSceneReader
         GaussianScene scene = Path.GetExtension(path).ToLowerInvariant() switch
         {
             ".ply" => new GaussianScene(new[] { new GaussianPart(Path.GetFileNameWithoutExtension(path), PlyReader.ReadGaussians(path, ct).ToArray(), GaussianTransform.Identity) }, Format: "PLY (3DGS)"),
+            ".splat" => SplatReader.Read(path, ct),
+            ".spz" => SpzReader.Read(path, ct),
             ".usd" or ".usda" or ".usdc" or ".usdz" => UsdGaussianReader.Read(path, ct),
-            _ => throw new NotSupportedException("Unsupported GS format. Choose a Gaussian PLY or official Gaussian USD/USDZ scene.")
+            _ => throw new NotSupportedException("Unsupported GS format. Choose a Gaussian PLY, SPLAT, SPZ or official Gaussian USD/USDZ scene.")
         };
         if (scene.Parts.Count == 0 || scene.Parts.All(p => p.Splats.Length == 0))
             throw new InvalidDataException("The file contains no supported Gaussian splats.");

@@ -2358,5 +2358,17 @@
   {
     "English": "The service returned an unavailable or unsupported result. Check the original task in the service console.",
     "Chinese": "服务返回的结果不可用或尚不支持，请在服务控制台检查原任务。"
+  },
+  {
+    "English": "Import complete GS · PLY / SPLAT / SPZ / USD / USDZ (automatic units and up axis)",
+    "Chinese": "导入完整 GS · PLY / SPLAT / SPZ / USD / USDZ（自动单位与上方向）"
+  },
+  {
+    "English": "Choose a PLY, SPLAT, SPZ, USD, USDA, USDC or USDZ file.",
+    "Chinese": "请选择 PLY、SPLAT、SPZ、USD、USDA、USDC 或 USDZ 文件。"
+  },
+  {
+    "English": "This task already has GS instances; the view is focused on them. Use Rhino Move/Rotate/Scale to adjust them.",
+    "Chinese": "此任务已有 GS 实例，已定位到它们。可用 Rhino 移动／旋转／缩放调整。"
   }
 ]

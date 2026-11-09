@@ -10,7 +10,7 @@ Run separately on Apple Silicon Mac and Windows Rhino 8.32+, in English and Chin
 2. Read local history without connecting. Search/filter/page; restore-selection tests must select the requested task, not the first unrelated entry. Existing old journals remain readable. Open a downloaded file's directory and compare the displayed location.
 3. Start a long local import, close the panel and reopen. Verify one shared operation and accessible cancellation. Repeat via `AholoImportGs` / `AholoExportGs` and `AholoCancel`. Close the target document: no work may mutate a different document.
 4. Place a downloaded static GLB: visible native Block at origin, intended height, materials retained, one Undo/Redo cycle. Repeat the click and reopen the panel: no duplicate. Delete/Undo the result: no automatic re-insertion. Save/reopen 3DM and repeat identity check. Test another unit system, wrong active document and units changed during preparation.
-5. Use GS probe and a known PLY/USD scene. Verify source count, color, clipping and navigation as in the GS checklist. Unsupported PLY/animated GLB must fail with the original file retained.
+5. Use GS probe and a known PLY/SPLAT/SPZ/USD scene. Test SPZ World placement twice, Undo/Redo and export to USDZ; verify all parts, opacity, SH colors and source axis. Verify source count, color, clipping and navigation as in the GS checklist. Unsupported PLY/animated GLB must fail with the original file retained.
 6. While busy, open Settings and attempt connection changes: key entry must not disappear silently. Settings status must update after a connection operation. Inspect numeric plug-in version 0.2.0.0 and publisher CuriousArc.
 
 ## Authorized service checks

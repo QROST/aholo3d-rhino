@@ -127,7 +127,7 @@ public sealed class AholoPanel : Panel,IPanel
         bool sameAccount=task?.ConnectionId==session.Connection.ConnectionId;
         refresh.Enabled=!busy&&connected&&sameAccount&&capability?.CanQuery==true;
         download.Enabled=!busy&&connected&&sameAccount&&capability?.CanDownload==true&&artifact is not null&&artifact.Error is null;
-        place.Enabled=!busy&&task is not null&&artifact is not null&&artifact.Format is "glb" or "ply"&&artifact.LocalPath is not null&&File.Exists(artifact.LocalPath);
+        place.Enabled=!busy&&task is not null&&artifact is not null&&artifact.Format is "glb" or "ply" or "spz"&&artifact.LocalPath is not null&&File.Exists(artifact.LocalPath);
         continueRender.Enabled=!busy&&connected&&sameAccount&&capability?.CanContinueRender==true;
         continueRender.Visible=task?.Kind=="render"&&capability?.CanContinueRender==true;
         cancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
@@ -198,6 +198,8 @@ public sealed class AholoPanel : Panel,IPanel
         var target=AholoHost.CaptureTarget(Document());
         if(artifact.Format=="ply")
         {string up=Axis()=="Auto"?task.UpAxis??"Z":Axis();string message=await GaussianDocument.ImportAsync(artifact.LocalPath,target,Scale(),up,task.Id,token);AholoHost.Ui(()=>Report(message));return;}
+        if(artifact.Format=="spz")
+        {string message=await GaussianDocument.ImportSceneAsync(artifact.LocalPath,target,Scale(),Axis(),true,token,taskId:task.Id);AholoHost.Ui(()=>Report(message));return;}
         if(artifact.Format!="glb")throw new InvalidOperationException(T("This result format cannot be placed directly."));
         if(!double.TryParse(objectHeight.Text,NumberStyles.Float,CultureInfo.InvariantCulture,out double height)||!double.IsFinite(height)||height<=0)throw new ArgumentException(T("Enter a positive model height in document units."));
         var trace=new HostImportTrace(task.Id,serial,AholoPlugin.DisplayVersion,session.Store.Root);
@@ -225,7 +227,7 @@ public sealed class AholoPanel : Panel,IPanel
     }
     private async Task ImportGsAsync()
     {
-        using var dialog=new OpenFileDialog{Title=T("Import GS"),MultiSelect=false};dialog.Filters.Add(new FileFilter("Gaussian scene",".ply",".usd",".usda",".usdc",".usdz"));
+        using var dialog=new OpenFileDialog{Title=T("Import GS"),MultiSelect=false};dialog.Filters.Add(new FileFilter("Gaussian scene",".ply",".splat",".spz",".usd",".usda",".usdc",".usdz"));
         if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
         var target=AholoHost.CaptureTarget(Document());string message=await GaussianDocument.ImportSceneAsync(dialog.FileName,target,Scale(),Axis(),true,token);AholoHost.Ui(()=>Report(message));
     }

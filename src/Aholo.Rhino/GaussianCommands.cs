@@ -17,8 +17,8 @@ public sealed class AholoImportGsCommand : Command
     {
         try
         {
-            using var dialog=new Eto.Forms.OpenFileDialog { Title=global::Aholo.Core.UiText.Get("Import complete GS · PLY / USD / USDZ (automatic units and up axis)"),MultiSelect=false };
-            dialog.Filters.Add(new Eto.Forms.FileFilter(global::Aholo.Core.UiText.Get("Gaussian Splat scene"),".ply",".usd",".usda",".usdc",".usdz"));
+            using var dialog=new Eto.Forms.OpenFileDialog { Title=global::Aholo.Core.UiText.Get("Import complete GS · PLY / SPLAT / SPZ / USD / USDZ (automatic units and up axis)"),MultiSelect=false };
+            dialog.Filters.Add(new Eto.Forms.FileFilter(global::Aholo.Core.UiText.Get("Gaussian Splat scene"),".ply",".splat",".spz",".usd",".usda",".usdc",".usdz"));
             if(dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc))!=Eto.Forms.DialogResult.Ok)return Result.Cancel;
             ImportTarget target=AholoHost.CaptureTarget(doc);
             global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("The experimental GS viewport prepares all Gaussians in the background and shows bounds while loading. Keep the target document units unchanged."));
