@@ -6,7 +6,7 @@
 
 仓库和源码目录现为 **`aholo3d-rhino`**。已发布的 Yak 包继续使用 **`aholo-rhino`**，保持原有用户的更新渠道；插件标识、命令、凭据、任务/缓存及可选 USD 运行时路径保持兼容。详见[仓库改名与兼容说明](docs/repository-rename.md)。
 
-**0.2.0-alpha.1：集成开发候选版，尚未发布。** 旧 `0.1.1-beta.2` Yak 包已按用户要求撤下。新界面和服务流程已有本地构建及模拟测试证据，真实服务行为和 Rhino 原生布局仍待验收；先前 Mac GS 验收不自动覆盖本次新增能力。CuriousArc 开发的独立集成并非 Aholo 或 McNeel 官方产品。
+**0.2.0-alpha.2：集成开发候选版，尚未发布。** 旧 `0.1.1-beta.2` Yak 包已按用户要求撤下。新界面和服务流程已有本地构建及模拟测试证据，真实服务行为和 Rhino 原生布局仍待验收；先前 Mac GS 验收不自动覆盖本次新增能力。CuriousArc 开发的独立集成并非 Aholo 或 McNeel 官方产品。
 
 详见[实施进度](docs/implementation-progress.md)、[API 能力与剩余范围](docs/api-capabilities.md)、[集成验收清单](docs/integrated-acceptance.md)。
 
@@ -84,6 +84,8 @@ Rhino 几何按默认网格参数离散，再转换为 glTF 的米/Y 向上坐�
 本地交换不需要 API Key，不调用网络服务。`AholoImportGs` 和面板本地导入支持完整 Gaussian PLY、32 字节 SPLAT、SPZ v1–4，以及官方 OpenUSD 静态 GS `.usd`、`.usda`、`.usdc`、`.usdz` 场景，保留多部分、完整变换、单位及向上轴；原云任务的 PLY 放置流程保留。
 
 选中顶层 GS 块后运行 **`AholoExportGs`**，或点击面板导出。面板可明确选择选中的 GS 或全部顶层 GS；全部导出将隐藏/锁定的 GS 也作为可见资产写入。空选择及混选非 GS 对象会报错，不自动扩大导出范围。`.usdz` 是自包含便携包，`.usd`/`.usdc` 为二进制，`.usda` 为文本。保留全部高斯、SH0–3、透明度与完整对象变换，使用当前 Rhino 单位和 Z 向上。官方几何字段为 float32；双精度变换和局部原点重定位减少大坐标损失，但不能宣称任意 double 值逐位无损。导出前请设定标准长度单位。普通网格 USDZ、任意厂商 GS 结构、动画及 Rhino 嵌套块不在本次 GS 交换范围内。
+
+设置中的**检查 USD 运行环境**会报告本地运行时路径与版本，并显示安装命令；只有你执行该命令才会安装。
 
 USD 功能需用 Python 3.11–3.14 安装一次独立运行时：
 

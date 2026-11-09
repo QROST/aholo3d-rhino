@@ -172,7 +172,7 @@ public sealed partial class AholoApiClient
 
     private async Task<T> CreateAsync<T>(HttpRequestMessage request, Func<JsonElement, T> parse, CancellationToken ct)
     {
-        if (ct.IsCancellationRequested) throw NotSent();
+        if (ct.IsCancellationRequested) throw new RequestNotSentCanceledException(ct);
         try { return parse(await SendAsync(_apiHttp, request, ct, isCreate: true).ConfigureAwait(false)); }
         catch (ProviderException ex) when (ex.Code == "invalid_response") { throw UnknownSubmission(); }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException or OverflowException or ArgumentException) { throw UnknownSubmission(); }
@@ -187,7 +187,10 @@ public sealed partial class AholoApiClient
         {
             HttpResponseMessage admitted;
             using (admission)
+            {
+                if (isCreate && ct.IsCancellationRequested) throw new RequestNotSentCanceledException(ct);
                 admitted = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            }
             using var response = admitted;
             if (!response.IsSuccessStatusCode)
             {
@@ -208,7 +211,7 @@ public sealed partial class AholoApiClient
             if (document.RootElement.ValueKind != JsonValueKind.Object) throw new JsonException();
             return document.RootElement.Clone();
         }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or OperationCanceledException or IOException)
+        catch (Exception ex) when (ex is not RequestNotSentCanceledException && ex is HttpRequestException or JsonException or OperationCanceledException or IOException)
         {
             if (isCreate) throw UnknownSubmission();
             if (ex is OperationCanceledException) throw;

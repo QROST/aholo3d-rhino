@@ -2486,5 +2486,61 @@
   {
     "English": "The Aholo background process exited. Restore the connection before continuing; no operation was resubmitted.",
     "Chinese": "Aholo 后台进程已退出。请先恢复连接再继续；没有重新提交操作。"
+  },
+  {
+    "English": "USD readiness has not been checked.",
+    "Chinese": "尚未检查 USD 运行环境。"
+  },
+  {
+    "English": "The USD setup script is missing. Reinstall the complete plugin package.",
+    "Chinese": "缺少 USD 安装脚本，请重新安装完整插件包。"
+  },
+  {
+    "English": "Check USD readiness",
+    "Chinese": "检查 USD 运行环境"
+  },
+  {
+    "English": "Checking USD runtime",
+    "Chinese": "正在检查 USD 运行环境"
+  },
+  {
+    "English": "Local USD import and export",
+    "Chinese": "本地 USD 导入与导出"
+  },
+  {
+    "English": "Optional runtime setup command (runs only when you execute it):",
+    "Chinese": "可选运行环境安装命令（仅在你执行时运行）："
+  },
+  {
+    "English": "OpenUSD runtime is not installed.",
+    "Chinese": "尚未安装 OpenUSD 运行时。"
+  },
+  {
+    "English": "OpenUSD runtime could not start.",
+    "Chinese": "无法启动 OpenUSD 运行时。"
+  },
+  {
+    "English": "OpenUSD runtime could not start. Check its executable or reinstall it.",
+    "Chinese": "无法启动 OpenUSD 运行时；请检查可执行文件或重新安装。"
+  },
+  {
+    "English": "OpenUSD readiness check timed out.",
+    "Chinese": "OpenUSD 就绪检查超时。"
+  },
+  {
+    "English": "OpenUSD could not load. Run the setup command to repair the private runtime.",
+    "Chinese": "无法加载 OpenUSD；请运行安装命令修复独立运行时。"
+  },
+  {
+    "English": "OpenUSD 26.11 is ready for local import and export.",
+    "Chinese": "OpenUSD 26.11 已就绪，可在本机导入导出。"
+  },
+  {
+    "English": "OpenUSD 26.11 with the Gaussian schema is required.",
+    "Chinese": "需要带 Gaussian schema 的 OpenUSD 26.11。"
+  },
+  {
+    "English": "OpenUSD returned an invalid readiness response.",
+    "Chinese": "OpenUSD 返回了无效的就绪检查响应。"
   }
 ]

@@ -6,7 +6,7 @@ Worlds, objects, Gaussian viewing and cloud rendering inside Rhino 8, by **Curio
 
 The repository and checkout directory are now **`aholo3d-rhino`**. The existing Yak package remains **`aholo-rhino`** so installed users keep the same update channel. Plug-in identity, commands, credentials, state/cache and optional USD runtime locations remain compatible. See [repository rename and compatibility](docs/repository-rename.md).
 
-**0.2.0-alpha.1 — integrated development candidate, not published.** The previous `0.1.1-beta.2` Yak release was unlisted at the user's request. The new interface and service workflows have local build/mock-test evidence; their live service behavior and native Rhino layout are not yet accepted. Earlier Mac GS acceptance applies only to the earlier implementation. CuriousArc's independent integration is not an official Aholo or McNeel product.
+**0.2.0-alpha.2 — integrated development candidate, not published.** The previous `0.1.1-beta.2` Yak release was unlisted at the user's request. The new interface and service workflows have local build/mock-test evidence; their live service behavior and native Rhino layout are not yet accepted. Earlier Mac GS acceptance applies only to the earlier implementation. CuriousArc's independent integration is not an official Aholo or McNeel product.
 
 See [implementation progress](docs/implementation-progress.md), [API coverage and remaining scope](docs/api-capabilities.md) and [integrated acceptance](docs/integrated-acceptance.md).
 
@@ -78,6 +78,8 @@ This alpha is built locally; it has not been installed or published automaticall
 No API Key or network call is needed for local GS exchange. `AholoImportGs` and the panel's local import action accept full Gaussian PLY, headerless 32-byte SPLAT, SPZ v1–4 and static official OpenUSD `.usd`, `.usda`, `.usdc`, `.usdz` scenes. Stage units, up axis, multiple parts and full transforms are respected; the original cloud task PLY placement remains available.
 
 Select top-level GS blocks and run **`AholoExportGs`**, or use the panel's export action. The panel offers selected GS or all top-level GS, including hidden/locked blocks as visible exported assets. Empty selection and mixed non-GS selection are rejected. `.usdz` is self-contained; `.usd`/`.usdc` are binary, `.usda` is text. Export preserves all splats, complete SH0–3, opacity and full object transforms in current Rhino units/Z-up. Official geometry fields use float32 precision; double transforms and local-origin shifting reduce large-coordinate loss, but arbitrary double inputs are not bit-exact. Set a standard length unit first. Ordinary mesh USDZ, arbitrary vendor GS schemas, animation and nested Rhino blocks are not included in this local GS interchange.
+
+In Settings, **Check USD readiness** reports the local runtime path and version. The setup command is shown there and runs only when you execute it.
 
 Install the optional pinned runtime once using Python 3.11–3.14:
 

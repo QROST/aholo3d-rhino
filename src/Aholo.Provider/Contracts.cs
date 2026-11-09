@@ -9,6 +9,10 @@ public sealed class ProviderException(string code, string message, bool submissi
     public bool SubmissionMayHaveSucceeded { get; } = submissionMayHaveSucceeded;
 }
 
+/// <summary>Cancellation known to occur before HTTP admission; distinct from an uncertain sent request.</summary>
+public sealed class RequestNotSentCanceledException(CancellationToken token)
+    : OperationCanceledException("The request was cancelled before it was sent.", token);
+
 public sealed class ApiKeyCredential
 {
     internal string Value { get; }

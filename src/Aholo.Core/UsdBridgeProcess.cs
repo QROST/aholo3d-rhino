@@ -26,10 +26,7 @@ internal static class UsdBridgeProcess
 
     internal static string ResolvePython()
     {
-        string? configured = Environment.GetEnvironmentVariable(UsdGaussianReader.PythonEnvironmentVariable);
-        string python = !string.IsNullOrWhiteSpace(configured) ? Path.GetFullPath(configured) : Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Aholo-Rhino", "usd-runtime",
-            OperatingSystem.IsWindows() ? "Scripts" : "bin", OperatingSystem.IsWindows() ? "python.exe" : "python3");
+        string python = UsdRuntime.PythonPath;
         if (!File.Exists(python)) throw new InvalidOperationException("OpenUSD runtime is not installed. Run the Aholo USD setup or set AHOLO_USD_PYTHON to a Python executable containing usd-core==26.11.");
         return python;
     }
@@ -68,15 +65,23 @@ internal static class UsdBridgeProcess
         using var process = new Process { StartInfo = start };
         try { if (!process.Start()) throw new InvalidOperationException("OpenUSD process could not start."); }
         catch (System.ComponentModel.Win32Exception ex) { throw new InvalidOperationException("OpenUSD runtime could not start. Check AHOLO_USD_PYTHON and the USD runtime installation.", ex); }
-        Task<string> stdout = Capture(process.StandardOutput), stderr = Capture(process.StandardError);
         using var timeout = new CancellationTokenSource(BridgeTimeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
-        try { process.WaitForExitAsync(linked.Token).GetAwaiter().GetResult(); }
+        Task<string> stdout = Capture(process.StandardOutput, linked.Token), stderr = Capture(process.StandardError, linked.Token);
+        // A launcher may exit while a child still holds its output pipes. Bound the whole collection, not only exit.
+        Task completion = Task.WhenAll(stdout, stderr, process.WaitForExitAsync(linked.Token));
+        try
+        {
+            completion.WaitAsync(linked.Token).GetAwaiter().GetResult();
+            linked.Token.ThrowIfCancellationRequested();
+        }
         catch (OperationCanceledException)
         {
             Kill(process);
+            _ = completion.ContinueWith(task => { _ = task.Exception; }, CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
             if (ct.IsCancellationRequested) throw new OperationCanceledException(ct);
-            throw new TimeoutException("OpenUSD conversion exceeded the 15-minute conversion timeout. The conversion process was stopped.");
+            throw new TimeoutException("OpenUSD conversion exceeded the 15-minute conversion timeout. The local wait ended; check any custom launcher before retrying.");
         }
         finally { if (!process.HasExited) Kill(process); }
         string diagnostics = stderr.GetAwaiter().GetResult();
@@ -98,10 +103,10 @@ internal static class UsdBridgeProcess
         catch (KeyNotFoundException) { return null; }
     }
 
-    private static async Task<string> Capture(StreamReader reader)
+    private static async Task<string> Capture(StreamReader reader, CancellationToken ct)
     {
         var text = new StringBuilder(); char[] buffer = new char[2048]; int count;
-        while ((count = await reader.ReadAsync(buffer.AsMemory()).ConfigureAwait(false)) > 0)
+        while ((count = await reader.ReadAsync(buffer.AsMemory(), ct).ConfigureAwait(false)) > 0)
             if (text.Length < 16384) text.Append(buffer, 0, Math.Min(count, 16384 - text.Length));
         return text.ToString();
     }
@@ -110,6 +115,7 @@ internal static class UsdBridgeProcess
     {
         try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
         catch (InvalidOperationException) { }
+        catch (System.ComponentModel.Win32Exception) { /* Cleanup must not hide the original cancellation or failure. */ }
         try { process.WaitForExit(5000); }
         catch (InvalidOperationException) { }
     }

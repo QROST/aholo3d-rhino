@@ -1,6 +1,6 @@
 # Integrated alpha acceptance
 
-CuriousArc · qrost. Candidate: 0.2.0-alpha.1. Native and service acceptance: pending.
+CuriousArc · qrost. Candidate: 0.2.0-alpha.2. Native and service acceptance: pending.
 
 ## Offline Rhino checks
 
@@ -38,3 +38,11 @@ Record platform, Rhino/runtime versions, source commit, package hash, observed r
 - End a disposable background process between queries, restore the connection, and inspect history. The original task must remain; a MeshReady result needs an explicit Continue action.
 - Pause/resume during mesh processing, and change connection while continuation is queued. Queued unsent rendering must be cancelled. A request already accepted by the service is not recalled.
 - With a pending offline render, close/reopen the panel. Query recovery must work without creating another render; connection errors remain visible in Settings.
+
+## USD runtime diagnostics
+
+In Settings, run Check USD readiness with the private runtime present and absent. Confirm that the displayed installation command belongs to this plugin. The check must not install anything, expose credentials or block the UI; closing Settings during a check must not update disposed controls. Repeat imports/exports after restoring the configured runtime.
+
+## Interaction follow-up
+
+Start a download or refresh for task A, then select task B and one of its results. When A finishes, B and that result must remain selected; completion feedback names A and its output. Creating or explicitly restoring a task should still reveal that task. In Settings, cancel a connection check or USD readiness check without closing the dialog, then verify another operation can start.

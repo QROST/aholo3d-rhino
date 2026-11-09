@@ -27,7 +27,8 @@ Apache-2.0, source commit 29a73abbdd50587036930ba6c45436dcd6da2ea9.
 The original Tripo-Rhino attribution above also applies to these components.
 Aholo task identities and document markers remain independent.
 
-GS format readers and their synthetic regression fixtures were adapted from
+GS format readers, cache/display policies, USD runtime support and their
+synthetic regression fixtures were adapted from
 GSRhino, Apache-2.0, source commit dc90e5d. SPZ decoding follows the MIT-licensed
 Niantic Labs / Adobe reference; required attribution is retained in
 src/Aholo.Core/SpzReader.cs and docs/licenses/SPZ.txt. ZstdSharp.Port 0.8.8

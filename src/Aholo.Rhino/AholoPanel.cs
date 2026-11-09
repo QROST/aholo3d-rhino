@@ -66,7 +66,7 @@ public sealed class AholoPanel : Panel,IPanel
         place=Action("Place in current document",PlaceAsync);
         continueRender=Action("Continue original render · Uses service credits",ContinueAsync);
         var createPage=Column(creation,formHost,submit,Info("Each click creates one paid task. Follow its progress in Library."));
-        tasks.SelectedIndexChanged+=(_,_)=>Describe();artifacts.SelectedIndexChanged+=(_,_)=>UpdateActions();
+        tasks.SelectedIndexChanged+=(_,_)=>{if(!reloadingHistory)Describe();};artifacts.SelectedIndexChanged+=(_,_)=>UpdateActions();
         filter.SelectedIndexChanged+=(_,_)=>{offset=0;_=ReloadAsync();};search.TextChanged+=(_,_)=>{offset=0;_=ReloadAsync();};
         previous.Click+=(_,_)=>{offset=Math.Max(0,offset-50);_=ReloadAsync();};next.Click+=(_,_)=>{offset+=50;_=ReloadAsync();};
         var worldId=new TextBox{PlaceholderText=T("Existing Aholo World ID")};
@@ -134,16 +134,29 @@ public sealed class AholoPanel : Panel,IPanel
         cancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
     }
     private long historyRevision;
+    private bool reloadingHistory;
     private async Task ReloadAsync(Guid? select=null)
     {
         if(disposed)return;
         long revision=Interlocked.Increment(ref historyRevision);
         var request=new TaskPageRequest(offset,50,filter.SelectedIndex switch{1=>"world",2=>"object",3=>"render",4=>"spatial",_=>null},search.Text.Trim());
-        Guid? selected=select??Selected?.Id;
         try
         {
             var page=await session.ReadHistoryAsync(request);
-            AholoHost.Ui(()=>{if(disposed||revision!=historyRevision)return;tasks.DataStore=page.Items;int index=page.Items.ToList().FindIndex(t=>t.Id==selected);tasks.SelectedIndex=index>=0?index:page.Items.Count>0?0:-1;previous.Enabled=offset>0;next.Enabled=page.HasMore;pageInfo.Text=$"{Math.Min(offset+1,page.Total)}–{offset+page.Items.Count} / {page.Total}";Describe();});
+            AholoHost.Ui(()=>
+            {
+                if(disposed||revision!=historyRevision)return;
+                Guid? selected=select??Selected?.Id;string? resultKey=selected==Selected?.Id?SelectedArtifact?.Key:null;
+                reloadingHistory=true;
+                try
+                {
+                    tasks.DataStore=page.Items;int index=page.Items.ToList().FindIndex(t=>t.Id==selected);
+                    tasks.SelectedIndex=index>=0?index:page.Items.Count>0?0:-1;
+                    previous.Enabled=offset>0;next.Enabled=page.HasMore;pageInfo.Text=$"{Math.Min(offset+1,page.Total)}–{offset+page.Items.Count} / {page.Total}";
+                    Describe(resultKey);
+                }
+                finally{reloadingHistory=false;}
+            });
         }
         catch(Exception ex){AholoHost.Ui(()=>Report(AholoHost.FriendlyError(ex)));}
     }
@@ -152,10 +165,10 @@ public sealed class AholoPanel : Panel,IPanel
         "world"=>new[]{new TaskArtifact("ply","Gaussian scene","ply",LocalPath:task.PlyPath),new TaskArtifact("spz","Compressed Gaussian scene","spz",LocalPath:task.SpzPath),new TaskArtifact("image","Panorama","image",LocalPath:task.ImagePath)},
         "render"=>new[]{new TaskArtifact("image","Rendered image","image",LocalPath:task.ImagePath)},_=>task.Artifacts
     };
-    private void Describe()
+    private void Describe(string? preferredResult=null)
     {
         var task=Selected;if(task is null){detail.Text=T("No task selected.");artifacts.DataStore=Array.Empty<TaskArtifact>();UpdateActions();return;}
-        string? key=SelectedArtifact?.Key;
+        string? key=preferredResult??SelectedArtifact?.Key;
         string progress=task.Progress.HasValue?" · "+task.Progress.Value.ToString("0.##",CultureInfo.InvariantCulture):"";
         string queried=task.LastQueriedAt.HasValue?task.LastQueriedAt.Value.ToLocalTime().ToString("g"):T("Not queried yet");
         detail.Text=task.Name+"\n"+T(task.Kind)+" · "+UiText.Status(task.Status)+progress+"\nID: "+(TaskIdentity.From(task).RemoteId??"—")+"\n"+T("Last query")+": "+queried+(session.IsPaused(task.Id)?" · "+T("Polling paused"):"")+(task.Error is null?"":"\n"+UiText.TranslateKnownMessage(task.Error));
@@ -171,14 +184,14 @@ public sealed class AholoPanel : Panel,IPanel
         await ReloadAsync(task.Id);
     }
     private async Task RefreshAsync()
-    {var task=Selected??throw new InvalidOperationException(T("Select a task first."));var updated=await session.Client.RefreshAsync(task.Id,token);session.Observe(updated);await ReloadAsync(task.Id);}
+    {var task=Selected??throw new InvalidOperationException(T("Select a task first."));var updated=await session.Client.RefreshAsync(task.Id,token);session.Observe(updated);await ReloadAsync();}
     private async Task ContinueAsync()
-    {var task=Selected??throw new InvalidOperationException(T("Select a task first."));var updated=await session.ContinueRenderAsync(task.Id,token);session.Observe(updated);await ReloadAsync(task.Id);}
+    {var task=Selected??throw new InvalidOperationException(T("Select a task first."));var updated=await session.ContinueRenderAsync(task.Id,token);session.Observe(updated);await ReloadAsync();}
     private async Task DownloadAsync()
     {
         var task=Selected??throw new InvalidOperationException(T("Select a task first."));var asset=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
         var updated=await session.Client.DownloadAsync(new(task.Id,task.Kind is "world" or "render"?asset.Key:"artifact:"+asset.Key),token);session.Observe(updated);
-        string? path=Outputs(updated).FirstOrDefault(a=>a.Key==asset.Key)?.LocalPath;AholoHost.Ui(()=>Report(T("Saved locally")+":\n"+path));await ReloadAsync(task.Id);
+        string? path=Outputs(updated).FirstOrDefault(a=>a.Key==asset.Key)?.LocalPath;AholoHost.Ui(()=>Report(T("Saved locally")+" · "+task.Name+" · "+asset.Label+":\n"+path));await ReloadAsync();
     }
     private void OpenImage()
     {
@@ -246,6 +259,7 @@ public sealed class AholoPanel : Panel,IPanel
     }
     private void ShowSettings()
     {
+        bool closed=false;
         var validation=new DropDown{DataStore=new[]{"World","Lux3D",T("Spatial understanding")},SelectedIndex=0};
         var key=new PasswordBox();var remember=new CheckBox{Text=T("Save in secure local storage")};
         var auto=new CheckBox{Text=T("Auto-refresh active tasks (every 8 seconds)"),Checked=session.AutoRefresh};auto.CheckedChanged+=(_,_)=>session.AutoRefresh=auto.Checked==true;
@@ -256,16 +270,28 @@ public sealed class AholoPanel : Panel,IPanel
         var connect=Local("Validate and connect",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}string value=key.Text;bool save=remember.Checked==true;string service=validation.SelectedIndex switch{1=>"lux",2=>"spatial",_=>"world"};key.Text="";_=RunAsync("Connecting",async()=>{await session.ConnectAsync(new(value,save,service),token);AholoHost.Ui(()=>Report(T("Connected. Service permissions and credits are checked per operation.")));});});
         var disconnect=Local("Disconnect and clear credentials",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}_=RunAsync("Disconnecting",async()=>{await session.DisconnectAsync(token);AholoHost.Ui(()=>Report(T("Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.")));});});
         var restore=Local("Restore saved connection",()=>{if(busy)return;_=RunAsync("Restoring connection",async()=>{await session.ReadConnectionAsync(token);});});
+        var usdStatus=Info("USD readiness has not been checked.");
+        string setup;
+        try{setup=UsdRuntime.SetupCommand(UsdRuntime.SetupScript,OperatingSystem.IsWindows());}
+        catch(FileNotFoundException){setup=T("The USD setup script is missing. Reinstall the complete plugin package.");}
+        var usdSetup=new TextArea{ReadOnly=true,Height=65,Text=setup};
+        var usdCheck=Local("Check USD readiness",()=>{if(busy)return;_=RunAsync("Checking USD runtime",async()=>
+        {
+            var result=await UsdRuntime.CheckAsync(ct:token);
+            AholoHost.Ui(()=>{if(!closed)usdStatus.Text=UiText.TranslateKnownMessage(result.Detail)+"\n"+result.PythonPath;});
+        });});
+        var settingsCancel=Local("Cancel local operation",()=>session.Operations.CancelPrefix(Scope));
+        settingsCancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
         var close=new Button{Text=T("Close")};close.Click+=(_,_)=>dialog.Close();
         // Dialog controls are snapshots; closing it preserves placement values in this panel.
-        dialog.Content=Column(status,connectionError,restore,Info("International API Key"),key,remember,Info("Validate access with"),validation,connect,disconnect,
+        dialog.Content=Column(status,connectionError,Row(restore,settingsCancel),Info("International API Key"),key,remember,Info("Validate access with"),validation,connect,disconnect,
             Info("Validation queries the selected service history. Each service may need separate account permissions. OAuth login does not replace an API Key."),auto,
             Info("GS import scale (document units per source unit)"),settingsScale,settingsAxis,Info("Mesh height (document units)"),settingsHeight,
             Local("Open local asset folder",()=>Process.Start(new ProcessStartInfo(Path.Combine(session.Store.Root,"assets")){UseShellExecute=true})),
             Info("Closing the panel keeps tasks running. Reopen it to view progress. Cancel stops local waiting only; remote tasks remain on the service."),
+            Info("Local USD import and export"),usdStatus,usdCheck,Info("Optional runtime setup command (runs only when you execute it):"),usdSetup,
             Info("Aholo3D for Rhino "+AholoPlugin.DisplayVersion+"\nCuriousArc · qrost"),close);
-        bool closed=false;
-        void UpdateSettings()=>Application.Instance.AsyncInvoke(()=>{if(!closed){status.Text=T(session.Connection.Connected?"International · Connected":"International · Not connected");connectionError.Text=UiText.TranslateKnownMessage(session.LastError??"");}});
+        void UpdateSettings()=>Application.Instance.AsyncInvoke(()=>{if(!closed){status.Text=T(session.Connection.Connected?"International · Connected":"International · Not connected");connectionError.Text=UiText.TranslateKnownMessage(session.LastError??"");settingsCancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));}});
         session.Changed+=UpdateSettings;
         try{dialog.ShowModal(this);}finally{closed=true;session.Changed-=UpdateSettings;}
         scale.Text=settingsScale.Text;axis.SelectedIndex=settingsAxis.SelectedIndex;objectHeight.Text=settingsHeight.Text;

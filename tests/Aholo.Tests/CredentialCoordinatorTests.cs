@@ -90,6 +90,27 @@ public sealed class CredentialCoordinatorTests : IDisposable
         var continued=await flow.ContinueRenderAsync(key,task.Id,default);
         Assert.Equal("op",continued.OperationId);Assert.Equal(1,handler.Count);
     }
+    [Fact]public async Task CancellationAfterAdmissionButBeforeDispatchIsDefinitelyUnsentAndReleasesGate()
+    {
+        var handler=new CountingHandler();using var http=new HttpClient(handler);using var upload=new HttpClient(new CountingHandler());
+        using var cancellation=new CancellationTokenSource();var gate=new TrackingGate();
+        var api=new AholoApiClient(http,upload){RequestAdmission=_=>{cancellation.Cancel();return System.Threading.Tasks.Task.FromResult<IDisposable>(gate);}};
+        var error=await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>api.SubmitRenderAsync(new("fixture-key"),"request","usda",cancellation.Token));
+        Assert.IsType<RequestNotSentCanceledException>(error);Assert.Equal(cancellation.Token,error.CancellationToken);
+        Assert.True(gate.Disposed);Assert.Equal(0,handler.Count);
+    }
+    [Fact]public async Task CancellationAfterDispatchStillHasUnknownSubmissionOutcome()
+    {
+        using var http=new HttpClient(new CancelAfterDispatch());using var upload=new HttpClient(new CountingHandler());
+        var api=new AholoApiClient(http,upload);
+        var error=await Assert.ThrowsAsync<ProviderException>(()=>api.SubmitRenderAsync(new("fixture-key"),"request","usda"));
+        Assert.True(error.SubmissionMayHaveSucceeded);
+    }
+    private sealed class TrackingGate:IDisposable{public bool Disposed;public void Dispose()=>Disposed=true;}
+    private sealed class CancelAfterDispatch:HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)=>System.Threading.Tasks.Task.FromException<HttpResponseMessage>(new OperationCanceledException());
+    }
     private sealed class CountingHandler:HttpMessageHandler
     {
         public int Count;public string Response="{\"result\":[]}";

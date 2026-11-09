@@ -2,9 +2,11 @@
 
 Maintainer: CuriousArc · qrost. Version: 0.1.1-beta.2. Date: 2026-11-06.
 
-## Integrated development candidate — 2026-11-08
+## Integrated development candidate — 2026-11-09
 
-The working candidate is 0.2.0-alpha.1; the historical evidence below remains scoped to its original versions. Local Release build and 475 .NET tests passed at the integrated-workflow milestone. No authenticated service calls, Rhino GUI automation, installation or publication were performed. Current package receipts, when built, are separate evidence; Windows staging on a Mac is not Windows execution. See [implementation progress](implementation-progress.md) and [integrated acceptance](integrated-acceptance.md).
+The working candidate is 0.2.0-alpha.2. Local Release build passed with zero warnings/errors and **624 .NET tests passed**, with zero failures/skips, on Apple Silicon macOS. Format fixtures include official SPZ encoder/decoder hashes; connection checks use fake credentials/HTTP plus exited-child processes; USD tests include inherited-pipe cancellation. The installed private OpenUSD 0.26.11 runtime and Gaussian schema also passed a read-only readiness check.
+
+macOS and Windows staged payloads each contain 41 allowlisted files, including ZstdSharp in plugin and sidecar directories and required third-party notices. Actual Yak archive receipts are generated separately in `artifacts/` and verified against every staged byte. Windows packaging on a Mac is not Windows execution. No authenticated service calls, Rhino GUI automation, installation, push or publication occurred in this follow-up. Native bilingual UI, task selection, SPZ placement, DPI behavior and multi-instance connection recovery remain pending manual acceptance. Earlier host evidence below stays scoped to its original versions. See [implementation progress](implementation-progress.md) and [integrated acceptance](integrated-acceptance.md).
 
 ## Automatic language selection preview
 
