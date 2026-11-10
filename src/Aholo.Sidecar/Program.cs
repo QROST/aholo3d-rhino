@@ -1,4 +1,5 @@
 using System.Text;
+using System.Diagnostics;
 using System.Text.Json;
 using Aholo.Core;
 using Aholo.Provider;
@@ -27,6 +28,9 @@ if(pipeName is not null&&pipeNonce is not null){control=new(pipeName,pipeNonce,r
 CredentialSnapshot? connection = null;
 string? requestEpoch = null;
 using var parentLost=new CancellationTokenSource();
+using var oauthHttp=AholoApiClient.CreateHttpClient();
+using var account=new AccountSessionManager(new ManycoreOAuthService(oauthHttp),uri=>
+{ using var browser=Process.Start(new ProcessStartInfo(uri.AbsoluteUri){UseShellExecute=true}); },parentLost.Token);
 using var parentLifetime=int.TryParse(Environment.GetEnvironmentVariable("AHOLO_PARENT_PID"),out int parentId)&&parentId>0?new ParentProcessLifetime(parentId,parentLost):null;
 try
 {
@@ -54,6 +58,18 @@ while (true)
         api.RequestAdmission = authenticated ? token => credentials.AcquireRequestAsync(admittedEpoch, token) : null;
         switch (request.Method)
         {
+            case "account":
+                string action = payload.GetProperty("action").GetString() ?? "";
+                Guid? attemptId = payload.TryGetProperty("attemptId", out var attempt) && attempt.ValueKind == JsonValueKind.String ? attempt.GetGuid() : null;
+                result = action switch
+                {
+                    "status" => account.Status(),
+                    "begin" => account.Begin(attemptId ?? throw new ArgumentException("Account attempt identifier is missing.")),
+                    "refresh" => account.Begin(attemptId ?? throw new ArgumentException("Account attempt identifier is missing."), true),
+                    "signOut" => account.SignOut(),
+                    "cancel" => account.SignOut(attemptId ?? throw new ArgumentException("Account attempt identifier is missing.")),
+                    _ => throw new ArgumentException("Unknown account operation.")
+                }; break;
             case "connection":
                 connection = await credentials.ReadAsync(ct); result = State(); break;
             case "connect":

@@ -3226,5 +3226,165 @@
   {
     "English": "Externally resolved (user confirmed)",
     "Chinese": "已在外部解决（用户确认）"
+  },
+  {
+    "English": "Official OAuth resource metadata does not match.",
+    "Chinese": "官方 OAuth 资源元数据不匹配。"
+  },
+  {
+    "English": "Official OAuth does not support the required public-client PKCE flow.",
+    "Chinese": "官方 OAuth 不支持所需的公开客户端 PKCE 流程。"
+  },
+  {
+    "English": "The OAuth endpoint does not match the verified issuer.",
+    "Chinese": "OAuth 端点与已验证的发行方不匹配。"
+  },
+  {
+    "English": "Your sign-in has expired. Sign in again.",
+    "Chinese": "登录已过期，请重新登录。"
+  },
+  {
+    "English": "Invalid OAuth session format. Sign in again.",
+    "Chinese": "OAuth 会话格式无效，请重新登录。"
+  },
+  {
+    "English": "The service returned an unsupported client authentication method.",
+    "Chinese": "服务返回了不支持的客户端认证方式。"
+  },
+  {
+    "English": "OAuth registration did not return a valid client_id.",
+    "Chinese": "OAuth 注册未返回有效 client_id。"
+  },
+  {
+    "English": "OAuth did not return a valid Bearer token.",
+    "Chinese": "OAuth 未返回有效 Bearer token。"
+  },
+  {
+    "English": "Invalid OAuth token lifetime.",
+    "Chinese": "OAuth token 有效期无效。"
+  },
+  {
+    "English": "Invalid OAuth refresh token format.",
+    "Chinese": "OAuth refresh token 格式无效。"
+  },
+  {
+    "English": "Invalid OAuth scope format.",
+    "Chinese": "OAuth scope 格式无效。"
+  },
+  {
+    "English": "Invalid OAuth {0} format.",
+    "Chinese": "OAuth {0} 格式无效。"
+  },
+  {
+    "English": "The OAuth scope does not match the requested scope.",
+    "Chinese": "OAuth 返回的授权范围与请求不匹配。"
+  },
+  {
+    "English": "OAuth request failed (HTTP {0}).",
+    "Chinese": "OAuth 请求失败 (HTTP {0})。"
+  },
+  {
+    "English": "The OAuth response is too large.",
+    "Chinese": "OAuth 响应过长。"
+  },
+  {
+    "English": "Invalid OAuth response format.",
+    "Chinese": "OAuth 响应格式无效。"
+  },
+  {
+    "English": "Authorization callback received. Return to Rhino to see the sign-in result.",
+    "Chinese": "已收到授权回调，请返回 Rhino 查看登录结果。"
+  },
+  {
+    "English": "Invalid sign-in callback. Return to Rhino and try again.",
+    "Chinese": "登录回调无效。请返回 Rhino 重试。"
+  },
+  {
+    "English": "The OAuth redirect must be a local IPv4 loopback URL.",
+    "Chinese": "OAuth redirect 必须是本机 IPv4 loopback URL。"
+  },
+  {
+    "English": "Invalid OAuth callback encoding.",
+    "Chinese": "OAuth 回调编码无效。"
+  },
+  {
+    "English": "The OAuth callback URL is invalid or has already been used.",
+    "Chinese": "OAuth 回调地址无效或已使用。"
+  },
+  {
+    "English": "Invalid OAuth callback parameters.",
+    "Chinese": "OAuth 回调参数无效。"
+  },
+  {
+    "English": "The OAuth callback contains duplicate parameters.",
+    "Chinese": "OAuth 回调包含重复参数。"
+  },
+  {
+    "English": "OAuth state does not match.",
+    "Chinese": "OAuth state 不匹配。"
+  },
+  {
+    "English": "OAuth authorization did not complete.",
+    "Chinese": "OAuth 授权未完成。"
+  },
+  {
+    "English": "Account sign-in (optional)",
+    "Chinese": "账号登录（可选）"
+  },
+  {
+    "English": "Sign in with Manycore",
+    "Chinese": "使用 Manycore 登录"
+  },
+  {
+    "English": "Refresh account session",
+    "Chinese": "刷新账号会话"
+  },
+  {
+    "English": "Sign out or cancel account login",
+    "Chinese": "退出账号或取消登录"
+  },
+  {
+    "English": "International account login is optional. Generation, history and rendering still require an API Key. Account login does not connect, replace or validate that Key.",
+    "Chinese": "国际站账号登录为可选项。生成、历史查询及渲染仍需要 API Key；账号登录不会连接、替换或验证 Key。"
+  },
+  {
+    "English": "Account tokens stay in this background process only. Closing Rhino or resetting the process signs out. Signing out here clears this local account session; it does not revoke server tokens or disconnect your API Key.",
+    "Chinese": "账号令牌仅保留在当前后台进程内。关闭 Rhino 或重置进程会退出；此处退出只清除本机会话，不撤销服务端令牌，也不断开 API Key。"
+  },
+  {
+    "English": "Waiting for browser sign-in",
+    "Chinese": "等待浏览器登录"
+  },
+  {
+    "English": "Account session established",
+    "Chinese": "账号会话已建立"
+  },
+  {
+    "English": "Account session expired",
+    "Chinese": "账号会话已过期"
+  },
+  {
+    "English": "Refreshing account session",
+    "Chinese": "正在刷新账号会话"
+  },
+  {
+    "English": "Account sign-in failed",
+    "Chinese": "账号登录失败"
+  },
+  {
+    "English": "Account signed out",
+    "Chinese": "账号已退出"
+  },
+  {
+    "English": "Account session expiry: {0}",
+    "Chinese": "账号会话有效期至：{0}"
+  },
+  {
+    "English": "Account sign-in or refresh did not complete. Sign in again; API Key access is unchanged.",
+    "Chinese": "账号登录或刷新未完成，请重新登录；API Key 权限未改变。"
+  },
+  {
+    "English": "Sign in before refreshing the account session.",
+    "Chinese": "请先登录账号，再刷新会话。"
   }
 ]

@@ -290,7 +290,7 @@ public sealed partial class AholoPanel : Panel,IPanel
         settingsCancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
         var close=new Button{Text=T("Close")};close.Click+=(_,_)=>dialog.Close();
         // Dialog controls are snapshots; closing it preserves placement values in this panel.
-        dialog.Content=Column(status,connectionError,Row(restore,settingsCancel),Info("International API Key"),key,remember,Info("Validate access with"),validation,connect,disconnect,
+        dialog.Content=Column(Local("Account sign-in (optional)",()=>{if(busy)return;if(session.Client is IAccountSessionClient accountClient){using var login=new AccountLoginDialog(accountClient);login.ShowModal(dialog);}}),status,connectionError,Row(restore,settingsCancel),Info("International API Key"),key,remember,Info("Validate access with"),validation,connect,disconnect,
             Info("Validation queries the selected service history. Each service may need separate account permissions. OAuth login does not replace an API Key."),auto,
             Info("GS import scale (document units per source unit)"),settingsScale,settingsAxis,Info("Source units"),settingsUnits,Info("Mesh height (document units)"),settingsHeight,
             Local("Open local asset folder",()=>Process.Start(new ProcessStartInfo(Path.Combine(session.Store.Root,"assets")){UseShellExecute=true})),
