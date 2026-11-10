@@ -77,3 +77,10 @@ M0 (plan) and M1 (data/reference math) have local evidence. M2 has a native-view
 The beta.2 failure and beta.3 repair are documented in [the incident record](gs-freeze-repair.md); beta.4 addresses the subsequent [display instability](gs-visibility-stability.md).
 
 Local CLI installation, if performed, is recorded separately in `artifacts/` with installed-file hash verification. It does not establish that Rhino loaded or rendered the plugin successfully. This record makes no claim of Windows execution, completion of the detailed native occlusion matrix, a measured production frame rate or a cloud viewport.
+
+
+## Delivery refinement after alpha.3 (2026-11-10)
+
+Release compilation: zero warnings/errors; full suite: **802 passed**, zero failed/skipped. New coverage includes nonuniform/sheared/mirrored normal transforms, correct orientation under the glTF basis rotation, finite/cardinality checks, embedded PNG/JPEG bytes, sampler/alpha behavior, content deduplication, four-byte alignment, source-file changes and atomic failure. Malformed PNG palettes and non-sRGB/profile metadata have regression fixtures.
+
+A separate scratch .NET harness called the production GlbWriter and the official [Khronos glTF Validator](https://github.com/KhronosGroup/glTF-Validator) 2.0.0-dev.3.10 independently checked its output: **0 errors, 0 warnings, 0 infos, 0 hints**. No Rhino automation, authenticated service calls, package installation or publication was involved. Native texture orientation, material parity and both-platform interaction remain pending in `integrated-acceptance.md`.

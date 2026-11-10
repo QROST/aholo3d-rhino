@@ -14,6 +14,10 @@ public static class GlbWriter
         var accessors = new List<object>();
         var gltfMeshes = new List<object>();
         var materials = new List<object>();
+        var images = new List<object>();
+        var imageIndices = new Dictionary<string, int>(StringComparer.Ordinal);
+        var textures = new List<object>();
+        var samplers = new List<object>();
         long binaryLength = 0;
         for (var m = 0; m < meshes.Count; m++)
         {
@@ -78,10 +82,38 @@ public static class GlbWriter
                 binaryLength = checked(binaryLength + bytes);
             }
             gltfMeshes.Add(new { primitives = new[] { new { attributes, indices = indexAccessor, material = m, mode = 4 } } });
-            if(mesh.Material is{} material)
-                materials.Add(new { pbrMetallicRoughness = new { baseColorFactor = material.LinearBaseColor(), metallicFactor = material.Metallic, roughnessFactor = material.Roughness }, alphaMode = material.Alpha < 1 ? "BLEND" : "OPAQUE", doubleSided = true });
+            var pbr = new Dictionary<string, object>();
+            if (mesh.Material is { } material)
+            {
+                pbr["baseColorFactor"] = material.LinearBaseColor();
+                pbr["metallicFactor"] = material.Metallic; pbr["roughnessFactor"] = material.Roughness;
+            }
             else
-                materials.Add(new { pbrMetallicRoughness = new { baseColorFactor = new[] { Linear(mesh.R), Linear(mesh.G), Linear(mesh.B), 1.0 }, metallicFactor = 0.0, roughnessFactor = 0.75 }, doubleSided = true });
+            {
+                pbr["baseColorFactor"] = new[] { Linear(mesh.R), Linear(mesh.G), Linear(mesh.B), 1.0 };
+                pbr["metallicFactor"] = 0.0; pbr["roughnessFactor"] = 0.75;
+            }
+            var gltfMaterial = new Dictionary<string, object> { ["pbrMetallicRoughness"] = pbr, ["doubleSided"] = true };
+            if (mesh.Material is not null || mesh.BaseColorTexture is not null)
+                gltfMaterial["alphaMode"] = mesh.Material?.Alpha < 1 || mesh.BaseColorTexture is { HasAlpha: true, UseAlpha: true } ? "BLEND" : "OPAQUE";
+            if (mesh.BaseColorTexture is { } texture)
+            {
+                if (mesh.TexCoords is null) throw new ArgumentException("A base-color texture requires UV coordinates.");
+                if (texture.HasAlpha && !texture.UseAlpha && mesh.Material?.Alpha < 1)
+                    throw new InvalidDataException(UiText.Get("An RGBA bitmap with ignored texture alpha cannot be combined with partial material opacity yet. Use an RGB bitmap or disable bitmap export."));
+                int samplerIndex = samplers.Count, textureIndex = textures.Count;
+                if (!imageIndices.TryGetValue(texture.Sha256, out int imageIndex))
+                {
+                    imageIndex = images.Count; imageIndices.Add(texture.Sha256, imageIndex);
+                    images.Add(new { bufferView = views.Count, mimeType = texture.MimeType });
+                    views.Add(new { buffer = 0, byteOffset = binaryLength, byteLength = texture.Length });
+                    binaryLength = checked(binaryLength + ((texture.Length + 3L) & ~3L));
+                }
+                samplers.Add(new { wrapS = (int)texture.WrapU, wrapT = (int)texture.WrapV, minFilter = (int)texture.MinFilter, magFilter = (int)texture.MagFilter });
+                textures.Add(new { sampler = samplerIndex, source = imageIndex });
+                pbr["baseColorTexture"] = new { index = textureIndex, texCoord = 0 };
+            }
+            materials.Add(gltfMaterial);
         }
         var json = JsonSerializer.SerializeToUtf8Bytes(new
         {
@@ -91,10 +123,13 @@ public static class GlbWriter
             nodes = Enumerable.Range(0, meshes.Count).Select(m => new { mesh = m }).ToArray(),
             meshes = gltfMeshes,
             materials,
+            images = images.Count == 0 ? null : images,
+            textures = textures.Count == 0 ? null : textures,
+            samplers = samplers.Count == 0 ? null : samplers,
             buffers = new[] { new { byteLength = binaryLength } },
             bufferViews = views,
             accessors
-        });
+        }, new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull });
         var jsonLength = checked(((long)json.Length + 3) & ~3L);
         var totalLength = checked(12L + 8 + jsonLength + 8 + binaryLength);
         if (totalLength > uint.MaxValue) throw new InvalidDataException("Geometry exceeds the GLB format's 32-bit file size field.");
@@ -113,6 +148,7 @@ public static class GlbWriter
                 for (var padding = json.Length; padding < jsonLength; padding++) writer.Write((byte)' ');
                 writer.Write((uint)binaryLength);
                 writer.Write(0x004E4942u);
+                var writtenImages = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var mesh in meshes)
                 {
                     for (var v = 0; v < mesh.Positions.Length; v += 3)
@@ -141,6 +177,15 @@ public static class GlbWriter
                             if ((i & 4095) == 0) ct.ThrowIfCancellationRequested();
                             writer.Write(uv[i]);
                         }
+                    if (mesh.BaseColorTexture is { } texture && writtenImages.Add(texture.Sha256))
+                    {
+                        for (int i = 0; i < texture.Length;)
+                        {
+                            ct.ThrowIfCancellationRequested(); int length = Math.Min(65536, texture.Length - i);
+                            writer.Write(texture.Bytes.Slice(i, length)); i += length;
+                        }
+                        for (int i = 0; i < ((4 - texture.Length % 4) % 4); i++) writer.Write((byte)0);
+                    }
                 }
                 writer.Flush();
                 if (writer.BaseStream.Length != totalLength) throw new InvalidDataException("GLB byte length does not match its header.");

@@ -39,6 +39,7 @@ public sealed partial class AholoPanel : Panel,IPanel
     private readonly TextBox objectHeight=new(){Text="1"};
     private readonly DropDown exportScope=new(){DataStore=new[]{T("Selected top-level GS"),T("All top-level GS (including hidden and locked)")},SelectedIndex=0};
     private readonly DropDown resolution=new(){DataStore=new[]{"1280 × 720","1920 × 1080"},SelectedIndex=0};
+    private readonly CheckBox renderTextures=new(){Text=T("Include direct base-color bitmaps (mesh UVs / sRGB PNG or JPEG)"),Checked=true};
     private readonly CheckBox renderLights=new(){Text=T("Include selected rectangular / point lights")};
     private readonly TextBox lightRadius=new(){Text="50"},lightMultiplier=new(){Text="1"};
     private readonly List<Button> actions=new();
@@ -86,8 +87,8 @@ public sealed partial class AholoPanel : Panel,IPanel
             worldId,Action("Restore World ID",async()=>{var task=await session.Client.ImportWorldAsync(worldId.Text.Trim(),token);session.Observe(task);await RevealAsync(task);}));
         var lightFields=Column(Info("Point-light radius before block scaling (mm)"),lightRadius,Info("Relative light intensity multiplier"),lightMultiplier,Info("Point lights use the chosen sphere radius. Light intensity is relative, not calibrated to Rhino lumens. Unsupported selected lights fail before upload."));
         lightFields.Visible=false;renderLights.CheckedChanged+=(_,_)=>lightFields.Visible=renderLights.Checked==true;
-        var renderPage=Column(Info("Select meshes, surfaces, extrusions or mesh blocks and use a perspective view. Geometry, supported material constants, optional selected lights and camera will be uploaded."),resolution,renderLights,lightFields,render,
-            Info("Offline rendering captures nested block placements and supported PBR constants. Textures, material graphs, glass transmission and GS ingestion are not converted yet. Results appear in Library."),
+        var renderPage=Column(Info("Select meshes, surfaces, extrusions or mesh blocks and use a perspective view. Geometry, supported material constants, optional selected lights and camera will be uploaded."),resolution,renderTextures,renderLights,lightFields,render,
+            Info("Offline rendering preserves smooth normals, supported PBR constants and direct mesh UV bitmaps. Complex texture mapping, material graphs, glass transmission and GS ingestion are not converted. Disable bitmap export to use material constants only."),
             Local("Open cloud preview",()=>CloudPreviewWindow.Open(Document(),Selected)),Info("Cloud preview uses an existing ingested asset. Its JPEG stream does not provide native depth compositing."));
         tabs.Pages.Add(new(){Text=T("Create"),Content=createPage});tabs.Pages.Add(new(){Text=T("Library"),Content=libraryPage});tabs.Pages.Add(new(){Text=T("Render"),Content=renderPage});
         cancel.Click+=(_,_)=>session.Operations.CancelPrefix(Scope);
@@ -261,8 +262,18 @@ public sealed partial class AholoPanel : Panel,IPanel
         int width=resolution.SelectedIndex==1?1920:1280,height=resolution.SelectedIndex==1?1080:720;
         double ParseLightValue(string text)
         {if(!double.TryParse(text,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.CurrentCulture,out double value)||!double.IsFinite(value)||value<=0)throw new ArgumentException(T("Light radius and intensity multiplier must be positive numbers."));return value;}
-        var snapshot=AholoHost.CaptureRender(Document(),width,height,renderLights.Checked==true,renderLights.Checked==true?ParseLightValue(lightRadius.Text):50,renderLights.Checked==true?ParseLightValue(lightMultiplier.Text):1);string path=Path.Combine(session.Store.Root,"exports",Guid.NewGuid().ToString("N")+".glb");
-        await Task.Run(()=>{Directory.CreateDirectory(Path.GetDirectoryName(path)!);GlbWriter.Write(path,snapshot.Meshes,token);},token);
+        var snapshot=AholoHost.CaptureRender(Document(),width,height,renderLights.Checked==true,renderLights.Checked==true?ParseLightValue(lightRadius.Text):50,renderLights.Checked==true?ParseLightValue(lightMultiplier.Text):1,renderTextures.Checked==true);string path=Path.Combine(session.Store.Root,"exports",Guid.NewGuid().ToString("N")+".glb");
+        await Task.Run(()=>
+        {
+            var meshes=snapshot.Meshes.ToArray();var loaded=new Dictionary<MeshTextureSource,MeshTexture>();
+            foreach(var pair in snapshot.Textures)
+            {
+                token.ThrowIfCancellationRequested();
+                if(!loaded.TryGetValue(pair.Value,out var bitmap)){bitmap=pair.Value.Load(token);loaded.Add(pair.Value,bitmap);}
+                meshes[pair.Key]=meshes[pair.Key] with{BaseColorTexture=bitmap};
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);GlbWriter.Write(path,meshes,token);
+        },token);
         var task=await session.RenderAsync(new(snapshot.Name,path,snapshot.Camera,width,height,Upload:uploadOptions,Lights:snapshot.Lights),token);await RevealAsync(task);
     }
     private void ShowSettings()

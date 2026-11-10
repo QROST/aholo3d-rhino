@@ -8,10 +8,10 @@ using Color = System.Drawing.Color;
 namespace Aholo.Rhino;
 
 internal sealed record ImportTarget(uint Serial, global::Rhino.UnitSystem Units);
-internal sealed record RenderSnapshot(IReadOnlyList<MeshData> Meshes, RenderCamera Camera, string Name, RenderLight[] Lights);
+internal sealed record RenderSnapshot(IReadOnlyList<MeshData> Meshes, RenderCamera Camera, string Name, RenderLight[] Lights, IReadOnlyDictionary<int,MeshTextureSource> Textures);
 
 /// <summary>Capture and commit occur on the Rhino UI thread; parsing and file serialization are asynchronous.</summary>
-internal static class AholoHost
+internal static partial class AholoHost
 {
     internal static void Ui(Action action)
     {
@@ -129,15 +129,15 @@ internal static class AholoHost
         var camera = new RenderCamera(new[] { x.X, x.Y, x.Z, 0, y.X, y.Y, y.Z, 0, z.X, z.Y, z.Z, 0, location.X * mm, location.Y * mm, location.Z * mm, 1 }, focal, horizontalAperture, verticalAperture, near * mm, far * mm);
         return camera;
     }
-    internal static RenderSnapshot CaptureRender(RhinoDoc doc, int width, int height, bool includeLights=false, double pointRadiusMillimetres=50, double lightIntensityMultiplier=1)
+    internal static RenderSnapshot CaptureRender(RhinoDoc doc, int width, int height, bool includeLights=false, double pointRadiusMillimetres=50, double lightIntensityMultiplier=1, bool includeTextures=true)
     {
         var camera=CaptureCamera(doc,width,height);
         double mm=global::Rhino.RhinoMath.UnitScale(doc.ModelUnitSystem,global::Rhino.UnitSystem.Millimeters);
         RhinoObject[] objects = doc.Objects.GetSelectedObjects(false, false)
             .Concat(includeLights?doc.Lights.Where(l=>!l.IsDeleted&&l.IsSelected(false)!=0).Cast<RhinoObject>():Enumerable.Empty<RhinoObject>()).DistinctBy(o=>o.Id).ToArray();
         if (objects.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Select the meshes, surfaces or solids to render in Rhino first."));
-        var meshes = new List<MeshData>();var lights=new List<RenderLight>();
-        foreach (var (obj,transform,appearance) in RenderObjects(objects,doc,includeLights))
+        var meshes = new List<MeshData>();var lights=new List<RenderLight>();var textures=new Dictionary<int,MeshTextureSource>();
+        foreach (var (obj,transform,appearance,parentMapping) in RenderObjects(objects,doc,includeLights,includeTextures))
         {
             if(obj.Geometry is Light light)
             {
@@ -156,6 +156,8 @@ internal static class AholoHost
                 if (generated.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("A selected object cannot be converted to a mesh. Nothing has been uploaded."));
                 foreach (Mesh mesh in generated)
                 {
+                    float[]? uv = appearance.Texture is { } bitmap ? CaptureTextureCoordinates(obj, mesh, bitmap, parentMapping) : null;
+                    if (appearance.Texture is not null) textures.Add(meshes.Count, appearance.Texture.Source);
                     // Preserve custom/welded normals before Rhino transforms its private mesh copy.
                     // Face winding is corrected separately below; inverse-transpose directions are not negated.
                     if (mesh.Normals.Count != mesh.Vertices.Count && !mesh.Normals.ComputeNormals())
@@ -181,20 +183,20 @@ internal static class AholoHost
                         indices.Add(face.A); indices.Add(face.B); indices.Add(face.C);
                         if (face.IsQuad) { indices.Add(face.A); indices.Add(face.C); indices.Add(face.D); }
                     }
-                    meshes.Add(new MeshData(positions, indices.ToArray(), appearance.Color.R, appearance.Color.G, appearance.Color.B) { Material = appearance.Factors, Normals = normals });
+                    meshes.Add(new MeshData(positions, indices.ToArray(), appearance.Color.R, appearance.Color.G, appearance.Color.B) { Material = appearance.Factors, Normals = normals, TexCoords = uv });
                 }
             }
             finally { foreach (Mesh mesh in generated) mesh.Dispose(); }
         }
         if(meshes.Count==0)throw new InvalidOperationException(UiText.Get("Select at least one supported mesh or surface together with the lights."));
-        return new RenderSnapshot(meshes, camera, string.IsNullOrWhiteSpace(doc.Name) ? global::Aholo.Core.UiText.Get("Rhino selection render") : Path.GetFileNameWithoutExtension(doc.Name) + global::Aholo.Core.UiText.Get(" · Selection render"),lights.ToArray());
+        return new RenderSnapshot(meshes, camera, string.IsNullOrWhiteSpace(doc.Name) ? global::Aholo.Core.UiText.Get("Rhino selection render") : Path.GetFileNameWithoutExtension(doc.Name) + global::Aholo.Core.UiText.Get(" · Selection render"),lights.ToArray(),textures);
     }
-    private sealed record MaterialSnapshot(Color Color,MeshMaterial? Factors,bool Assigned=false);
-    private static IEnumerable<(RhinoObject Object,Transform Transform,MaterialSnapshot Appearance)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc,bool includeLights)
+    private sealed record MaterialSnapshot(Color Color,MeshMaterial? Factors,bool Assigned=false,TextureSnapshot? Texture=null);
+    private static IEnumerable<(RhinoObject Object,Transform Transform,MaterialSnapshot Appearance,bool ParentMapping)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc,bool includeLights,bool includeTextures)
     {
         var ancestry=new HashSet<Guid>();
-        var stack=new Stack<(IEnumerator<RhinoObject> Objects,Transform Transform,Guid? Definition,MaterialSnapshot? ParentMaterial)>();
-        stack.Push((roots.GetEnumerator(),Transform.Identity,null,null));
+        var stack=new Stack<(IEnumerator<RhinoObject> Objects,Transform Transform,Guid? Definition,MaterialSnapshot? ParentMaterial,bool ParentMapping)>();
+        stack.Push((roots.GetEnumerator(),Transform.Identity,null,null,false));
         try
         {
             while(stack.Count>0)
@@ -204,16 +206,16 @@ internal static class AholoHost
                 var obj=frame.Objects.Current;
                 if(GaussianDocument.IsGaussian(obj)||obj.Attributes.GetUserString(GaussianDocument.ProxyKey) is not null)
                     throw new InvalidOperationException(UiText.Get("Gaussian scenes cannot be exported as mesh bounds. Deselect GS objects before mesh rendering."));
-                var appearance = CaptureMaterial(obj,doc,frame.ParentMaterial);
+                var appearance = CaptureMaterial(obj,doc,frame.ParentMaterial,includeTextures);
                 if(obj is InstanceObject instance)
                 {
                     var definition=instance.InstanceDefinition??throw new InvalidOperationException(UiText.Get("A selected block definition is missing."));
                     if(!ancestry.Add(definition.Id))throw new InvalidOperationException(UiText.Get("A selected block has a cyclic reference."));
                     var transform=frame.Transform*instance.InstanceXform;
                     if(!transform.IsValid||Math.Abs(transform.Determinant)<1e-20)throw new InvalidOperationException(UiText.Get("A selected block transform is invalid."));
-                    stack.Push((((IEnumerable<RhinoObject>)definition.GetObjects()).GetEnumerator(),transform,definition.Id,appearance));
+                    stack.Push((((IEnumerable<RhinoObject>)definition.GetObjects()).GetEnumerator(),transform,definition.Id,appearance,frame.ParentMapping||obj.GetTextureChannels().Length!=0));
                 }
-                else if(obj.Geometry is Mesh or Brep or Extrusion || includeLights&&obj.Geometry is Light)yield return(obj,frame.Transform,appearance);
+                else if(obj.Geometry is Mesh or Brep or Extrusion || includeLights&&obj.Geometry is Light)yield return(obj,frame.Transform,appearance,frame.ParentMapping);
                 else throw new InvalidOperationException(UiText.Get("The selection contains unsupported geometry. Select meshes, surfaces, extrusions or blocks containing them."));
             }
         }
@@ -239,7 +241,7 @@ internal static class AholoHost
             _=>throw new InvalidOperationException(UiText.Get("Selected lights include an unsupported type. Only world rectangular and point lights are supported."))
         };
     }
-    private static MaterialSnapshot CaptureMaterial(RhinoObject obj,RhinoDoc doc,MaterialSnapshot? parent)
+    private static MaterialSnapshot CaptureMaterial(RhinoObject obj,RhinoDoc doc,MaterialSnapshot? parent,bool includeTextures)
     {
         if(obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromParent&&parent is not null)return parent.Assigned?parent:new(obj.Attributes.DrawColor(doc),null);
         Color color=obj.Attributes.DrawColor(doc);
@@ -249,7 +251,8 @@ internal static class AholoHost
         var material=obj.GetMaterial(true);
         if(material is null)return new(color,null);
         color=material.DiffuseColor;
-        if(!material.IsPhysicallyBased)return new(color,null,true);
+        var bitmap=includeTextures?CaptureTexture(material,doc):null;
+        if(!material.IsPhysicallyBased)return new(color,null,true,bitmap);
         var pbr=material.PhysicallyBased;var raw=pbr.BaseColor;
         var factors=new MeshMaterial(raw.R,raw.G,raw.B,pbr.Alpha,pbr.Metallic,pbr.Roughness);
         factors.Validate();
@@ -262,7 +265,7 @@ internal static class AholoHost
             var linear=global::Rhino.Display.Color4f.ApplyGamma(raw,gamma);
             factors=factors with{R=linear.R,G=linear.G,B=linear.B};factors.Validate();
         }
-        return new(color,factors,true);
+        return new(color,factors,true,bitmap);
     }
     private static Mesh[] MeshExtrusion(Extrusion extrusion)
     {

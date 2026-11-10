@@ -70,6 +70,13 @@ With no API Key, open Settings → Account sign-in, complete browser login, then
 
 ## Material constants and scene lights
 
-Render PBR objects with distinct metallic/roughness/alpha constants, a legacy material and object/layer/parent material inheritance through nested blocks. Check a parent with no assigned material and a child with its own display color. Compare input-color preprocessing on/off and a nondefault gamma; no document material should be mutated. Textures, glass and per-face appearance remain unsupported.
+Render PBR objects with distinct metallic/roughness/alpha constants, a legacy material and object/layer/parent material inheritance through nested blocks. Check a parent with no assigned material and a child with its own display color. Compare input-color preprocessing on/off and a nondefault gamma; no document material should be mutated. Procedural textures, glass and per-face appearance remain unsupported; direct bitmaps have the separate check below.
 
 Explicitly include selected world rectangle/point lights, including transformed/reflected blocks. Compare corner-to-center position, physical millimetres, rectangle emission direction and width/height against a known cube. Point preview radius is specified before block scaling; relative intensity is not Rhino lumen parity. Unsupported light types, sheared rectangles and nonuniform point scaling must fail before upload. Restart after mesh processing and continue the original render: saved light/camera values must survive later scene edits. Repeat on both platforms; these are manual/live checks, not passed by mock tests.
+
+
+## Smooth normals and direct base-color bitmaps
+
+Pending on native Mac/Windows and the real rendering service. Use a curved mesh with custom smooth normals and hard edges, nested rotation/nonuniform scale, and a mirrored copy. Lighting should follow preserved normals with outward winding; document meshes/materials must not change. Test a deliberately missing/zero normal separately.
+
+Use an asymmetric four-color local RGB JPEG and RGBA PNG on a mesh with existing UVs and no explicit object/parent mapping. Check vertical orientation, repeat/clamp, nearest/linear, offset/rotation applied once, shared-image reuse, and PBR use-alpha on/off. Move/delete the source only after capture: a completed GLB should remain self-contained; a change during capture should fail. Missing paths, non-Modulate mode, linear/profile-tagged/EXIF images, explicit/WCS mapping, surface-generated UVs and embedded-only 3DM bitmaps must report the boundary before any upload. Disabling bitmap export is an explicit factor-only fallback. Do not call unsupported graphs visually equivalent.

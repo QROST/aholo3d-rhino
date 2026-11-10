@@ -11,4 +11,5 @@ public sealed record MeshData(float[] Positions, int[] Indices, byte R, byte G, 
     public float[]? Normals { get; init; }
     /// <summary>Optional UV pairs, with origin at the image upper-left as required by glTF.</summary>
     public float[]? TexCoords { get; init; }
+    public MeshTexture? BaseColorTexture { get; init; }
 }

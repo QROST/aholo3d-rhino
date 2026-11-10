@@ -3470,5 +3470,53 @@
   {
     "English": "Cannot compute valid mesh normals. Repair the selected mesh before rendering.",
     "Chinese": "无法计算有效的网格法线。请修复所选网格后再渲染。"
+  },
+  {
+    "English": "Include direct base-color bitmaps (mesh UVs / sRGB PNG or JPEG)",
+    "Chinese": "包含直接基色贴图（网格 UV / sRGB PNG 或 JPEG）"
+  },
+  {
+    "English": "Offline rendering preserves smooth normals, supported PBR constants and direct mesh UV bitmaps. Complex texture mapping, material graphs, glass transmission and GS ingestion are not converted. Disable bitmap export to use material constants only.",
+    "Chinese": "离线渲染保留平滑法线、支持的 PBR 常量和直接网格 UV 位图。暂不转换复杂纹理映射、材质网络、玻璃透射和 GS 入库；关闭位图导出可仅使用材质常量。"
+  },
+  {
+    "English": "This bitmap uses unsupported mapping, blending or color space. Use a directly textured mesh with existing UVs, or disable bitmap export.",
+    "Chinese": "此位图使用了尚不支持的映射、混合或色彩空间。请使用已有 UV 的直接贴图网格，或关闭位图导出。"
+  },
+  {
+    "English": "The bitmap path is unresolved. Save the document with local bitmap files or disable bitmap export.",
+    "Chinese": "位图路径未解析。请保存文档并使用本地位图文件，或关闭位图导出。"
+  },
+  {
+    "English": "A base-color bitmap file is missing. Relink the local bitmap in Rhino or disable bitmap export.",
+    "Chinese": "基色位图文件缺失。请在 Rhino 中重新关联本地位图，或关闭位图导出。"
+  },
+  {
+    "English": "Base-color bitmaps must be local files, not URLs or network shares.",
+    "Chinese": "基色位图必须为本地文件，不能使用网址或网络共享路径。"
+  },
+  {
+    "English": "A texture changed while preparing the render. Capture the selection again.",
+    "Chinese": "准备渲染时贴图发生了变化。请重新捕获所选对象。"
+  },
+  {
+    "English": "The encoded bitmap exceeds the runtime byte-array capacity.",
+    "Chinese": "编码位图超出运行时字节数组容量。"
+  },
+  {
+    "English": "The base-color bitmap must be a structurally valid 8-bit RGB JPEG or RGB/RGBA PNG.",
+    "Chinese": "基色位图必须为结构有效的 8 位 RGB JPEG 或 RGB/RGBA PNG。"
+  },
+  {
+    "English": "PNG color-key transparency is unsupported. Use an 8-bit RGB or RGBA PNG.",
+    "Chinese": "暂不支持 PNG 色键透明。请使用 8 位 RGB 或 RGBA PNG。"
+  },
+  {
+    "English": "An RGBA bitmap with ignored texture alpha cannot be combined with partial material opacity yet. Use an RGB bitmap or disable bitmap export.",
+    "Chinese": "暂不支持在忽略贴图 alpha 时叠加半透明材质。请使用 RGB 位图，或关闭位图导出。"
+  },
+  {
+    "English": "Embedded color profiles, non-sRGB declarations and EXIF metadata are unsupported. Export an untagged sRGB PNG/JPEG or disable bitmap export.",
+    "Chinese": "暂不支持内嵌色彩配置、非 sRGB 声明和 EXIF 元数据。请导出无标签的 sRGB PNG/JPEG，或关闭位图导出。"
   }
 ]
