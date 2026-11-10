@@ -76,6 +76,7 @@ public sealed class AholoPanel : Panel,IPanel
         var libraryPage=Column(search,filter,tasks,Row(previous,pageInfo,next),Row(Local("Load history",()=>_=ReloadAsync()),refresh),detail,artifacts,artifactDetail,
             Row(download,Local("Open result folder",OpenResultFolder)),Local("Open image",OpenImage),place,continueRender,
             Row(Local("Pause local polling",Pause),Local("Resume polling",Resume)),
+            Action("Cloud history and recovery",async()=>{using var dialog=new CloudLibraryDialog(session,Scope,token);var restored=dialog.ShowModal(this);if(restored is not null)await RevealAsync(restored);}),
             Info("Local files"),Row(Action("Import GS",ImportGsAsync),Action("Export GS",ExportGsAsync)),exportScope,
             Row(Local("GS viewport",()=>GaussianViewport.Activate(Document())),Local("Diagnostics",()=>Report(GaussianViewport.Diagnostics(Document())))),
             worldId,Action("Restore World ID",async()=>{var task=await session.Client.ImportWorldAsync(worldId.Text.Trim(),token);session.Observe(task);await RevealAsync(task);}));
@@ -165,7 +166,7 @@ public sealed class AholoPanel : Panel,IPanel
     }
     private static TaskArtifact[] Outputs(LocalTask task)=>task.Kind switch
     {
-        "world"=>new[]{new TaskArtifact("ply","Gaussian scene","ply",LocalPath:task.PlyPath),new TaskArtifact("spz","Compressed Gaussian scene","spz",LocalPath:task.SpzPath),new TaskArtifact("image","Panorama","image",LocalPath:task.ImagePath)},
+        "world"=>new[]{new TaskArtifact("ply","Gaussian scene","ply",LocalPath:task.PlyPath),new TaskArtifact("spz","Compressed Gaussian scene","spz",LocalPath:task.SpzPath),new TaskArtifact("image","Panorama","image",LocalPath:task.ImagePath)}.Concat(task.Artifacts).ToArray(),
         "render"=>new[]{new TaskArtifact("image","Rendered image","image",LocalPath:task.ImagePath)},_=>task.Artifacts
     };
     private void Describe(string? preferredResult=null)
@@ -193,7 +194,7 @@ public sealed class AholoPanel : Panel,IPanel
     private async Task DownloadAsync()
     {
         var task=Selected??throw new InvalidOperationException(T("Select a task first."));var asset=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
-        var updated=await session.Client.DownloadAsync(new(task.Id,task.Kind is "world" or "render"?asset.Key:"artifact:"+asset.Key),token);session.Observe(updated);
+        var updated=await session.Client.DownloadAsync(new(task.Id,(task.Kind is "world" or "render")&&(asset.Key is "ply" or "spz" or "image")?asset.Key:"artifact:"+asset.Key),token);session.Observe(updated);
         string? path=Outputs(updated).FirstOrDefault(a=>a.Key==asset.Key)?.LocalPath;AholoHost.Ui(()=>Report(T("Saved locally")+" · "+task.Name+" · "+asset.Label+":\n"+path));await ReloadAsync();
     }
     private void OpenImage()

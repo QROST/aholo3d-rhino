@@ -36,7 +36,7 @@ while (true)
         var payload = request.Payload;
         object result;
         requestEpoch = request.CredentialEpoch;
-        bool authenticated = request.Method is "continueRender" or "generate" or "createService" or "render" or "refresh" or "download" or "importWorld";
+        bool authenticated = request.Method is "continueRender" or "generate" or "createService" or "render" or "refresh" or "download" or "importWorld" or "cloudHistory" or "restoreRemote";
         api.RequestAdmission = authenticated ? token => credentials.AcquireRequestAsync(requestEpoch, token) : null;
         switch (request.Method)
         {
@@ -63,6 +63,8 @@ while (true)
             case "render": result = await workflow.RenderAsync(await RequireKeyAsync(ct), Read<RenderRequest>(payload), ct); break;
             case "refresh": result = await workflow.RefreshAsync(await RequireKeyAsync(ct), payload.GetProperty("id").GetGuid(), ct); break;
             case "download": result = await workflow.DownloadAsync(await RequireKeyAsync(ct), Read<DownloadRequest>(payload), ct); break;
+            case "cloudHistory": result = await workflow.CloudHistoryAsync(await RequireKeyAsync(ct), Read<CloudHistoryRequest>(payload), ct); break;
+            case "restoreRemote": result = await workflow.RestoreRemoteAsync(await RequireKeyAsync(ct), Read<RestoreRemoteRequest>(payload), ct); break;
             case "importWorld": result = await workflow.ImportWorldAsync(await RequireKeyAsync(ct), payload.GetProperty("worldId").GetString() ?? "", ct); break;
             default: throw new ArgumentException("Unknown background operation.");
         }

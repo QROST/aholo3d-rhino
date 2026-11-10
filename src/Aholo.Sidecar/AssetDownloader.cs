@@ -9,7 +9,7 @@ public sealed class AssetDownloader(HttpClient http, TaskStore store)
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.Port != 443 || uri.UserInfo.Length != 0 || uri.Fragment.Length != 0)
             throw new IOException("The service returned an unsafe download address.");
         if(slot is not null&&(slot.Length!=16||slot.Any(c=>!Uri.IsHexDigit(c))))throw new ArgumentException("Invalid result slot.");
-        if (kind is not ("ply" or "spz" or "image" or "glb" or "zip" or "usdz" or "obj_zip" or "fbx_zip" or "stl" or "3mf" or "fbx" or "dsl")) throw new ArgumentException("Invalid download type.");
+        if (kind is not ("ply" or "spz" or "image" or "glb" or "zip" or "usdz" or "obj_zip" or "fbx_zip" or "stl" or "3mf" or "fbx" or "dsl" or "metadata")) throw new ArgumentException("Invalid download type.");
         string temporary = Path.Combine(store.Root, "assets", id.ToString("N") + "." + Guid.NewGuid().ToString("N") + ".part");
         try
         {

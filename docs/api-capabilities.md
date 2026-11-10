@@ -8,11 +8,11 @@ The provider now has a callable route for every listed endpoint. The new create 
 
 | Service | Endpoints | Provider coverage | Rhino workflow at this milestone |
 | --- | ---: | --- | --- |
-| World | 4 | Generate/reconstruct/get/list; cover/scene/timestamps/LOD metadata and paginated filters | Generate/reconstruct forms, World-ID recovery, downloads and GS placement; live reconstruction acceptance pending |
-| Lux3D | 12 | Ten create operations; query and filtered paginated list; int64 IDs preserved as strings; ordered output content retained | All ten forms, local input upload, typed outputs/downloads and static GLB placement; animation playback and arbitrary output import are not implemented |
+| World | 4 | Generate/reconstruct/get/list; cover/scene/timestamps/LOD metadata and paginated filters | Generate/reconstruct forms, cloud history/ID recovery, GS placement and opaque LOD metadata downloads; live reconstruction acceptance pending |
+| Lux3D | 12 | Ten create operations; query and filtered paginated list; int64 IDs preserved as strings; ordered output content retained | All ten forms, cloud history/ID recovery, local input upload, typed outputs/downloads and static GLB placement; animation playback and arbitrary output import are not implemented |
 | RenderCloud | 6 | Offline submit/query, mesh processing/create/query, realtime create/query/push/delete; ingestion supports fastUpload selection and all returned mesh IDs | Mesh/Brep/extrusion and nested Block snapshots, shared original-intent continuation; realtime host preview pending |
 | Asset / OUS | 5 | Token plus streamed single/multipart upload and status | Used by all local service inputs; advanced multipart metadata/prefix/name and server-directed missing-part selection implemented |
-| SpatialUnderstanding | 3 | Create, identity-checked detail, paginated filtered list; result retained as a DSL download URL | Local indoor PLY upload, create/query, DSL download and native wall surfaces/opening outlines/oriented boxes; automatic wall solids/boolean openings are not claimed |
+| SpatialUnderstanding | 3 | Create, identity-checked detail, paginated filtered list; result retained as a DSL download URL | Local indoor PLY upload, create/query, cloud history/ID recovery, DSL download and native wall surfaces/opening outlines/oriented boxes; automatic wall solids/boolean openings are not claimed |
 
 ## Public operations
 
@@ -77,6 +77,6 @@ Local API tests use mock HTTP. They verify request paths/bodies, validation befo
 
 ## Remaining scope
 
-Cloud history APIs are provider-level; the Library currently pages local history and restores an existing World ID. Durable upload recovery across tokens is not guaranteed by the public contract; cloud GS ingestion, native realtime compositing and full structural wall reconstruction are not implemented. Settings can validate through World, Lux3D or Spatial history; this never proves all other service entitlements. Render texture/light export, animation playback, undocumented output formats and Windows native execution require separate work.
+Library exposes World/Lux3D/Spatial cloud history and recovery by existing World/Lux3D/Spatial/render ID. RenderCloud has no documented history-list endpoint. World LOD metadata is retained without assuming an unpublished progressive-loading schema. Durable upload recovery across tokens is not guaranteed by the public contract; cloud GS ingestion, native realtime compositing and full structural wall reconstruction are not implemented. Settings can validate through World, Lux3D or Spatial history; this never proves all other service entitlements. Render texture/light export, animation playback, undocumented output formats and Windows native execution require separate work.
 
 Downloaded files use immutable content-addressed names. Missing remote outputs retain downloaded local references. Rig/animation GLB files can be uploaded/downloaded, but static placement rejects unsupported skins, animations or required glTF extensions before touching the document. This is a format-support boundary, not a geometry-count cap. Generation/articulation URLs without a recognized format extension remain explicit unsupported results. Archives are retained as files and are not extracted automatically.

@@ -19,6 +19,8 @@ public interface IAholoServiceClient : IAsyncDisposable
     Task<LocalTask> ContinueRenderAsync(Guid id,CancellationToken ct=default);
     Task<LocalTask> DownloadAsync(DownloadRequest request,CancellationToken ct=default);
     Task<LocalTask> ImportWorldAsync(string worldId,CancellationToken ct=default);
+    Task<CloudHistoryPage> CloudHistoryAsync(CloudHistoryRequest request,CancellationToken ct=default);
+    Task<LocalTask> RestoreRemoteAsync(RestoreRemoteRequest request,CancellationToken ct=default);
 }
 
 /// <summary>One private child transport shared by the application session. Credentials stay in the child.</summary>
@@ -44,6 +46,9 @@ public sealed class AholoClient : IAholoServiceClient
     public Task<LocalTask> ContinueRenderAsync(Guid id, CancellationToken ct = default) => Call<LocalTask>("continueRender", new { id }, ct);
     public Task<LocalTask> DownloadAsync(DownloadRequest request, CancellationToken ct = default) => Call<LocalTask>("download", request, ct);
     public Task<LocalTask> ImportWorldAsync(string worldId, CancellationToken ct = default) => Call<LocalTask>("importWorld", new { worldId }, ct);
+
+    public Task<CloudHistoryPage> CloudHistoryAsync(CloudHistoryRequest request,CancellationToken ct=default) => Call<CloudHistoryPage>("cloudHistory",request,ct);
+    public Task<LocalTask> RestoreRemoteAsync(RestoreRemoteRequest request,CancellationToken ct=default) => Call<LocalTask>("restoreRemote",request,ct);
 
     private async Task<T> Call<T>(string method, object payload, CancellationToken ct)
     {

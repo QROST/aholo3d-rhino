@@ -2706,5 +2706,81 @@
   {
     "English": "Spatial placement stopped, but cleanup was incomplete. Use Undo to remove the new geometry.",
     "Chinese": "空间放置已停止，但清理未完成。请使用撤销移除新几何。"
+  },
+  {
+    "English": "Cloud history and recovery",
+    "Chinese": "云端历史与恢复"
+  },
+  {
+    "English": "All statuses",
+    "Chinese": "所有状态"
+  },
+  {
+    "English": "Existing remote task ID",
+    "Chinese": "已有云端任务 ID"
+  },
+  {
+    "English": "Refresh cloud history",
+    "Chinese": "刷新云端历史"
+  },
+  {
+    "English": "Restore to Library",
+    "Chinese": "恢复到资源库"
+  },
+  {
+    "English": "Choose the original Lux3D tool",
+    "Chinese": "选择原任务使用的 Lux3D 工具"
+  },
+  {
+    "English": "Select a service, then load history or enter an existing ID.",
+    "Chinese": "选择服务，然后加载历史或输入已有 ID。"
+  },
+  {
+    "English": "Browse existing tasks without creating or charging a new generation.",
+    "Chinese": "浏览已有任务，不创建或计费新的生成任务。"
+  },
+  {
+    "English": "RenderCloud has no public history list; enter its existing operation ID. Restoring a result does not restart generation or rendering.",
+    "Chinese": "RenderCloud 没有公开历史列表，请输入已有 operation ID。恢复结果不会重新生成或渲染。"
+  },
+  {
+    "English": "The connection changed. Reload cloud history before restoring this result.",
+    "Chinese": "连接已更改。请刷新云端历史后恢复此结果。"
+  },
+  {
+    "English": "Cloud page {0} · {1} tasks",
+    "Chinese": "云端第 {0} 页 · {1} 个任务"
+  },
+  {
+    "English": "The connection changed. Close this window and reconnect in Settings.",
+    "Chinese": "连接已更改。请关闭此窗口并在设置中重新连接。"
+  },
+  {
+    "English": "Cloud history is available for World, Lux3D and Spatial. Restore a render using its operation ID.",
+    "Chinese": "云端历史支持 World、Lux3D 和空间理解。渲染任务请使用 operation ID 恢复。"
+  },
+  {
+    "English": "Enter an existing remote task ID.",
+    "Chinese": "请输入已有云端任务 ID。"
+  },
+  {
+    "English": "Choose the original Lux3D operation. Its history API does not identify the operation type.",
+    "Chinese": "请选择原 Lux3D 操作。其历史接口不提供操作类型。"
+  },
+  {
+    "English": "Choose a remote task service.",
+    "Chinese": "请选择云端任务服务。"
+  },
+  {
+    "English": "The original task operation differs from the selected operation. Its record was retained.",
+    "Chinese": "原任务操作与所选操作不同。已保留原记录。"
+  },
+  {
+    "English": "Multiple local records refer to this remote task. Inspect the existing records before restoring.",
+    "Chinese": "多个本地记录指向此云端任务。请检查已有记录后再恢复。"
+  },
+  {
+    "English": "World LOD metadata",
+    "Chinese": "世界 LOD 元数据"
   }
 ]

@@ -114,6 +114,7 @@ public sealed partial class Workflows(AholoApiClient api, TaskStore store, Asset
         WorldId = world.WorldId, Name = string.IsNullOrWhiteSpace(world.Name) ? t.Name : world.Name,
         Status = world.Status, Progress = world.Progress, UpAxis = world.UpAxis, LastQueriedAt = DateTimeOffset.UtcNow,
         PlyUrl = world.PlyUrl, SpzUrl = world.SpzUrl, ImageUrl = world.ImageUrl,
+        Artifacts = MergeArtifacts(t, world.LodMetaUrl is null ? Array.Empty<TaskArtifact>() : new[] {new TaskArtifact("world/lod", "World LOD metadata", "metadata", world.LodMetaUrl)}),
         Error = world.Status is "FAILED" or "CANCELED" or "TIMEOUT" or "REJECTED" ? "World generation did not succeed. Check the Aholo console for details; generation will not restart automatically." : null
     };
     private static LocalTask ApplyRender(LocalTask t, RenderOperation op) => t with

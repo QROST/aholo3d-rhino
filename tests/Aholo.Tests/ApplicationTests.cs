@@ -159,6 +159,8 @@ public sealed class ApplicationTests : IDisposable
         public Task<LocalTask> GenerateWorldAsync(GenerateWorldRequest request,CancellationToken ct=default)=>throw new NotSupportedException();
         public Task<LocalTask> DownloadAsync(DownloadRequest request,CancellationToken ct=default)=>throw new NotSupportedException();
         public Task<LocalTask> ImportWorldAsync(string worldId,CancellationToken ct=default)=>throw new NotSupportedException();
+        public Task<CloudHistoryPage> CloudHistoryAsync(CloudHistoryRequest request,CancellationToken ct=default)=>throw new NotSupportedException();
+        public Task<LocalTask> RestoreRemoteAsync(RestoreRemoteRequest request,CancellationToken ct=default)=>throw new NotSupportedException();
         public ValueTask DisposeAsync()=>ValueTask.CompletedTask;
     }
 }

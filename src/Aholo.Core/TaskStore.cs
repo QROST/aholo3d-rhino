@@ -60,6 +60,12 @@ public sealed class TaskStore
     }
     public LocalTask? FindWorld(string worldId, string connectionId) => All().FirstOrDefault(t =>
         t.Kind == "world" && t.WorldId == worldId && t.ConnectionId == connectionId);
+    public LocalTask? FindRemote(TaskService service, string remoteId, string connectionId, string region)
+    {
+        var matches=All().Where(task=>{var identity=TaskIdentity.From(task);return identity.Service==service&&identity.RemoteId==remoteId&&identity.ConnectionId==connectionId&&identity.Region==region;}).Take(2).ToArray();
+        if(matches.Length>1)throw new InvalidOperationException("Multiple local records refer to this remote task. Inspect the existing records before restoring.");
+        return matches.SingleOrDefault();
+    }
     private LocalTask? TryGet(Guid id) { try { return Get(id); } catch (Exception e) when (e is IOException or JsonException) { return new LocalTask { Id = id, Name = "Unreadable task record", Status = "RecordError", Error = "The local record cannot be read; the file is retained. Check cloud history to avoid duplicate submissions." }; } }
     public FileStream LockTask(Guid id)
     {
