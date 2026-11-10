@@ -5,7 +5,7 @@ using System.Text;
 namespace Aholo.Core;
 
 /// <summary>Streaming PLY 1.0 reader. Fully enumerate successfully before modifying a Rhino document.</summary>
-public static class PlyReader
+public static partial class PlyReader
 {
     private enum Scalar { Int8, UInt8, Int16, UInt16, Int32, UInt32, Float32, Float64 }
     private sealed record Property(string Name, Scalar Type, Scalar? CountType);

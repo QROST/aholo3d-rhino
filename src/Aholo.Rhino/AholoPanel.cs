@@ -68,7 +68,7 @@ public sealed partial class AholoPanel : Panel,IPanel
         refresh=Action("Refresh selected task",RefreshAsync);
         download=Action("Download selected result",DownloadAsync);
         place=Action("Place in current document",PlaceAsync);
-        previewResult=Action("Preview GLB candidate",PreviewSelectedAsync);
+        previewResult=Action("Preview mesh candidate",PreviewSelectedAsync);
         continueRender=Action("Continue original render · Uses service credits",ContinueAsync);
         var createPage=Column(creation,formHost,autoPlace,submit,Info("Each click creates one paid task. Follow its progress in Library."));
         tasks.SelectedIndexChanged+=(_,_)=>{if(!reloadingHistory)Describe();};artifacts.SelectedIndexChanged+=(_,_)=>UpdateActions();
@@ -76,7 +76,7 @@ public sealed partial class AholoPanel : Panel,IPanel
         previous.Click+=(_,_)=>{offset=Math.Max(0,offset-50);_=ReloadAsync();};next.Click+=(_,_)=>{offset+=50;_=ReloadAsync();};
         var worldId=new TextBox{PlaceholderText=T("Existing Aholo World ID")};
         var libraryPage=Column(search,filter,tasks,Row(previous,pageInfo,next),Row(Local("Load history",()=>_=ReloadAsync()),refresh),detail,artifacts,artifactDetail,
-            Row(download,Local("Open result folder",OpenResultFolder)),Local("Open image",OpenImage),place,previewResult,meshEditor.View,Action("Load local GLB",LoadLocalGlbAsync),continueRender,
+            Row(download,Local("Open result folder",OpenResultFolder)),Local("Open image",OpenImage),place,previewResult,meshEditor.View,Action("Load local mesh",LoadLocalMeshAsync),continueRender,
             Row(Local("Pause local polling",Pause),Local("Resume polling",Resume)),
             Action("Cloud history and recovery",async()=>{using var dialog=new CloudLibraryDialog(session,Scope,token);var restored=dialog.ShowModal(this);if(restored is not null)await RevealAsync(restored);}),
             Info("Local files"),Row(Action("Import GS",ImportGsAsync),Action("Export GS",ExportGsAsync)),exportScope,
@@ -135,8 +135,8 @@ public sealed partial class AholoPanel : Panel,IPanel
         bool sameAccount=task?.ConnectionId==session.Connection.ConnectionId;
         refresh.Enabled=!working&&connected&&sameAccount&&capability?.CanQuery==true;
         download.Enabled=!working&&connected&&sameAccount&&capability?.CanDownload==true&&artifact is not null&&artifact.Error is null;
-        place.Enabled=!working&&task is not null&&artifact is not null&&artifact.Format is "glb" or "ply" or "spz" or "dsl"&&artifact.LocalPath is not null&&File.Exists(artifact.LocalPath);
-        previewResult.Enabled=!working&&artifact?.Format=="glb"&&artifact.Error is null&&(artifact.LocalPath is not null||connected&&sameAccount&&capability?.CanDownload==true);
+        place.Enabled=!working&&task is not null&&artifact is not null&&artifact.Format is "glb" or "ply" or "stl" or "spz" or "dsl"&&artifact.LocalPath is not null&&File.Exists(artifact.LocalPath);
+        previewResult.Enabled=!working&&artifact is not null&&MeshPlacementPolicy.IsNativeMeshFormat(artifact.Format)&&artifact.Error is null&&(artifact.LocalPath is not null||connected&&sameAccount&&capability?.CanDownload==true);
         continueRender.Enabled=!working&&connected&&sameAccount&&capability?.CanContinueRender==true;
         continueRender.Visible=task?.Kind=="render"&&capability?.CanContinueRender==true;
         cancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
@@ -229,10 +229,15 @@ public sealed partial class AholoPanel : Panel,IPanel
         if(artifact.Format=="dsl")
         {string message=await SpatialDocument.PlaceAsync(artifact.LocalPath,artifact.Sha256,target,task.Id,artifact.Key,token);AholoHost.Ui(()=>Report(message));return;}
         if(artifact.Format=="ply")
-        {string up=Axis()=="Auto"?task.UpAxis??"Z":Axis();string message=await GaussianDocument.ImportAsync(artifact.LocalPath,target,Scale(),up,task.Id,token);AholoHost.Ui(()=>Report(message));return;}
+        {
+            var content=await Task.Run(()=>PlyReader.Inspect(artifact.LocalPath,token),token);
+            if(content.Kind==PlyContentKind.Gaussian)
+            {string up=Axis()=="Auto"?task.UpAxis??"Z":Axis();string message=await GaussianDocument.ImportAsync(artifact.LocalPath,target,Scale(),up,task.Id,token);AholoHost.Ui(()=>Report(message));return;}
+            if(content.Kind!=PlyContentKind.Mesh)throw new InvalidDataException(T("This PLY is neither a complete Gaussian scene nor an ordinary mesh with faces."));
+        }
         if(artifact.Format=="spz")
         {string message=await GaussianDocument.ImportSceneAsync(artifact.LocalPath,target,Scale(),Axis(),sourceUnits.SelectedIndex==0,token,StageProgress(),taskId:task.Id);AholoHost.Ui(()=>Report(message));return;}
-        if(artifact.Format!="glb")throw new InvalidOperationException(T("This result format cannot be placed directly."));
+        if(!MeshPlacementPolicy.IsNativeMeshFormat(artifact.Format))throw new InvalidOperationException(T("This result format cannot be placed directly."));
         var result=await AholoPlugin.Placement.PlaceTaskAsync(task.Id,artifact.Key,meshEditor.Capture(),token);
         Report(result.Message);
     }

@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 namespace Aholo.Core;
 
 /// <summary>A private validated file snapshot. Contains no Rhino objects and can be prepared off the UI thread.</summary>
-public sealed class GlbImportSnapshot : IDisposable
+public sealed class GlbImportSnapshot : IMeshImportSnapshot
 {
     private int _disposed;
     private GlbImportSnapshot(string path, string sha256) { Path = path; Sha256 = sha256; }

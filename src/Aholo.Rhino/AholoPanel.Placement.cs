@@ -61,7 +61,7 @@ public sealed partial class AholoPanel
     {
         var task=Selected??throw new InvalidOperationException(T("Select a task first."));
         var artifact=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
-        if(artifact.Format!="glb")throw new InvalidOperationException(T("Choose an available static GLB result. Use Library for GS, spatial or other formats."));
+        if(!MeshPlacementPolicy.IsNativeMeshFormat(artifact.Format))throw new InvalidOperationException(T("Choose an available static GLB, mesh PLY or STL result. Use Import GS for Gaussian files."));
         if(artifact.LocalPath is null||!File.Exists(artifact.LocalPath))
         {
             if(!session.Connection.Connected||task.ConnectionId!=session.Connection.ConnectionId)throw new InvalidOperationException(T("Connect to the task's original account before recovering its download."));
@@ -70,9 +70,9 @@ public sealed partial class AholoPanel
         }
         await meshEditor.AddAsync(artifact.LocalPath!,artifact.Sha256,task.Name,task.Id,token);
     }
-    private async Task LoadLocalGlbAsync()
+    private async Task LoadLocalMeshAsync()
     {
-        using var dialog=new OpenFileDialog{Title=T("Load local GLB"),MultiSelect=false};dialog.Filters.Add(new FileFilter("glTF Binary",".glb"));
+        using var dialog=new OpenFileDialog{Title=T("Load local mesh"),MultiSelect=false};dialog.Filters.Add(new FileFilter(T("Static mesh"),".glb",".ply",".stl"));
         if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
         await meshEditor.AddAsync(dialog.FileName,null,Path.GetFileName(dialog.FileName),null,token);
     }

@@ -53,3 +53,7 @@ Start a download or refresh for task A, then select task B and one of its result
 - Start from a hidden/locked current layer or an invisible ancestor layer. Accept, Undo and Redo; both the Block and any created visible layer belong to one operation, and the original current layer is restored.
 - Generate with automatic placement enabled. While waiting, change the active document, close the target, change units, pause the task, turn the option off or disconnect. No stale automatic placement is allowed. Restoring history and restarting Rhino never grants automatic placement.
 - Use `AholoPlaceTask` with the full local task GUID from Library. It may query/download the original static GLB; it must never generate. Repeat after success, delete and Undo: no duplicate is inserted. Cached static GLB placement works without a cloud connection.
+
+## Native mesh formats
+
+Compare ordinary ASCII/little-endian/big-endian mesh PLY and STL to Rhino's native importer, including quads/polygons, vertex colors and large files. Preview and acceptance must preserve the supported geometry without a point-cloud conversion. Confirm GS PLY remains a splat scene; point-only, partial-GS and ambiguous files fail with original bytes retained. Check hash mismatch/mutated fixture rejection and one Undo on Mac and Windows.

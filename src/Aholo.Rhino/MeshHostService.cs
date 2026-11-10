@@ -34,8 +34,8 @@ public sealed record AssetAudit(long Meshes, long Vertices, long Triangles, int 
 
 public sealed class PreparedAsset : IDisposable
 {
-    private readonly GlbImportSnapshot _snapshot;
-    internal PreparedAsset(GlbImportSnapshot snapshot, RhinoDoc staging, AssetAudit audit, string documentSessionId, uint documentSerial)
+    private readonly IMeshImportSnapshot _snapshot;
+    internal PreparedAsset(IMeshImportSnapshot snapshot, RhinoDoc staging, AssetAudit audit, string documentSessionId, uint documentSerial)
     {
         _snapshot = snapshot; SnapshotPath = snapshot.Path; Sha256 = snapshot.Sha256; Staging = staging; Audit = audit;
         DocumentSessionId = documentSessionId; DocumentSerial = documentSerial;
@@ -103,17 +103,18 @@ public sealed class MeshHostService : IDisposable
     public PreparedAsset Prepare(string path, string? expectedSha256, RhinoDoc target, HostImportTrace? trace = null)
     {
         RequireUiThread();
-        GlbImportSnapshot snapshot = GlbImportSnapshot.Create(path, expectedSha256, trace);
+        IMeshImportSnapshot snapshot = NativeMeshImportSnapshot.Create(path, expectedSha256, trace);
         try { return Prepare(snapshot, target, trace); }
         catch { snapshot.Dispose(); throw; }
     }
-    internal PreparedAsset Prepare(GlbImportSnapshot snapshot, RhinoDoc target, HostImportTrace? trace = null)
+    internal PreparedAsset Prepare(IMeshImportSnapshot snapshot, RhinoDoc target, HostImportTrace? trace = null)
     {
         RequireUiThread();
         trace?.Record("preflight_start");
         RhinoDoc? stage = null;
         try
         {
+            NativeMeshImportSnapshot.Verify(snapshot.Path,snapshot.Sha256);
             stage = RhinoDoc.CreateHeadless(null) ?? throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Could not create an independent preview document."));
             stage.ModelUnitSystem = target.ModelUnitSystem;
             stage.ModelAbsoluteTolerance = target.ModelAbsoluteTolerance;
@@ -124,10 +125,11 @@ public sealed class MeshHostService : IDisposable
             catch (Exception ex)
             {
                 trace?.Record("preflight_native_import_exception", ex.Message);
-                throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Preflight: Rhino's native GLB import threw an exception before mesh repair. ") + ex.Message, ex);
+                throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Preflight: Rhino's native mesh import threw an exception before mesh repair. ") + ex.Message, ex);
             }
             trace?.Record("preflight_native_import_result", imported ? "true" : "false");
-            if (!imported) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Preflight: Rhino's native GLB import failed before mesh repair."));
+            if (!imported) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Preflight: Rhino's native mesh import failed before mesh repair."));
+            NativeMeshImportSnapshot.Verify(snapshot.Path,snapshot.Sha256);
             RhinoObject[] roots = Objects(stage);
             using MeshRepairs repairs = CreateMeshRepairs(roots, trace);
             ApplyDefinitionRepairs(stage, roots, repairs, existingDefinitions, trace);
@@ -219,7 +221,7 @@ public sealed class MeshHostService : IDisposable
                 throw new InvalidOperationException(UiText.Get("Cannot select a visible layer."));
             using (var marker = new global::Rhino.Geometry.Point(Point3d.Origin))
             using (var markerAttributes = new ObjectAttributes())
-                definitionIndex = doc.InstanceDefinitions.Add("AholoMesh_" + importId.ToString("N"), "Aholo mesh native GLB; SHA256 " + asset.Sha256, Point3d.Origin, new[] { marker }, new[] { markerAttributes });
+                definitionIndex = doc.InstanceDefinitions.Add("AholoMesh_" + importId.ToString("N"), "Aholo native mesh; SHA256 " + asset.Sha256, Point3d.Origin, new[] { marker }, new[] { markerAttributes });
             if (definitionIndex < 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Could not create the Aholo mesh block."));
             trace?.Record("commit_native_import_start");
             bool importedNative;
@@ -227,10 +229,10 @@ public sealed class MeshHostService : IDisposable
             catch (Exception ex)
             {
                 trace?.Record("commit_native_import_exception", ex.Message);
-                throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Document import: Rhino's native GLB import threw an exception before mesh repair. ") + ex.Message, ex);
+                throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Document import: Rhino's native mesh import threw an exception before mesh repair. ") + ex.Message, ex);
             }
             trace?.Record("commit_native_import_result", importedNative ? "true" : "false");
-            if (!importedNative) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Document import: Rhino's native GLB import failed before mesh repair."));
+            if (!importedNative) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Document import: Rhino's native mesh import failed before mesh repair."));
             validateCommit?.Invoke();
             VerifyHash(durableImportPath, asset.Sha256);
             asset.Verify();
@@ -264,6 +266,7 @@ public sealed class MeshHostService : IDisposable
             instanceAttributes.LayerIndex = targetLayerIndex;
             instanceAttributes.Space = ActiveSpace.ModelSpace;
             instanceAttributes.ViewportId = Guid.Empty;
+            instanceAttributes.SetUserString("Aholo.Mesh.AssetFormat",Path.GetExtension(asset.SnapshotPath).TrimStart('.').ToLowerInvariant());
             instanceAttributes.SetUserString("Aholo.Mesh.ImportId", importId.ToString("D"));
             instanceAttributes.SetUserString("Aholo.Mesh.AssetSha256", asset.Sha256);
             instanceAttributes.SetUserString("Aholo.Mesh.DocumentSession", asset.DocumentSessionId);
@@ -333,7 +336,7 @@ public sealed class MeshHostService : IDisposable
         if (string.IsNullOrWhiteSpace(root)) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Could not locate the persistent local asset directory."));
         string directory = Path.Combine(_importStoreRoot ?? Path.Combine(root, "Aholo-Rhino"), "host-imports", asset.Sha256.ToLowerInvariant());
         Directory.CreateDirectory(directory);
-        string path = Path.Combine(directory, "asset.glb");
+        string path = Path.Combine(directory, "asset"+Path.GetExtension(asset.SnapshotPath).ToLowerInvariant());
         if (!File.Exists(path))
         {
             string temporary = Path.Combine(directory, Guid.NewGuid().ToString("N") + ".partial");
@@ -398,13 +401,13 @@ public sealed class MeshHostService : IDisposable
                 if (obj.Geometry is Mesh mesh) yield return (mesh, frame.Transform, obj);
                 else if (obj is InstanceObject instance)
                 {
-                    InstanceDefinition definition = instance.InstanceDefinition ?? throw new InvalidOperationException(global::Aholo.Core.UiText.Get("A GLB block references a missing definition."));
-                    if (!ancestry.Add(definition.Id)) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("A GLB block contains a cyclic reference."));
+                    InstanceDefinition definition = instance.InstanceDefinition ?? throw new InvalidOperationException(global::Aholo.Core.UiText.Get("A mesh block references a missing definition."));
+                    if (!ancestry.Add(definition.Id)) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("A mesh block contains a cyclic reference."));
                     Transform combined = frame.Transform * instance.InstanceXform;
-                    if (!combined.IsValid) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Invalid GLB block transform."));
+                    if (!combined.IsValid) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Invalid mesh block transform."));
                     pending.Push((((IEnumerable<RhinoObject>)definition.GetObjects()).GetEnumerator(), combined, definition.Id));
                 }
-                else throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The GLB contains unsupported non-mesh objects."));
+                else throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The imported file contains unsupported non-mesh objects."));
             }
         }
         finally { while (pending.Count > 0) pending.Pop().Objects.Dispose(); }

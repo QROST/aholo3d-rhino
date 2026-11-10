@@ -30,7 +30,7 @@ internal sealed class MeshPlacementService
     }
     internal async Task<PreparedAsset> PrepareAsync(string path,string? hash,MeshPlacementTarget target,CancellationToken ct)
     {
-        var snapshot=await Task.Run(()=>GlbImportSnapshot.Create(path,hash),ct).ConfigureAwait(false);
+        var snapshot=await Task.Run(()=>NativeMeshImportSnapshot.Create(path,hash,ct:ct),ct).ConfigureAwait(false);
         try
         {
             return await AholoHost.OnUi(()=>
@@ -45,7 +45,7 @@ internal sealed class MeshPlacementService
     internal async Task<MeshPlacementResult> PlaceTaskAsync(Guid id,string? artifactKey,MeshPlacementTarget target,CancellationToken ct,Func<bool>? allowed=null)
     {
         var task=await Task.Run(()=>session.Store.Get(id),ct).ConfigureAwait(false);
-        TaskArtifact? artifact=task.Artifacts.FirstOrDefault(a=>(artifactKey is null||a.Key==artifactKey)&&a.Format=="glb"&&a.Error is null);
+        TaskArtifact? artifact=task.Artifacts.FirstOrDefault(a=>(artifactKey is null||a.Key==artifactKey)&&MeshPlacementPolicy.IsNativeMeshFormat(a.Format)&&a.Error is null);
         if(artifact?.LocalPath is null||!File.Exists(artifact.LocalPath))
         {
             if(!session.Connection.Connected||task.ConnectionId!=session.Connection.ConnectionId)throw new InvalidOperationException(UiText.Get("Connect to the task's original account before recovering its download."));
@@ -67,7 +67,7 @@ internal sealed class MeshPlacementService
         var trace=new HostImportTrace(id,target.Document.Serial,AholoPlugin.DisplayVersion,session.Store.Root);
         try
         {
-            using var snapshot=await Task.Run(()=>GlbImportSnapshot.Create(artifact.LocalPath!,artifact.Sha256,trace),ct).ConfigureAwait(false);
+            using var snapshot=await Task.Run(()=>NativeMeshImportSnapshot.Create(artifact.LocalPath!,artifact.Sha256,trace,ct),ct).ConfigureAwait(false);
             return await AholoHost.OnUi(()=>
             {
                 ct.ThrowIfCancellationRequested();var doc=Resolve(target);

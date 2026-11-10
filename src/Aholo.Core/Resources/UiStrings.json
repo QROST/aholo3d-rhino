@@ -2910,5 +2910,77 @@
   {
     "English": "Candidate preview resources could not be fully released.",
     "Chinese": "候选预览资源未能完全释放。"
+  },
+  {
+    "English": "Preflight: Rhino's native mesh import threw an exception before mesh repair. ",
+    "Chinese": "预检阶段：Rhino 原生 模型 导入发生异常，尚未进入网格修复。"
+  },
+  {
+    "English": "Preflight: Rhino's native mesh import failed before mesh repair.",
+    "Chinese": "预检阶段：Rhino 原生 模型 导入失败，尚未进入网格修复。"
+  },
+  {
+    "English": "Document import: Rhino's native mesh import threw an exception before mesh repair. ",
+    "Chinese": "正式导入阶段：Rhino 原生 模型 导入发生异常，尚未进入本次网格修复。"
+  },
+  {
+    "English": "Document import: Rhino's native mesh import failed before mesh repair.",
+    "Chinese": "正式导入阶段：Rhino 原生 模型 导入失败，尚未进入本次网格修复。"
+  },
+  {
+    "English": "A mesh block references a missing definition.",
+    "Chinese": "模型 Block 引用了不存在的定义。"
+  },
+  {
+    "English": "A mesh block contains a cyclic reference.",
+    "Chinese": "模型 Block 存在循环引用。"
+  },
+  {
+    "English": "Invalid mesh block transform.",
+    "Chinese": "模型 Block 变换无效。"
+  },
+  {
+    "English": "The imported file contains unsupported non-mesh objects.",
+    "Chinese": "模型 含不支持的非 Mesh 对象。"
+  },
+  {
+    "English": "Choose an available static GLB, mesh PLY or STL result. Use Import GS for Gaussian files.",
+    "Chinese": "请选择静态 GLB、网格 PLY 或 STL 结果。高斯文件请使用“导入 GS”。"
+  },
+  {
+    "English": "Choose a static GLB, mesh PLY or STL file.",
+    "Chinese": "请选择静态 GLB、网格 PLY 或 STL 文件。"
+  },
+  {
+    "English": "This PLY is not an ordinary mesh. Use Import GS for complete Gaussian data; point-only or ambiguous files are not converted.",
+    "Chinese": "此 PLY 不是普通网格。完整高斯数据请使用“导入 GS”；纯点或类型不明确的文件不会自动转换。"
+  },
+  {
+    "English": "This PLY is neither a complete Gaussian scene nor an ordinary mesh with faces.",
+    "Chinese": "此 PLY 既不是完整高斯场景，也不是包含面的普通网格。"
+  },
+  {
+    "English": "The mesh hash does not match the task record.",
+    "Chinese": "模型哈希与任务记录不一致。"
+  },
+  {
+    "English": "The mesh file is empty.",
+    "Chinese": "模型文件为空。"
+  },
+  {
+    "English": "Load local mesh",
+    "Chinese": "载入本地模型"
+  },
+  {
+    "English": "Preview mesh candidate",
+    "Chinese": "预览模型候选"
+  },
+  {
+    "English": "Static mesh",
+    "Chinese": "静态模型"
+  },
+  {
+    "English": "Local task ID from Aholo3D Library (places the original static mesh; never regenerates)",
+    "Chinese": "Aholo3D 资源库中的本地任务 ID（放置原始静态模型，不会重新生成）"
   }
 ]

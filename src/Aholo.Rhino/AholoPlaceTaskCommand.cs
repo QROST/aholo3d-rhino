@@ -10,7 +10,7 @@ public sealed class AholoPlaceTaskCommand : Command
     public override string EnglishName=>"AholoPlaceTask";
     protected override Result RunCommand(global::Rhino.RhinoDoc doc,RunMode mode)
     {
-        using var input=new GetString();input.SetCommandPrompt(UiText.Get("Local task ID from Aholo3D Library (places the original static GLB; never regenerates)"));
+        using var input=new GetString();input.SetCommandPrompt(UiText.Get("Local task ID from Aholo3D Library (places the original static mesh; never regenerates)"));
         if(input.Get()!=global::Rhino.Input.GetResult.String)return Result.Cancel;
         if(!Guid.TryParse(input.StringResult(),out var id)||id==Guid.Empty){global::Rhino.RhinoApp.WriteLine(UiText.Get("Enter the full local task GUID from Library."));return Result.Failure;}
         MeshPlacementTarget target;
