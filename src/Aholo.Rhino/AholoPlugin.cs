@@ -18,6 +18,8 @@ public sealed class AholoPlugin : PlugIn
     internal static AholoSession Session => SharedSession.Value;
     private static MeshHostService? meshHost;
     internal static MeshHostService MeshHost => meshHost ??= new MeshHostService(Session.Store.Root);
+    private static MeshPlacementService? placement;
+    internal static MeshPlacementService Placement => placement ??= new MeshPlacementService(Session,MeshHost);
     internal static IAholoServiceClient CreateClient() => Session.Client;
     internal static string DocumentScope(uint serial) => "document:" + serial.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":";
     private static void OnDocumentClosed(object? sender, global::Rhino.DocumentEventArgs e)

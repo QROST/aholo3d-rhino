@@ -2782,5 +2782,133 @@
   {
     "English": "World LOD metadata",
     "Chinese": "世界 LOD 元数据"
+  },
+  {
+    "English": "Mesh placement and candidates",
+    "Chinese": "模型放置与候选"
+  },
+  {
+    "English": "Height (document units)",
+    "Chinese": "高度（文档单位）"
+  },
+  {
+    "English": "Rotation (degrees)",
+    "Chinese": "旋转（度）"
+  },
+  {
+    "English": "Pick placement point",
+    "Chinese": "选择放置点"
+  },
+  {
+    "English": "Use current construction plane",
+    "Chinese": "使用当前工作平面"
+  },
+  {
+    "English": "Accept candidate",
+    "Chinese": "接受候选"
+  },
+  {
+    "English": "Remove candidate",
+    "Chinese": "移除候选"
+  },
+  {
+    "English": "Clear candidates",
+    "Chinese": "清空候选"
+  },
+  {
+    "English": "Load local GLB",
+    "Chinese": "加载本地 GLB"
+  },
+  {
+    "English": "Preview GLB candidate",
+    "Chinese": "预览 GLB 候选"
+  },
+  {
+    "English": "Enter a valid height and rotation.",
+    "Chinese": "请输入有效的高度与旋转角度。"
+  },
+  {
+    "English": "Choose Aholo3D placement point",
+    "Chinese": "选择 Aholo3D 放置点"
+  },
+  {
+    "English": "Position ({0:G5}, {1:G5}, {2:G5}) on the captured construction plane",
+    "Chinese": "捕获工作平面上的位置 ({0:G5}, {1:G5}, {2:G5})"
+  },
+  {
+    "English": "Candidate loaded. Adjust placement, compare candidates, then accept. The document is unchanged until acceptance.",
+    "Chinese": "候选已加载。可调整放置、比较候选后接受。接受之前不会修改文档。"
+  },
+  {
+    "English": "Preview cleanup did not finish. The imported block is retained.",
+    "Chinese": "预览清理未完成，已导入的块仍然保留。"
+  },
+  {
+    "English": "Choose an available static GLB result. Use Library for GS, spatial or other formats.",
+    "Chinese": "请选择可用的静态 GLB 结果。GS、空间理解及其他格式请使用资源库。"
+  },
+  {
+    "English": "Connect to the task's original account before recovering its download.",
+    "Chinese": "请连接任务原账号后恢复其下载。"
+  },
+  {
+    "English": "The original task is not ready. No new generation was submitted.",
+    "Chinese": "原任务尚未就绪。未提交新的生成任务。"
+  },
+  {
+    "English": "The model is placed as an independent block. One Undo reverses this placement.",
+    "Chinese": "模型已作为独立块放置，一次撤销可移除本次放置。"
+  },
+  {
+    "English": "Local task ID from Aholo3D Library (places the original static GLB; never regenerates)",
+    "Chinese": "Aholo3D 资源库中的本地任务 ID（放置原静态 GLB，不重新生成）"
+  },
+  {
+    "English": "Enter the full local task GUID from Library.",
+    "Chinese": "请输入资源库中的完整本地任务 GUID。"
+  },
+  {
+    "English": "Place generated mesh when ready",
+    "Chinese": "生成模型就绪后自动放置"
+  },
+  {
+    "English": "Local task ID",
+    "Chinese": "本地任务 ID"
+  },
+  {
+    "English": "Cannot restore the original current layer.",
+    "Chinese": "无法恢复原来的当前图层。"
+  },
+  {
+    "English": "Cannot create a visible mesh layer.",
+    "Chinese": "无法创建可见的模型图层。"
+  },
+  {
+    "English": "Up to 3 candidates per group. Remove an unwanted candidate first.",
+    "Chinese": "每组最多保留 3 个候选，请先移除不需要的候选。"
+  },
+  {
+    "English": "Load and select a candidate first.",
+    "Chinese": "请先载入并选择一个候选模型。"
+  },
+  {
+    "English": "Invalid transformed preview bounding box.",
+    "Chinese": "变换后的候选预览包围盒无效。"
+  },
+  {
+    "English": "Candidate previews must be updated or released on Rhino's UI thread.",
+    "Chinese": "候选预览必须在 Rhino 界面线程上更新或释放。"
+  },
+  {
+    "English": "The candidate mesh node transform failed.",
+    "Chinese": "候选模型网格节点变换失败。"
+  },
+  {
+    "English": "The candidate contains no previewable mesh.",
+    "Chinese": "候选模型中没有可预览的网格。"
+  },
+  {
+    "English": "Candidate preview resources could not be fully released.",
+    "Chinese": "候选预览资源未能完全释放。"
   }
 ]

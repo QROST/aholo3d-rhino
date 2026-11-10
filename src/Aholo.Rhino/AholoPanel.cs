@@ -12,7 +12,7 @@ using RhinoDoc=global::Rhino.RhinoDoc;
 namespace Aholo.Rhino;
 
 [Guid("676AA7F9-6F1F-4F15-9CE1-DB3CB70CF397")]
-public sealed class AholoPanel : Panel,IPanel
+public sealed partial class AholoPanel : Panel,IPanel
 {
     private readonly uint serial;
     private readonly AholoSession session=AholoPlugin.Session;
@@ -60,6 +60,7 @@ public sealed class AholoPanel : Panel,IPanel
         serial=documentSerialNumber;
         var document=RhinoDoc.FromRuntimeSerialNumber(serial);
         if(document is not null){double unitScale=global::Rhino.RhinoMath.UnitScale(global::Rhino.UnitSystem.Meters,document.ModelUnitSystem);if(double.IsFinite(unitScale)&&unitScale>0)objectHeight.Text=unitScale.ToString("R",CultureInfo.InvariantCulture);}
+        InitializePlacement();
         creation.DataStore=ServiceOperations.All.Select(x=>T(x.Title)).ToArray();creation.SelectedIndex=0;
         creation.SelectedIndexChanged+=(_,_)=>ChangeForm();ChangeForm();
         submit=Action("Create · Uses service credits",CreateAsync);
@@ -67,14 +68,15 @@ public sealed class AholoPanel : Panel,IPanel
         refresh=Action("Refresh selected task",RefreshAsync);
         download=Action("Download selected result",DownloadAsync);
         place=Action("Place in current document",PlaceAsync);
+        previewResult=Action("Preview GLB candidate",PreviewSelectedAsync);
         continueRender=Action("Continue original render · Uses service credits",ContinueAsync);
-        var createPage=Column(creation,formHost,submit,Info("Each click creates one paid task. Follow its progress in Library."));
+        var createPage=Column(creation,formHost,autoPlace,submit,Info("Each click creates one paid task. Follow its progress in Library."));
         tasks.SelectedIndexChanged+=(_,_)=>{if(!reloadingHistory)Describe();};artifacts.SelectedIndexChanged+=(_,_)=>UpdateActions();
         filter.SelectedIndexChanged+=(_,_)=>{offset=0;_=ReloadAsync();};search.TextChanged+=(_,_)=>{offset=0;_=ReloadAsync();};
         previous.Click+=(_,_)=>{offset=Math.Max(0,offset-50);_=ReloadAsync();};next.Click+=(_,_)=>{offset+=50;_=ReloadAsync();};
         var worldId=new TextBox{PlaceholderText=T("Existing Aholo World ID")};
         var libraryPage=Column(search,filter,tasks,Row(previous,pageInfo,next),Row(Local("Load history",()=>_=ReloadAsync()),refresh),detail,artifacts,artifactDetail,
-            Row(download,Local("Open result folder",OpenResultFolder)),Local("Open image",OpenImage),place,continueRender,
+            Row(download,Local("Open result folder",OpenResultFolder)),Local("Open image",OpenImage),place,previewResult,meshEditor.View,Action("Load local GLB",LoadLocalGlbAsync),continueRender,
             Row(Local("Pause local polling",Pause),Local("Resume polling",Resume)),
             Action("Cloud history and recovery",async()=>{using var dialog=new CloudLibraryDialog(session,Scope,token);var restored=dialog.ShowModal(this);if(restored is not null)await RevealAsync(restored);}),
             Info("Local files"),Row(Action("Import GS",ImportGsAsync),Action("Export GS",ExportGsAsync)),exportScope,
@@ -103,12 +105,12 @@ public sealed class AholoPanel : Panel,IPanel
     {
         if(creation.SelectedIndex<0)return;string id=ServiceOperations.All[creation.SelectedIndex].Id;
         if(!drafts.TryGetValue(id,out var selected)){selected=new CreationForm(id);drafts[id]=selected;}
-        form=selected;formHost.Content=form;
+        form=selected;formHost.Content=form;autoPlace.Visible=MeshPlacementPolicy.SupportsAutomaticPlacement(id);
     }
     private void Report(string text){if(!disposed)feedback.Text=text;}
     private async Task RunAsync(string name,Func<Task> work)
     {
-        if(disposed||busy)return;busy=true;operationGeneration++;workName=T(name);clock.Restart();elapsed.Start();UpdateActions();
+        if(disposed||busy||autoBusy)return;busy=true;operationGeneration++;workName=T(name);clock.Restart();elapsed.Start();UpdateActions();
         try
         {
             await session.Operations.RunAsync(Scope+"foreground",name,async ct=>{token=ct;try{await work();}finally{token=default;}},lifetime.Token);
@@ -123,17 +125,19 @@ public sealed class AholoPanel : Panel,IPanel
     {
         if(disposed)return;
         bool connected=session.Connection.Connected;
+        bool working=busy||autoBusy;meshEditor.SetBusy(working);
         connection.ToolTip=UiText.TranslateKnownMessage(session.LastError??"");
         connection.Text=connected?T("International · Connected"):T("International · Not connected");
-        foreach(var button in actions)button.Enabled=!busy;
-        submit.Enabled=render.Enabled=!busy&&connected;
+        foreach(var button in actions)button.Enabled=!working;
+        submit.Enabled=render.Enabled=!working&&connected;
         var task=Selected;var capability=task is null?null:TaskCapabilities.For(task);var artifact=SelectedArtifact;
         artifactDetail.Text=artifact?.Error is not null?UiText.TranslateKnownMessage(artifact.Error):artifact?.LocalPath??"";
         bool sameAccount=task?.ConnectionId==session.Connection.ConnectionId;
-        refresh.Enabled=!busy&&connected&&sameAccount&&capability?.CanQuery==true;
-        download.Enabled=!busy&&connected&&sameAccount&&capability?.CanDownload==true&&artifact is not null&&artifact.Error is null;
-        place.Enabled=!busy&&task is not null&&artifact is not null&&artifact.Format is "glb" or "ply" or "spz" or "dsl"&&artifact.LocalPath is not null&&File.Exists(artifact.LocalPath);
-        continueRender.Enabled=!busy&&connected&&sameAccount&&capability?.CanContinueRender==true;
+        refresh.Enabled=!working&&connected&&sameAccount&&capability?.CanQuery==true;
+        download.Enabled=!working&&connected&&sameAccount&&capability?.CanDownload==true&&artifact is not null&&artifact.Error is null;
+        place.Enabled=!working&&task is not null&&artifact is not null&&artifact.Format is "glb" or "ply" or "spz" or "dsl"&&artifact.LocalPath is not null&&File.Exists(artifact.LocalPath);
+        previewResult.Enabled=!working&&artifact?.Format=="glb"&&artifact.Error is null&&(artifact.LocalPath is not null||connected&&sameAccount&&capability?.CanDownload==true);
+        continueRender.Enabled=!working&&connected&&sameAccount&&capability?.CanContinueRender==true;
         continueRender.Visible=task?.Kind=="render"&&capability?.CanContinueRender==true;
         cancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
     }
@@ -175,11 +179,11 @@ public sealed class AholoPanel : Panel,IPanel
         string? key=preferredResult??SelectedArtifact?.Key;
         string progress=task.Progress.HasValue?" · "+task.Progress.Value.ToString("0.##",CultureInfo.InvariantCulture):"";
         string queried=task.LastQueriedAt.HasValue?task.LastQueriedAt.Value.ToLocalTime().ToString("g"):T("Not queried yet");
-        detail.Text=task.Name+"\n"+T(task.Kind)+" · "+UiText.Status(task.Status)+progress+"\nID: "+(TaskIdentity.From(task).RemoteId??"—")+"\n"+T("Last query")+": "+queried+(session.IsPaused(task.Id)?" · "+T("Polling paused"):"")+(task.Error is null?"":"\n"+UiText.TranslateKnownMessage(task.Error));
+        detail.Text=task.Name+"\n"+T(task.Kind)+" · "+UiText.Status(task.Status)+progress+"\nID: "+(TaskIdentity.From(task).RemoteId??"—")+"\n"+T("Local task ID")+": "+task.Id+"\n"+T("Last query")+": "+queried+(session.IsPaused(task.Id)?" · "+T("Polling paused"):"")+(task.Error is null?"":"\n"+UiText.TranslateKnownMessage(task.Error));
         var rows=Outputs(task);artifacts.DataStore=rows;int index=Array.FindIndex(rows,a=>a.Key==key);artifacts.SelectedIndex=index>=0?index:rows.Length>0?0:-1;UpdateActions();
     }
     private async Task CreateAsync()
-    {var request=form.Capture() with {Upload=uploadOptions};var task=await session.Client.CreateServiceAsync(request,token);session.Observe(task);await RevealAsync(task);}
+    {var request=form.Capture() with {Upload=uploadOptions};var intent=CaptureAutomatic(request);var task=await session.Client.CreateServiceAsync(request,token);RememberAutomatic(task,intent);session.Observe(task);await RevealAsync(task);}
     private async Task RevealAsync(LocalTask task)
     {
         if(disposed)return;
@@ -204,7 +208,7 @@ public sealed class AholoPanel : Panel,IPanel
     }
     private void OpenResultFolder()
     {string? path=SelectedArtifact?.LocalPath;string folder=path is not null?Path.GetDirectoryName(path)!:Path.Combine(session.Store.Root,"assets");Process.Start(new ProcessStartInfo(folder){UseShellExecute=true});}
-    private void Pause(){if(Selected is{} task){session.PauseTask(task.Id);Describe();Report(T("Local polling paused. The remote task continues."));}}
+    private void Pause(){if(Selected is{} task){session.PauseTask(task.Id);ForgetPlacement(task.Id);Describe();Report(T("Local polling paused. The remote task continues."));}}
     private void Resume(){if(Selected is{} task){session.ResumeQueries(task.Id);Describe();}}
     private IProgress<string> StageProgress()
     {
@@ -229,29 +233,8 @@ public sealed class AholoPanel : Panel,IPanel
         if(artifact.Format=="spz")
         {string message=await GaussianDocument.ImportSceneAsync(artifact.LocalPath,target,Scale(),Axis(),sourceUnits.SelectedIndex==0,token,StageProgress(),taskId:task.Id);AholoHost.Ui(()=>Report(message));return;}
         if(artifact.Format!="glb")throw new InvalidOperationException(T("This result format cannot be placed directly."));
-        if(!double.TryParse(objectHeight.Text,NumberStyles.Float,CultureInfo.InvariantCulture,out double height)||!double.IsFinite(height)||height<=0)throw new ArgumentException(T("Enter a positive model height in document units."));
-        var trace=new HostImportTrace(task.Id,serial,AholoPlugin.DisplayVersion,session.Store.Root);
-        try
-        {
-            using var snapshot=await Task.Run(()=>GlbImportSnapshot.Create(artifact.LocalPath,artifact.Sha256,trace),token);
-            await AholoHost.OnUi(()=>
-            {
-                token.ThrowIfCancellationRequested();var doc=Document();
-                if(doc.ModelUnitSystem!=target.Units||RhinoDoc.ActiveDoc?.RuntimeSerialNumber!=serial||doc.IsReadOnly||doc.IsClosing||doc.IsCommandRunning||doc.UndoRecordingIsActive)throw new InvalidOperationException(T("The target document changed. Retry placement in the intended document."));
-                Guid importId=new(SHA256.HashData(Encoding.UTF8.GetBytes(task.Id.ToString("N")+":"+artifact.Key)).AsSpan(0,16));
-                var host=AholoPlugin.MeshHost;var prior=host.FindReceipt(doc,importId);
-                if(prior is not null){Report(prior.State=="Imported"?T("This result is already in the document."):T("The earlier placement was removed. Use Rhino Redo to restore it."));return true;}
-                using var prepared=host.Prepare(snapshot,doc,trace);
-                int previousLayer=doc.Layers.CurrentLayerIndex;int visible=GaussianDocument.VisibleLayer(doc);
-                if(!doc.Layers.SetCurrentLayerIndex(visible,true))throw new InvalidOperationException(T("Cannot select a visible layer."));
-                ImportReceipt receipt;
-                try{receipt=host.Commit(prepared,new(global::Rhino.Geometry.Plane.WorldXY,global::Rhino.Geometry.Point3d.Origin,height,0),importId,task.Id,trace);}
-                finally{doc.Layers.SetCurrentLayerIndex(previousLayer,true);}
-                var obj=doc.Objects.FindId(receipt.ObjectId);if(obj is not null){doc.Objects.UnselectAll();obj.Select(true);doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(obj.Geometry.GetBoundingBox(true));doc.Views.Redraw();}
-                trace.Complete(receipt.State);Report(T("Model placed at the world origin. Rhino Undo removes this placement."));return true;
-            });
-        }
-        catch(Exception ex){trace.Fail(ex);throw;}
+        var result=await AholoPlugin.Placement.PlaceTaskAsync(task.Id,artifact.Key,meshEditor.Capture(),token);
+        Report(result.Message);
     }
     private async Task ImportGsAsync()
     {
@@ -274,6 +257,7 @@ public sealed class AholoPanel : Panel,IPanel
     private void ShowSettings()
     {
         bool closed=false;
+        objectHeight.Text=meshEditor.HeightText;
         var validation=new DropDown{DataStore=new[]{"World","Lux3D",T("Spatial understanding")},SelectedIndex=0};
         var key=new PasswordBox();var remember=new CheckBox{Text=T("Save in secure local storage")};
         var auto=new CheckBox{Text=T("Auto-refresh active tasks (every 8 seconds)"),Checked=session.AutoRefresh};auto.CheckedChanged+=(_,_)=>session.AutoRefresh=auto.Checked==true;
@@ -313,18 +297,27 @@ public sealed class AholoPanel : Panel,IPanel
         try{dialog.ShowModal(this);}finally{closed=true;session.Changed-=UpdateSettings;}
         static string? Optional(string value)=>string.IsNullOrEmpty(value)?null:value;
         uploadOptions=new(Optional(uploadMetadata.Text),Optional(uploadPrefix.Text),Optional(uploadFilename.Text));
-        scale.Text=settingsScale.Text;axis.SelectedIndex=settingsAxis.SelectedIndex;sourceUnits.SelectedIndex=settingsUnits.SelectedIndex;objectHeight.Text=settingsHeight.Text;
+        scale.Text=settingsScale.Text;axis.SelectedIndex=settingsAxis.SelectedIndex;sourceUnits.SelectedIndex=settingsUnits.SelectedIndex;objectHeight.Text=settingsHeight.Text;meshEditor.HeightText=settingsHeight.Text;
     }
-    private void SessionChanged()=>Application.Instance.AsyncInvoke(()=>{if(!disposed)UpdateActions();});
-    private void TaskChanged(LocalTask task)=>Application.Instance.AsyncInvoke(()=>{if(!disposed)_=ReloadAsync();});
+    private void SessionChanged()=>Application.Instance.AsyncInvoke(()=>{if(!disposed){PlacementConnectionChanged();UpdateActions();}});
+    private void TaskChanged(LocalTask task)=>Application.Instance.AsyncInvoke(()=>{if(!disposed){PlacementTaskChanged(task);_=ReloadAsync();}});
     public void PanelShown(uint documentSerialNumber,ShowPanelReason reason)
-    {if(disposed)return;session.Start();UpdateActions();_=ReloadAsync();}
-    public void PanelHidden(uint documentSerialNumber,ShowPanelReason reason){}
+    {if(disposed)return;shown=true;meshEditor.SetVisible(true);placementTimer.Start();session.Start();UpdateActions();_=ReloadAsync();}
+    public void PanelHidden(uint documentSerialNumber,ShowPanelReason reason){shown=false;placementTimer.Stop();meshEditor.SetVisible(false);}
     public void PanelClosing(uint documentSerialNumber,bool onCloseDocument)
-    {if(onCloseDocument){lifetime.Cancel();session.Operations.CancelPrefix(Scope);}}
+    {shown=false;RevokePlacements();placementTimer.Stop();meshEditor.Clear();if(onCloseDocument){lifetime.Cancel();session.Operations.CancelPrefix(Scope);}}
     protected override void Dispose(bool disposing)
     {
-        if(disposing&&!disposed){disposed=true;session.Changed-=SessionChanged;session.TaskChanged-=TaskChanged;elapsed.Stop();elapsed.Dispose();foreach(var draft in drafts.Values)draft.Dispose();drafts.Clear();if(!busy)lifetime.Dispose();}
-        base.Dispose(disposing);
+        try
+        {
+            if(disposing&&!disposed)
+            {
+                disposed=true;lifetime.Cancel();RevokePlacements();session.Changed-=SessionChanged;session.TaskChanged-=TaskChanged;
+                placementTimer.Stop();placementTimer.Dispose();elapsed.Stop();elapsed.Dispose();
+                try{meshEditor.Dispose();}
+                finally{foreach(var draft in drafts.Values)draft.Dispose();drafts.Clear();if(!busy&&!autoBusy)lifetime.Dispose();}
+            }
+        }
+        finally{base.Dispose(disposing);}
     }
 }

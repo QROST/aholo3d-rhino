@@ -175,7 +175,7 @@ public sealed class MeshHostService : IDisposable
             ? "Imported" : missing;
         return receipt with { State = state };
     }
-    public ImportReceipt Commit(PreparedAsset asset, PlacementIntent placement, Guid importId, Guid? generationOperationId = null, HostImportTrace? trace = null)
+    public ImportReceipt Commit(PreparedAsset asset, PlacementIntent placement, Guid importId, Guid? generationOperationId = null, HostImportTrace? trace = null, Action? validateCommit = null)
     {
         RequireUiThread();
         trace?.Record("commit_start");
@@ -192,7 +192,8 @@ public sealed class MeshHostService : IDisposable
             throw new InvalidOperationException(global::Aholo.Core.UiText.Get("This import failed and cannot be replayed automatically. Inspect the document before explicitly creating a new import."));
         }
         if (doc.UndoRecordingIsActive) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Finish the current Rhino command before accepting a candidate."));
-        int targetLayerIndex = doc.Layers.CurrentLayerIndex;
+        int previousLayerIndex = doc.Layers.CurrentLayerIndex;
+        int targetLayerIndex = previousLayerIndex;
         asset.Verify();
         string durableImportPath = PersistImportSnapshot(asset);
         trace?.Record("commit_snapshot_verified");
@@ -200,6 +201,7 @@ public sealed class MeshHostService : IDisposable
         HashSet<Guid> before = Objects(doc).Select(o => o.Id).ToHashSet();
         HashSet<Guid> definitionsBefore = doc.InstanceDefinitions.GetList(true).Select(d => d.Id).ToHashSet();
         string beforeState = DocumentState(doc);
+        validateCommit?.Invoke();
         uint undo = doc.BeginUndoRecord(global::Aholo.Core.UiText.Get("Accept Aholo mesh candidate"));
         if (undo == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Could not create an undo record. Nothing was imported."));
         List<GeometryBase> geometry = new();
@@ -211,6 +213,10 @@ public sealed class MeshHostService : IDisposable
         _fingerprints.Add((doc.RuntimeSerialNumber, importId), fingerprint);
         try
         {
+            // Layer creation and switching belong to the same Undo as the model.
+            targetLayerIndex = VisibleMeshLayer(doc);
+            if (!doc.Layers.SetCurrentLayerIndex(targetLayerIndex, true))
+                throw new InvalidOperationException(UiText.Get("Cannot select a visible layer."));
             using (var marker = new global::Rhino.Geometry.Point(Point3d.Origin))
             using (var markerAttributes = new ObjectAttributes())
                 definitionIndex = doc.InstanceDefinitions.Add("AholoMesh_" + importId.ToString("N"), "Aholo mesh native GLB; SHA256 " + asset.Sha256, Point3d.Origin, new[] { marker }, new[] { markerAttributes });
@@ -225,6 +231,7 @@ public sealed class MeshHostService : IDisposable
             }
             trace?.Record("commit_native_import_result", importedNative ? "true" : "false");
             if (!importedNative) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Document import: Rhino's native GLB import failed before mesh repair."));
+            validateCommit?.Invoke();
             VerifyHash(durableImportPath, asset.Sha256);
             asset.Verify();
             RhinoObject[] added = Objects(doc).Where(o => !before.Contains(o.Id)).ToArray();
@@ -261,6 +268,7 @@ public sealed class MeshHostService : IDisposable
             instanceAttributes.SetUserString("Aholo.Mesh.AssetSha256", asset.Sha256);
             instanceAttributes.SetUserString("Aholo.Mesh.DocumentSession", asset.DocumentSessionId);
             if (generationOperationId.HasValue) instanceAttributes.SetUserString("Aholo.Mesh.GenerationOperationId", generationOperationId.Value.ToString("D"));
+            validateCommit?.Invoke();
             instanceId = doc.Objects.AddInstanceObject(definitionIndex, transform, instanceAttributes);
             if (instanceId == Guid.Empty) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Could not place the Aholo mesh block."));
             trace?.Record("commit_instance_added", instanceId.ToString("D"));
@@ -272,6 +280,12 @@ public sealed class MeshHostService : IDisposable
         {
             foreach (GeometryBase item in geometry) item.Dispose();
             foreach (ObjectAttributes item in attributes) item.Dispose();
+            try
+            {
+                if (!doc.Layers.SetCurrentLayerIndex(previousLayerIndex, true))
+                    failure ??= new InvalidOperationException(UiText.Get("Cannot restore the original current layer."));
+            }
+            catch (Exception error) { failure ??= error; }
             undoEnded = doc.EndUndoRecord(undo);
         }
         if (failure is not null)
@@ -295,6 +309,22 @@ public sealed class MeshHostService : IDisposable
         try { doc.Views.Redraw(); }
         catch { /* View refresh cannot turn a completed document import into a failed import. */ }
         return receipt;
+    }
+    private static int VisibleMeshLayer(RhinoDoc doc)
+    {
+        Layer current=doc.Layers.CurrentLayer;
+        Layer? ancestor=current;
+        var visited=new HashSet<Guid>();
+        bool usable=true;
+        while(ancestor is not null)
+        {
+            if(!ancestor.IsVisible||ancestor.IsLocked||!visited.Add(ancestor.Id)){usable=false;break;}
+            ancestor=ancestor.ParentLayerId==Guid.Empty?null:doc.Layers.FindId(ancestor.ParentLayerId);
+        }
+        if(usable)return current.Index;
+        int index=doc.Layers.Add("Aholo mesh "+Guid.NewGuid().ToString("N")[..6],System.Drawing.Color.FromArgb(105,170,200));
+        if(index<0)throw new InvalidOperationException(UiText.Get("Cannot create a visible mesh layer."));
+        return index;
     }
     private string PersistImportSnapshot(PreparedAsset asset)
     {

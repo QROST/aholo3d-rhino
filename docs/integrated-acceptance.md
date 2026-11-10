@@ -9,7 +9,7 @@ Run separately on Apple Silicon Mac and Windows Rhino 8.32+, in English and Chin
 1. Start `AholoPanel`. Verify Create / Library / Render and Settings at narrow panel widths. Choose all 13 operations; required controls and advanced options must remain usable. Enter a draft, switch operation, switch back: name, prompt, files and options survive.
 2. Read local history without connecting. Search/filter/page; restore-selection tests must select the requested task, not the first unrelated entry. Existing old journals remain readable. Open a downloaded file's directory and compare the displayed location.
 3. Start a long local import, close the panel and reopen. Verify one shared operation and accessible cancellation. Repeat via `AholoImportGs` / `AholoExportGs` and `AholoCancel`. Close the target document: no work may mutate a different document.
-4. Place a downloaded static GLB: visible native Block at origin, intended height, materials retained, one Undo/Redo cycle. Repeat the click and reopen the panel: no duplicate. Delete/Undo the result: no automatic re-insertion. Save/reopen 3DM and repeat identity check. Test another unit system, wrong active document and units changed during preparation.
+4. Place a downloaded static GLB: visible native Block on the selected construction plane/point, intended height, materials retained, one Undo/Redo cycle. Repeat the click and reopen the panel: no duplicate. Delete/Undo the result: no automatic re-insertion. Save/reopen 3DM and repeat identity check. Test another unit system, wrong active document and units changed during preparation.
 5. Use GS probe and a known PLY/SPLAT/SPZ/USD scene. Test SPZ World placement twice, Undo/Redo and export to USDZ; verify all parts, opacity, SH colors and source axis. Verify source count, color, clipping and navigation as in the GS checklist. Unsupported PLY/animated GLB must fail with the original file retained.
 6. While busy, open Settings and attempt connection changes: key entry must not disappear silently. Settings status must update after a connection operation. Inspect numeric plug-in version 0.2.0.0 and publisher CuriousArc.
 
@@ -20,7 +20,7 @@ These require user-selected input data and paid-service authorization. They were
 - Validate a Lux3D-only Key via Lux3D history. Confirm other service permissions are handled separately; OAuth alone does not enable API calls.
 - Text→GLB, one/many-image→GLB and World generation/reconstruction: submit once; check exact remote ID and original-task polling, typed result slots, downloads, then supported placement.
 - Material transfer/format export: request partial formats and confirm NOT_REQUESTED slots do not shift result identities. Four-view images retain all four views. Rig/retarget failures remain explicit; downloaded animation files are not claimed as playable in Rhino.
-- Spatial: choose local aligned indoor PLY; confirm Asset upload precedes creation, result is a DSL file, and no automatic Rhino walls are claimed.
+- Spatial: choose local aligned indoor PLY; confirm Asset upload precedes creation, result is a DSL file, then place wall surfaces, door/window outlines and oriented box Breps as one editable block. Check units and one Undo; no invented thickness or boolean openings.
 - Render a generated mesh Block plus Brep and a nested/reflected instance. Compare transforms, physical scale, base colors and camera to direct geometry. User geometry must not be exploded or changed. GS selections must fail before upload rather than render bounding boxes.
 - Pause local polling, reset the connection, restart Rhino and recover MeshReady. Query/download must not submit a render; explicit Continue is required after authority is lost. Never interrupt/resubmit paid creations repeatedly for testing; verify official account records first.
 
@@ -46,3 +46,10 @@ In Settings, run Check USD readiness with the private runtime present and absent
 ## Interaction follow-up
 
 Start a download or refresh for task A, then select task B and one of its results. When A finishes, B and that result must remain selected; completion feedback names A and its output. Creating or explicitly restoring a task should still reveal that task. In Settings, cancel a connection check or USD readiness check without closing the dialog, then verify another operation can start.
+
+## Mesh candidates and automatic placement
+
+- Load three local/result static GLBs. Compare candidate colors; adjust height and rotation repeatedly, use current CPlane and pick a point. Acceptance creates only the chosen Block. Clear/hide/close removes preview geometry without removing an accepted model. Clearing during preparation must not restore the candidate later.
+- Start from a hidden/locked current layer or an invisible ancestor layer. Accept, Undo and Redo; both the Block and any created visible layer belong to one operation, and the original current layer is restored.
+- Generate with automatic placement enabled. While waiting, change the active document, close the target, change units, pause the task, turn the option off or disconnect. No stale automatic placement is allowed. Restoring history and restarting Rhino never grants automatic placement.
+- Use `AholoPlaceTask` with the full local task GUID from Library. It may query/download the original static GLB; it must never generate. Repeat after success, delete and Undo: no duplicate is inserted. Cached static GLB placement works without a cloud connection.
