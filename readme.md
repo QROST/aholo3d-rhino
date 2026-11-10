@@ -6,7 +6,7 @@ Worlds, objects, Gaussian viewing and cloud rendering inside Rhino 8, by **Curio
 
 The repository and checkout directory are now **`aholo3d-rhino`**. The existing Yak package remains **`aholo-rhino`** so installed users keep the same update channel. Plug-in identity, commands, credentials, state/cache and optional USD runtime locations remain compatible. See [repository rename and compatibility](docs/repository-rename.md).
 
-**0.2.0-alpha.2 — integrated development candidate, not published.** The previous `0.1.1-beta.2` Yak release was unlisted at the user's request. The new interface and service workflows have local build/mock-test evidence; their live service behavior and native Rhino layout are not yet accepted. Earlier Mac GS acceptance applies only to the earlier implementation. CuriousArc's independent integration is not an official Aholo or McNeel product.
+**Development after 0.2.0-alpha.2 — not packaged or published.** The previous `0.1.1-beta.2` Yak release was unlisted at the user's request. The new interface and service workflows have local build/mock-test evidence; their live service behavior and native Rhino layout are not yet accepted. Earlier Mac GS acceptance applies only to the earlier implementation. CuriousArc's independent integration is not an official Aholo or McNeel product.
 
 See [implementation progress](docs/implementation-progress.md), [API coverage and remaining scope](docs/api-capabilities.md) and [integrated acceptance](docs/integrated-acceptance.md).
 
@@ -20,9 +20,9 @@ Panels, command messages, GS diagnostics and known task errors follow this selec
 
 - Create worlds from text/images, or reconstruct from at least 20 photos or supported video.
 - Use all ten public Lux3D create operations: object/image/four-view generation, material transfer, part splitting, format conversion, articulation, rigging and retargeting. Advanced options stay collapsed; each operation keeps its draft.
-- Upload an indoor PLY for SpatialUnderstanding and download its DSL result.
-- Browse one searchable, paginated local Library. Download typed outputs and place supported static GLB as a native Block with no artificial vertex/face ceiling. Animation/rig files can be downloaded; native animation playback is not implemented.
-- Follow persisted jobs, reconnect to an existing world by its ID, and download original PLY/SPZ or the available panorama.
+- Upload an indoor PLY for SpatialUnderstanding, download its DSL result and place editable wall surfaces, opening outlines and oriented boxes as one Block.
+- Browse one searchable, paginated local Library and World/Lux3D/Spatial cloud history. Download typed outputs, compare up to three cached candidates and place supported static GLB, polygon mesh PLY or STL as a native Block, using a construction plane/point, height and rotation with no artificial vertex/face ceiling. Animation/rig files can be downloaded; native animation playback is not implemented.
+- Follow persisted jobs, restore World/Lux3D/Spatial/render records by their original service IDs, and download original PLY/SPZ, panorama or available LOD metadata. LOD metadata is retained without assuming an unpublished progressive-loading schema.
 - Import a full 3DGS PLY as a normal Rhino block reference and draw anisotropic Gaussian ellipses with opacity and SH 0–3 view-dependent colors in **Aholo GS (Experimental)**. Source files and parameters are retained. Scale, axis conversion, transforms and Undo are implemented; detailed document-lifecycle checks remain open.
 - Run `AholoGsProbe` for an offline native-viewport experiment, `AholoImportGs` for a local GS PLY/SPLAT/SPZ or USD/USDZ scene, and `AholoGsDiagnostics` for status. `AholoImportPly` is a separate center-point diagnostic only.
 - Upload selected Mesh/Brep/Extrusion objects and ordinary nested Blocks, preserve basic diffuse colors, and submit an offline RenderCloud job using the active perspective camera. Download and open the resulting image.
@@ -35,7 +35,7 @@ This is an **experimental renderer**. Beta.3 replaces the per-Gaussian native re
 
 The user confirmed red/teal probe colors, colored world display, faster navigation and basic clipping-plane interaction on the local Apple Silicon Mac. After the visibility and startup fixes in beta.4/beta.5, the user confirmed the retest passed on 2026-11-02 and approved version 0.1.0. Detailed alpha/depth/sorting and Windows acceptance remain pending. Arbitrary interleaving with transparent Rhino objects, nested blocks, layout details, printing/view capture, stereo and Raytraced integration are not supported. Display RGB is 8-bit and clips HDR before blending; opacity uses 256 atlas levels (at most 0.5/255 opacity rounding), without altering the source. The CPU oracle retains floating-point data and is not a claim of pixel-identical host rendering. Basic clipping-plane interaction was observed by the user on Mac; multi-plane/edge behavior is still experimental.
 
-Realtime RenderCloud REST/WebSocket transport and mock-tested session cleanup are implemented as a library foundation. **There is no realtime cloud viewport yet.** The published stream returns JPEG without depth, alpha or camera-associated frame IDs; World GS assets also need a validated bridge to cloud mesh IDs. Full-scene cloud rendering remains a planned stage, with explicit capability gates. Reconstruction is exposed; full Rhino PBR/textures/lights remain outside cloud scene export. World generation is best suited to indoor scenes according to the official documentation.
+Render → **Open cloud preview** opens a separate modeless window for an already-ingested RenderCloud mesh or GS asset ID. It follows the original perspective viewport camera and shows the latest JPEG with its receive time; images can lag behind navigation. Streaming has an independent local control channel, cancellation and durable cleanup records. **This is not native mixed-depth viewport compositing.** The public stream provides no depth, alpha or camera-associated frame IDs; arbitrary World PLY/SPZ ingestion into a cloud mesh ID also lacks a validated contract. Full Rhino PBR/textures/lights remain outside cloud scene export. World generation is best suited to indoor scenes according to the official documentation.
 
 See the [staged plan and evidence](docs/decisions/0001-native-gaussian-viewport.md) and [GS acceptance procedure](docs/gs-host-acceptance.md).
 
@@ -69,9 +69,10 @@ This alpha is built locally; it has not been installed or published automaticall
 1. Run `AholoPanel`, open **Settings**, enter an international API Key and choose a service for validation. Local GS import/export and local history work without a Key.
 2. Choose an operation in **Create**, fill its fields and submit once. **Advanced options** contains optional model/output settings.
 3. In **Library**, follow status, select a result and download it. The exact path appears in feedback; **Open result folder** reveals its directory.
-4. Use **Place in current document** for a downloaded supported GLB or Gaussian PLY/SPZ. Settings controls GS units/axis and mesh height. Models are placed at the world origin with Undo; repeated clicks do not duplicate an existing receipt. The generation face-count range is a service rule, not an import limit.
+4. Use **Place in current document** for a supported GLB, mesh PLY/STL, spatial DSL or Gaussian PLY/SPZ. Mesh candidates use the selected CPlane/point, height and rotation; Settings controls GS units/axis. Placement supports Undo and repeated clicks do not duplicate an existing receipt. Optional automatic mesh placement belongs only to the original live generation intent; closing/changing document or connection revokes it. The generation face-count range is a service rule, not an import limit.
 5. In **Render**, submit selected supported geometry from a perspective view. The original live session may advance mesh processing once; after restart/reset, use **Continue original render** explicitly. Query/download never creates another paid request.
-6. `AholoCancel` or the footer button stops local waiting/preparation. It does not cancel remote work. Closing the panel preserves the shared session and task history.
+6. For an already-ingested cloud asset, open the separate cloud preview window. Starting a stream may use service credits. Stop it there; if cleanup is not confirmed, retry the original session from its cleanup list. A lost create reply is not automatically retried.
+7. `AholoCancel` or the footer button stops local waiting/preparation. It does not cancel remote work. Closing the panel preserves the shared session and task history.
 
 ## Local GS USD / USDZ import and export
 
@@ -94,17 +95,17 @@ On Windows use `py -3.12`. The script installs `usd-core==26.11` in `~/Library/A
 
 Rhino geometry is tessellated using Rhino's default meshing parameters and converted to standard glTF metres/Y-up. RenderCloud consumes an external mesh asset referenced by USDA, not inline USD vertex arrays. The scene applies the inverse conversion to millimetres/Z-up, as required by the renderer. **Whether the service's fast GLB ingestion preserves this convention still requires a real account test.** Verify a known-size cube and camera before using cloud output for scale-critical work.
 
-The camera export preserves the viewport's horizontal field of view and uses the selected output aspect ratio. Orthographic and shifted-frustum cameras are rejected explicitly. Only basic diffuse colors are exported; Rhino material graphs, textures, custom lights, block instances and point clouds are not currently exported. Supported selected geometry is listed in the panel before submission; unsupported selection types cause an error.
+The camera export preserves the viewport's horizontal field of view and uses the selected output aspect ratio. Orthographic and shifted-frustum cameras are rejected explicitly. Only basic diffuse colors are exported; Rhino material graphs, textures, custom lights and point clouds are not currently exported. Ordinary nested Blocks are traversed without changing the document; GS blocks are rejected before upload. Supported selected geometry is listed in the panel before submission; unsupported selection types cause an error.
 
 ## Data and credentials
 
-The background process uses private stdin/stdout pipes; it exposes no local HTTP control port. Only the fixed international API receives the API Key. Uploads use a separate short-lived OUS token; downloads use unauthenticated HTTPS with redirects disabled and public-address checks.
+The background process uses private stdin/stdout pipes plus a current-user named pipe with a per-process nonce for realtime preview; it exposes no local HTTP control port. Only the fixed international API receives the API Key. Uploads use a separate short-lived OUS token; downloads use unauthenticated HTTPS with redirects disabled and public-address checks.
 
 Prompt/reference images and selected render geometry are sent to Aholo when submitted. Job JSON, input snapshots and downloaded results stay under `Aholo-Rhino` in the OS local application-data folder. The export subfolder can contain intermediate GLB files. GS imports create a SHA-256-named local PLY snapshot. The Rhino document saves the asset hash and local path, not embedded splat data; share the matching PLY/cache with the 3dm. Missing or changed assets keep a visible bounding-box placeholder. The document may therefore contain local filesystem paths. Task records do not contain Keys or signed asset URLs. Disconnect removes the saved Key, while preserving local work. There is no automatic telemetry. Storage protection does not defend against other processes running as the same user or administrators.
 
 Local GS preparation timings, batch counts and sanitized errors are written asynchronously to `Aholo-Rhino/logs/gs-viewport.log`, rotated at about 1 MiB with one previous file. `AholoGsDiagnostics` displays its exact path. The renderer does not log prompts, Keys or signed URLs.
 
-The UI shows the latest 100 local records across job types; older records remain on disk. An interrupted pre-submit upload is not automatically restarted. Large exports/imports may require substantial memory and disk space.
+The local Library searches and pages across retained records, without a latest-100-only cutoff. Realtime cleanup journals retain original session identifiers but no API Key or frame data. JPEG frames stay in memory; closure attempts server cleanup, but a crash/network failure can leave an unresolved session that requires attention. An interrupted pre-submit upload is not automatically restarted. Large exports/imports may require substantial memory and disk space.
 
 ## Build
 

@@ -24,7 +24,7 @@ public interface IAholoServiceClient : IAsyncDisposable
 }
 
 /// <summary>One private child transport shared by the application session. Credentials stay in the child.</summary>
-public sealed class AholoClient : IAholoServiceClient
+public sealed partial class AholoClient : IAholoServiceClient
 {
     public event Action? TransportReset;
     private readonly string _directory;
@@ -70,7 +70,7 @@ public sealed class AholoClient : IAholoServiceClient
                 ?? throw new IOException("The Aholo background process stopped. Recover the task from history; do not resubmit generations with unknown results.");
             var response = JsonSerializer.Deserialize<RpcResponse>(line, AholoJson.Options) ?? throw new IOException("Invalid background response.");
             if (response.Version != 1 || response.Id != id) throw new IOException("Background protocol mismatch.");
-            if (response.ErrorCode == "credential_changed") StopProcess();
+            if (response.ErrorCode == "credential_changed" && expectedEpoch == Volatile.Read(ref _credentialEpoch)) StopProcess();
             if (response.Error is not null) throw new InvalidOperationException(response.Error);
             if (typeof(T) == typeof(ConnectionState))
             {
@@ -107,18 +107,24 @@ public sealed class AholoClient : IAholoServiceClient
             StandardOutputEncoding = new UTF8Encoding(false),
             StandardErrorEncoding = new UTF8Encoding(false)
         };
+        var endpoint=NewEndpoint();
+        start.Environment["AHOLO_PARENT_PID"]=Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        start.Environment["AHOLO_REALTIME_PIPE"]=endpoint.Name;
+        start.Environment["AHOLO_REALTIME_NONCE"]=endpoint.Nonce;
         if (!standalone) start.ArgumentList.Add(dll);
         try { _process = Process.Start(start) ?? throw new IOException("Cannot start the Aholo background process."); }
         catch (System.ComponentModel.Win32Exception)
         {
             throw new IOException("Cannot start the Aholo background process. Check file permissions and install the matching .NET 8 Runtime.");
         }
+        Volatile.Write(ref realtimeEndpoint,endpoint);
         // Drain diagnostics without copying provider responses or secrets into Rhino logs.
         _process.ErrorDataReceived += (_, _) => { };
         _process.BeginErrorReadLine();
     }
     private void StopProcess()
     {
+        Volatile.Write(ref realtimeEndpoint,null);
         if (_process is null) return;
         try { if (!_process.HasExited) _process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
         _process.Dispose(); _process = null; _credentialEpoch = null;
@@ -127,7 +133,16 @@ public sealed class AholoClient : IAholoServiceClient
     public async ValueTask DisposeAsync()
     {
         await _gate.WaitAsync().ConfigureAwait(false);
-        try { _disposed = true; StopProcess(); }
+        try
+        {
+            _disposed=true;
+            if(_process is{HasExited:false})
+            {
+                _process.StandardInput.Close();
+                try{await _process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(14)).ConfigureAwait(false);}catch(TimeoutException){}
+            }
+            StopProcess();
+        }
         finally { _gate.Release(); }
     }
 }

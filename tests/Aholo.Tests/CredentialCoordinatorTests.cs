@@ -24,6 +24,14 @@ public sealed class CredentialCoordinatorTests : IDisposable
         string metadata=File.ReadAllText(Assert.Single(Directory.GetFiles(root,"*.json")));
         Assert.DoesNotContain("fixture-key",metadata);Assert.DoesNotContain("ConnectionId",metadata);
     }
+    [Fact]public async Task StaleRealtimeCallerCannotEraseTheNewSessionOnlyConnection()
+    {
+        var a=Coordinator();var old=await a.ConnectAsync(new("old-fixture-key"),false);
+        var current=await a.ConnectAsync(new("new-fixture-key"),false);
+        await Assert.ThrowsAsync<ProviderException>(()=>a.RequireAsync(old.Epoch));
+        Assert.Equal(current.Key!.ConnectionId,(await a.RequireAsync(current.Epoch)).ConnectionId);
+        Assert.Equal(current.Epoch,(await a.ReadAsync()).Epoch);
+    }
     [Fact]public async Task SameKeyReconnectCannotReuseAnOldContinuationEpoch()
     {
         var a=Coordinator();var first=await a.ConnectAsync(new("same-fixture-key"),false);

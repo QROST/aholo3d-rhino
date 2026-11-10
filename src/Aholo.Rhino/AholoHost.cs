@@ -108,7 +108,7 @@ internal static class AholoHost
         if (index < 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create a visible preview layer."));
         return index;
     }
-    internal static RenderSnapshot CaptureRender(RhinoDoc doc, int width, int height)
+    internal static RenderCamera CaptureCamera(RhinoDoc doc, int width, int height)
     {
         RequireUi(); RequireDocument(doc);
         var viewport = doc.Views.ActiveView?.ActiveViewport ?? throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Activate a perspective view first."));
@@ -118,6 +118,21 @@ internal static class AholoHost
         if (doc.ModelUnitSystem is global::Rhino.UnitSystem.None or global::Rhino.UnitSystem.Unset or global::Rhino.UnitSystem.CustomUnits) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Set explicit length units for the Rhino document first."));
         double mm = global::Rhino.RhinoMath.UnitScale(doc.ModelUnitSystem, global::Rhino.UnitSystem.Millimeters);
         if (!double.IsFinite(mm) || mm <= 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot convert document units."));
+        Vector3d x = viewport.CameraX, y = viewport.CameraY, z = -viewport.CameraDirection;
+        if (!x.Unitize() || !y.Unitize() || !z.Unitize()) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Invalid camera direction."));
+        Point3d location = viewport.CameraLocation;
+        double focal = viewport.Camera35mmLensLength;
+        if (!double.IsFinite(focal) || focal <= 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Invalid camera focal length."));
+        double horizontalAperture = (right - left) / near * focal;
+        // Preserve horizontal field of view; use the chosen output aspect ratio for the vertical aperture.
+        double verticalAperture = horizontalAperture * height / width;
+        var camera = new RenderCamera(new[] { x.X, x.Y, x.Z, 0, y.X, y.Y, y.Z, 0, z.X, z.Y, z.Z, 0, location.X * mm, location.Y * mm, location.Z * mm, 1 }, focal, horizontalAperture, verticalAperture, near * mm, far * mm);
+        return camera;
+    }
+    internal static RenderSnapshot CaptureRender(RhinoDoc doc, int width, int height)
+    {
+        var camera=CaptureCamera(doc,width,height);
+        double mm=global::Rhino.RhinoMath.UnitScale(doc.ModelUnitSystem,global::Rhino.UnitSystem.Millimeters);
         RhinoObject[] objects = doc.Objects.GetSelectedObjects(false, false).ToArray();
         if (objects.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Select the meshes, surfaces or solids to render in Rhino first."));
         var meshes = new List<MeshData>();
@@ -155,15 +170,6 @@ internal static class AholoHost
             }
             finally { foreach (Mesh mesh in generated) mesh.Dispose(); }
         }
-        Vector3d x = viewport.CameraX, y = viewport.CameraY, z = -viewport.CameraDirection;
-        if (!x.Unitize() || !y.Unitize() || !z.Unitize()) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Invalid camera direction."));
-        Point3d location = viewport.CameraLocation;
-        double focal = viewport.Camera35mmLensLength;
-        if (!double.IsFinite(focal) || focal <= 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Invalid camera focal length."));
-        double horizontalAperture = (right - left) / near * focal;
-        // Preserve horizontal field of view; use the chosen output aspect ratio for the vertical aperture.
-        double verticalAperture = horizontalAperture * height / width;
-        var camera = new RenderCamera(new[] { x.X, x.Y, x.Z, 0, y.X, y.Y, y.Z, 0, z.X, z.Y, z.Z, 0, location.X * mm, location.Y * mm, location.Z * mm, 1 }, focal, horizontalAperture, verticalAperture, near * mm, far * mm);
         return new RenderSnapshot(meshes, camera, string.IsNullOrWhiteSpace(doc.Name) ? global::Aholo.Core.UiText.Get("Rhino selection render") : Path.GetFileNameWithoutExtension(doc.Name) + global::Aholo.Core.UiText.Get(" · Selection render"));
     }
     private static IEnumerable<(RhinoObject Object,Transform Transform,Color Color)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc)

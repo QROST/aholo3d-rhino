@@ -16,8 +16,20 @@ using var publicHttp = new HttpClient(new SocketsHttpHandler
 var api = new AholoApiClient(apiHttp, publicHttp);
 var workflow = new Workflows(api, store, new AssetDownloader(publicHttp, store));
 var credentials = new CredentialCoordinator(CredentialStoreFactory.CreateDefault());
+var realtime=new RealtimePreviewManager(credentials,new RealtimeJournal(store.Root),(key,epoch)=>
+    new RealtimePreviewBackend(new AholoApiClient(apiHttp,publicHttp){RequestAdmission=token=>credentials.AcquireRequestAsync(epoch,token)},key));
+RealtimeControlServer? control=null;
+string? pipeName=Environment.GetEnvironmentVariable("AHOLO_REALTIME_PIPE");
+string? pipeNonce=Environment.GetEnvironmentVariable("AHOLO_REALTIME_NONCE");
+Environment.SetEnvironmentVariable("AHOLO_REALTIME_NONCE",null);
+Environment.SetEnvironmentVariable("AHOLO_REALTIME_PIPE",null);
+if(pipeName is not null&&pipeNonce is not null){control=new(pipeName,pipeNonce,realtime);control.Start();}
 CredentialSnapshot? connection = null;
 string? requestEpoch = null;
+using var parentLost=new CancellationTokenSource();
+using var parentLifetime=int.TryParse(Environment.GetEnvironmentVariable("AHOLO_PARENT_PID"),out int parentId)&&parentId>0?new ParentProcessLifetime(parentId,parentLost):null;
+try
+{
 while (true)
 {
     string? line;
@@ -31,13 +43,15 @@ while (true)
         var request = JsonSerializer.Deserialize<RpcRequest>(line, AholoJson.Options) ?? throw new ArgumentException("Invalid request.");
         id = request.Id;
         if (request.Version != 1 || id == Guid.Empty) throw new ArgumentException("Background protocol version mismatch.");
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(15));
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(parentLost.Token);
+        deadline.CancelAfter(TimeSpan.FromMinutes(15));
         var ct = deadline.Token;
         var payload = request.Payload;
         object result;
         requestEpoch = request.CredentialEpoch;
         bool authenticated = request.Method is "continueRender" or "generate" or "createService" or "render" or "refresh" or "download" or "importWorld" or "cloudHistory" or "restoreRemote";
-        api.RequestAdmission = authenticated ? token => credentials.AcquireRequestAsync(requestEpoch, token) : null;
+        string? admittedEpoch=request.CredentialEpoch;
+        api.RequestAdmission = authenticated ? token => credentials.AcquireRequestAsync(admittedEpoch, token) : null;
         switch (request.Method)
         {
             case "connection":
@@ -52,9 +66,11 @@ while (true)
                     case "spatial": await api.ListSpatialTasksAsync(candidate, pageSize: 1, ct: ct); break;
                     default: throw new ArgumentException("Choose a service to validate.");
                 }
-                connection = await credentials.ConnectAsync(candidate, input.Remember, ct); result = State(); break;
+                using(await realtime.BeforeCredentialChangeAsync(ct))connection = await credentials.ConnectAsync(candidate, input.Remember, ct);
+                result = State(); break;
             case "disconnect":
-                connection = await credentials.DisconnectAsync(ct); result = State(); break;
+                using(await realtime.BeforeCredentialChangeAsync(ct))connection = await credentials.DisconnectAsync(ct);
+                result = State(); break;
             case "list": result = store.List(); break;
             case "page": result = store.Page(Read<TaskPageRequest>(payload)); break;
             case "continueRender": result = await workflow.ContinueRenderAsync(await RequireKeyAsync(ct), payload.GetProperty("id").GetGuid(), ct); break;
@@ -87,6 +103,13 @@ while (true)
     }
     await Console.Out.WriteLineAsync(JsonSerializer.Serialize(response, AholoJson.Options));
     await Console.Out.FlushAsync();
+}
+}
+finally
+{
+try{if(control is not null)await control.DisposeAsync();}catch{ /* Always proceed to bounded server cleanup. */ }
+using(var cleanup=new CancellationTokenSource(TimeSpan.FromSeconds(12)))
+    try{await realtime.ShutdownAsync(cleanup.Token);}catch{ /* Durable records retain every unresolved session. */ }
 }
 return;
 

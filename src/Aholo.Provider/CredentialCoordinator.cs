@@ -61,8 +61,10 @@ public sealed class CredentialCoordinator
         try
         {
             State state = ReadState();
-            if (!state.Ready || string.IsNullOrEmpty(expectedEpoch) || state.Epoch != expectedEpoch || cached?.Epoch != expectedEpoch)
+            if (!state.Ready || cached?.Epoch != state.Epoch)
             { cached = null; throw Changed(); }
+            // A stale caller must be rejected without erasing a newer session-only key.
+            if (string.IsNullOrEmpty(expectedEpoch) || state.Epoch != expectedEpoch) throw Changed();
             return gate;
         }
         catch { gate.Dispose(); throw; }

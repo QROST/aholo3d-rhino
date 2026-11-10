@@ -79,6 +79,7 @@ public sealed class RealtimeSession : IAsyncDisposable
         Task task = StartClosing(allowExplicitRetry: true);
         return ct.CanBeCanceled ? task.WaitAsync(ct) : task;
     }
+    public Task CloseOnceAsync() => StartClosing(allowExplicitRetry: false);
     private Task CloseAfterFailureAsync() => StartClosing(allowExplicitRetry: false);
     private Task StartClosing(bool allowExplicitRetry)
     {

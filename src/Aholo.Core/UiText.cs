@@ -65,6 +65,9 @@ public static class UiText
         "PENDING" => "Pending", "PREPROCESSING" => "Preprocessing", "SUCCEEDED" => "Succeeded",
         "FAILED" => "Failed", "CANCELED" => "Cancelled", "TIMEOUT" => "Timed out", "REJECTED" => "Rejected",
         "RecordError" => "Record error", "SubmissionUnknown" => "Submission unconfirmed", "Interrupted" => "Interrupted",
+        "Creating" => "Creating cloud preview", "Connecting" => "Connecting", "Streaming" => "Receiving cloud images",
+        "Stopping" => "Closing cloud preview", "Closed" => "Cloud preview closed", "NotSubmitted" => "Not submitted",
+        "CleanupRequired" => "Server cleanup pending", "ExternallyResolved" => "Externally resolved (user confirmed)",
         _ => code
     }, language);
 

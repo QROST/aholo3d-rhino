@@ -2982,5 +2982,249 @@
   {
     "English": "Local task ID from Aholo3D Library (places the original static mesh; never regenerates)",
     "Chinese": "Aholo3D 资源库中的本地任务 ID（放置原始静态模型，不会重新生成）"
+  },
+  {
+    "English": "Cloud mesh",
+    "Chinese": "云端网格"
+  },
+  {
+    "English": "Cloud Gaussian asset",
+    "Chinese": "云端高斯资产"
+  },
+  {
+    "English": "Imported glTF · metres / Y-up",
+    "Chinese": "已入库 glTF · 米 / Y 轴向上"
+  },
+  {
+    "English": "Cloud native · millimetres / Z-up",
+    "Chinese": "云端原生 · 毫米 / Z 轴向上"
+  },
+  {
+    "English": "Cloud JPEG preview. Images can lag behind navigation; depth, transparency and camera-frame matching are unavailable. Local Rhino geometry is not composited into these images.",
+    "Chinese": "云端 JPEG 预览。图像可能滞后于导航；目前没有深度、透明度及相机与帧的对应关系。本地 Rhino 几何不会合成到这些图像中。"
+  },
+  {
+    "English": "Start cloud preview · Uses service credits",
+    "Chinese": "启动云预览 · 消耗服务额度"
+  },
+  {
+    "English": "Stop cloud preview",
+    "Chinese": "停止云预览"
+  },
+  {
+    "English": "Cloud preview control is unavailable.",
+    "Chinese": "云预览控制不可用。"
+  },
+  {
+    "English": "Aholo3D cloud preview",
+    "Chinese": "Aholo3D 云预览"
+  },
+  {
+    "English": "Existing ingested cloud asset ID",
+    "Chinese": "已入库的云端资产 ID"
+  },
+  {
+    "English": "Use an asset already prepared by RenderCloud. Selecting a prepared render in Library fills its ID; this window does not upload or ingest files.",
+    "Chinese": "使用 RenderCloud 已入库的资产。在资源库中选择已准备好的渲染任务可填入其 ID；此窗口不会上传文件或进行资产入库。"
+  },
+  {
+    "English": "Unresolved cloud sessions",
+    "Chinese": "尚未确认关闭的云会话"
+  },
+  {
+    "English": "Refresh cleanup list",
+    "Chinese": "刷新清理列表"
+  },
+  {
+    "English": "Retry selected cleanup",
+    "Chinese": "重试清理所选会话"
+  },
+  {
+    "English": "Confirm external resolution",
+    "Chinese": "确认已在外部处理"
+  },
+  {
+    "English": "Start outcome is uncertain. Inspect this preview and the cleanup list before starting another.",
+    "Chinese": "启动结果不确定。再次启动前，请检查当前预览与清理列表。"
+  },
+  {
+    "English": "Local preview {0}",
+    "Chinese": "本地预览 {0}"
+  },
+  {
+    "English": "Cloud session {0}",
+    "Chinese": "云端会话 {0}"
+  },
+  {
+    "English": "Latest image received {0}; camera updates acknowledged {1} (not a frame match)",
+    "Chinese": "最近图像接收时间 {0}；已确认相机更新 {1}（不表示与该帧对应）"
+  },
+  {
+    "English": "Server cleanup is pending. Retry the original session from the cleanup list.",
+    "Chinese": "服务端清理尚待确认，请从清理列表重试原会话。"
+  },
+  {
+    "English": "Confirm only after checking the official platform and ending the unknown session. This records your confirmation; it cannot verify server cleanup.",
+    "Chinese": "请先在官方平台核查并结束不确定的会话，再进行确认。此操作仅记录你的确认，不能验证服务端已清理。"
+  },
+  {
+    "English": "Open cloud preview",
+    "Chinese": "打开云预览"
+  },
+  {
+    "English": "Cloud preview uses an existing ingested asset. Its JPEG stream does not provide native depth compositing.",
+    "Chinese": "云预览使用已入库资产，其 JPEG 图像流不提供原生深度合成。"
+  },
+  {
+    "English": "Restore the connection before using cloud preview.",
+    "Chinese": "请恢复连接后再使用云预览。"
+  },
+  {
+    "English": "Stop the active cloud preview before starting another.",
+    "Chinese": "请先停止正在运行的云预览，再启动其他预览。"
+  },
+  {
+    "English": "Resolve pending cloud preview cleanup before starting another paid session.",
+    "Chinese": "启动新的付费会话前，请先处理待清理的云预览。"
+  },
+  {
+    "English": "The create response was lost and the session may exist. Reconcile the original request on the official platform; creation will not be retried.",
+    "Chinese": "创建响应丢失，会话可能已存在。请在官方平台核查原请求；插件不会重试创建。"
+  },
+  {
+    "English": "Server cleanup is not confirmed. Retry closing the original session.",
+    "Chinese": "尚未确认服务端清理成功，请重试关闭原会话。"
+  },
+  {
+    "English": "Realtime waiting stopped. Check cleanup status before starting again.",
+    "Chinese": "实时预览等待已停止，再次启动前请检查清理状态。"
+  },
+  {
+    "English": "The cloud renderer reported an error. The session remains open; stop it when finished.",
+    "Chinese": "云渲染器报告错误，会话仍然打开；结束使用时请停止会话。"
+  },
+  {
+    "English": "Realtime journal could not be saved. Retain the session ID and check server cleanup.",
+    "Chinese": "无法保存实时预览记录，请保留会话 ID 并核查服务端清理状态。"
+  },
+  {
+    "English": "Cloud image dimensions exceed the preview decoding capacity.",
+    "Chinese": "云图像尺寸超出预览解码容量。"
+  },
+  {
+    "English": "Invalid cloud JPEG header.",
+    "Chinese": "云 JPEG 图像头无效。"
+  },
+  {
+    "English": "Invalid cloud JPEG marker.",
+    "Chinese": "云 JPEG 标记无效。"
+  },
+  {
+    "English": "Truncated cloud JPEG header.",
+    "Chinese": "云 JPEG 图像头不完整。"
+  },
+  {
+    "English": "Unsupported cloud JPEG frame header.",
+    "Chinese": "不支持此云 JPEG 帧头。"
+  },
+  {
+    "English": "The original preview document, viewport or connection changed. Stop this preview before restarting.",
+    "Chinese": "原预览文档、视窗或连接已变化，请停止此预览后再重新启动。"
+  },
+  {
+    "English": "The background process changed. Inspect cloud preview cleanup before continuing.",
+    "Chinese": "后台进程已变化，请检查云预览清理状态后再继续。"
+  },
+  {
+    "English": "This preview already has a journal. Inspect or close the original session; it will not be created again.",
+    "Chinese": "此预览已有记录，请检查或关闭原会话；插件不会再次创建它。"
+  },
+  {
+    "English": "Realtime control has stopped.",
+    "Chinese": "实时预览控制已停止。"
+  },
+  {
+    "English": "The realtime session did not become active.",
+    "Chinese": "实时渲染会话未能进入可用状态。"
+  },
+  {
+    "English": "Realtime streaming initialization failed.",
+    "Chinese": "实时图像流初始化失败。"
+  },
+  {
+    "English": "The realtime stream closed.",
+    "Chinese": "实时图像流已关闭。"
+  },
+  {
+    "English": "The original preview is not active.",
+    "Chinese": "原预览当前未运行。"
+  },
+  {
+    "English": "The preview belongs to the original connection.",
+    "Chinese": "此预览属于原来的账户连接。"
+  },
+  {
+    "English": "The original preview is closing or closed.",
+    "Chinese": "原预览正在关闭或已经关闭。"
+  },
+  {
+    "English": "Restore the preview's original account before retrying server cleanup.",
+    "Chinese": "请恢复预览原来的账户，再重试服务端清理。"
+  },
+  {
+    "English": "Only an unknown session from the original account can be marked externally resolved.",
+    "Chinese": "只能对原账户下结果不确定的会话确认外部处理。"
+  },
+  {
+    "English": "The user confirmed resolution on the official platform; no server close was verified by this plugin.",
+    "Chinese": "用户已确认在官方平台处理完毕；插件未通过服务端验证关闭结果。"
+  },
+  {
+    "English": "The preview connection changed. Server cleanup may require restoring the original account.",
+    "Chinese": "预览连接已变化；服务端清理可能需要恢复原账户。"
+  },
+  {
+    "English": "Realtime preview failed. Check the original session and cleanup status.",
+    "Chinese": "实时预览失败，请检查原会话与清理状态。"
+  },
+  {
+    "English": "Realtime control timed out. Inspect the original session; no new session was submitted.",
+    "Chinese": "实时控制等待超时，请检查原会话；没有重新提交会话。"
+  },
+  {
+    "English": "Realtime control failed. Check the original session and local journal.",
+    "Chinese": "实时控制失败，请检查原会话与本地记录。"
+  },
+  {
+    "English": "Stopped before preview creation was admitted.",
+    "Chinese": "已在预览创建获准之前停止。"
+  },
+  {
+    "English": "Creating cloud preview",
+    "Chinese": "正在创建云预览"
+  },
+  {
+    "English": "Receiving cloud images",
+    "Chinese": "正在接收云图像"
+  },
+  {
+    "English": "Closing cloud preview",
+    "Chinese": "正在关闭云预览"
+  },
+  {
+    "English": "Cloud preview closed",
+    "Chinese": "云预览已关闭"
+  },
+  {
+    "English": "Not submitted",
+    "Chinese": "尚未提交"
+  },
+  {
+    "English": "Server cleanup pending",
+    "Chinese": "等待服务端清理"
+  },
+  {
+    "English": "Externally resolved (user confirmed)",
+    "Chinese": "已在外部解决（用户确认）"
   }
 ]

@@ -84,7 +84,7 @@ public sealed partial class AholoPanel : Panel,IPanel
             worldId,Action("Restore World ID",async()=>{var task=await session.Client.ImportWorldAsync(worldId.Text.Trim(),token);session.Observe(task);await RevealAsync(task);}));
         var renderPage=Column(Info("Select meshes, surfaces, extrusions or mesh blocks and use a perspective view. Geometry, base colors and camera will be uploaded."),resolution,render,
             Info("Offline rendering uses a captured scene, including nested block placements. Results appear in Library. Textures, lights and GS ingestion are not converted yet."),
-            Info("Realtime cloud rendering is still under development. Native depth compositing is not available from the documented image stream."));
+            Local("Open cloud preview",()=>CloudPreviewWindow.Open(Document(),Selected)),Info("Cloud preview uses an existing ingested asset. Its JPEG stream does not provide native depth compositing."));
         tabs.Pages.Add(new(){Text=T("Create"),Content=createPage});tabs.Pages.Add(new(){Text=T("Library"),Content=libraryPage});tabs.Pages.Add(new(){Text=T("Render"),Content=renderPage});
         cancel.Click+=(_,_)=>session.Operations.CancelPrefix(Scope);
         elapsed.Elapsed+=(_,_)=>{if(!disposed&&busy)operation.Text=workName+" · "+(int)clock.Elapsed.TotalSeconds+" s";};

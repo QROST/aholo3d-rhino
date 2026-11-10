@@ -1,6 +1,6 @@
 # Integrated alpha acceptance
 
-CuriousArc · qrost. Candidate: 0.2.0-alpha.2. Native and service acceptance: pending.
+CuriousArc · qrost. Source after 0.2.0-alpha.2; not yet packaged. Native and service acceptance: pending.
 
 ## Offline Rhino checks
 
@@ -57,3 +57,9 @@ Start a download or refresh for task A, then select task B and one of its result
 ## Native mesh formats
 
 Compare ordinary ASCII/little-endian/big-endian mesh PLY and STL to Rhino's native importer, including quads/polygons, vertex colors and large files. Preview and acceptance must preserve the supported geometry without a point-cloud conversion. Confirm GS PLY remains a splat scene; point-only, partial-GS and ambiguous files fail with original bytes retained. Check hash mismatch/mutated fixture rejection and one Undo on Mac and Windows.
+
+## Realtime cloud preview
+
+Use only an authorized account and an already-ingested test mesh/GS ID. Opening the window itself must not create a stream; Start clearly indicates service credits. While orbiting the original perspective viewport, the nonmodal window updates JPEGs and receive times. Local geometry is not composited. Compare native-mm/Z-up and glTF-m/Y-up transforms against a known cube; never label local camera acknowledgements as frame IDs.
+
+Exercise Start→immediate Stop/Close, document close/switch, changed units/viewports, account replacement, panel reopen, slow upload while previewing, lost create reply and failed DELETE. Observe that original sessions remain queryable/closable and no unknown creation is replayed. A missing session ID allows only explicit platform-confirmed resolution, clearly distinguished from verified server closure. Close Rhino during a disposable preview and verify the official platform: a crash cannot guarantee cleanup. On Mac/Windows in both languages, inspect window sizing, decoded JPEGs, memory during long playback, listener reconnection and cleanup-list usability. These remain manual/live acceptance checks.
