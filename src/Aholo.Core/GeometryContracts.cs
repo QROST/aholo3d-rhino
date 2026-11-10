@@ -4,4 +4,7 @@ namespace Aholo.Core;
 public sealed record SplatPoint(double X, double Y, double Z, byte R, byte G, byte B);
 
 /// <summary>Triangle mesh in Rhino Z-up millimetres. RGB is the object's sRGB display color.</summary>
-public sealed record MeshData(float[] Positions, int[] Indices, byte R, byte G, byte B);
+public sealed record MeshData(float[] Positions, int[] Indices, byte R, byte G, byte B)
+{
+    public MeshMaterial? Material { get; init; }
+}

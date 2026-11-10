@@ -8,7 +8,7 @@ using Color = System.Drawing.Color;
 namespace Aholo.Rhino;
 
 internal sealed record ImportTarget(uint Serial, global::Rhino.UnitSystem Units);
-internal sealed record RenderSnapshot(IReadOnlyList<MeshData> Meshes, RenderCamera Camera, string Name);
+internal sealed record RenderSnapshot(IReadOnlyList<MeshData> Meshes, RenderCamera Camera, string Name, RenderLight[] Lights);
 
 /// <summary>Capture and commit occur on the Rhino UI thread; parsing and file serialization are asynchronous.</summary>
 internal static class AholoHost
@@ -129,15 +129,21 @@ internal static class AholoHost
         var camera = new RenderCamera(new[] { x.X, x.Y, x.Z, 0, y.X, y.Y, y.Z, 0, z.X, z.Y, z.Z, 0, location.X * mm, location.Y * mm, location.Z * mm, 1 }, focal, horizontalAperture, verticalAperture, near * mm, far * mm);
         return camera;
     }
-    internal static RenderSnapshot CaptureRender(RhinoDoc doc, int width, int height)
+    internal static RenderSnapshot CaptureRender(RhinoDoc doc, int width, int height, bool includeLights=false, double pointRadiusMillimetres=50, double lightIntensityMultiplier=1)
     {
         var camera=CaptureCamera(doc,width,height);
         double mm=global::Rhino.RhinoMath.UnitScale(doc.ModelUnitSystem,global::Rhino.UnitSystem.Millimeters);
-        RhinoObject[] objects = doc.Objects.GetSelectedObjects(false, false).ToArray();
+        RhinoObject[] objects = doc.Objects.GetSelectedObjects(false, false)
+            .Concat(includeLights?doc.Lights.Where(l=>!l.IsDeleted&&l.IsSelected(false)!=0).Cast<RhinoObject>():Enumerable.Empty<RhinoObject>()).DistinctBy(o=>o.Id).ToArray();
         if (objects.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Select the meshes, surfaces or solids to render in Rhino first."));
-        var meshes = new List<MeshData>();
-        foreach (var (obj, transform, color) in RenderObjects(objects, doc))
+        var meshes = new List<MeshData>();var lights=new List<RenderLight>();
+        foreach (var (obj,transform,appearance) in RenderObjects(objects,doc,includeLights))
         {
+            if(obj.Geometry is Light light)
+            {
+                if(light.IsEnabled)lights.Add(CaptureLight(light,transform,mm,pointRadiusMillimetres,lightIntensityMultiplier,doc));
+                continue;
+            }
             Mesh[] generated = obj.Geometry switch
             {
                 Mesh mesh => new[] { mesh.DuplicateMesh() },
@@ -165,17 +171,19 @@ internal static class AholoHost
                         indices.Add(face.A); indices.Add(face.B); indices.Add(face.C);
                         if (face.IsQuad) { indices.Add(face.A); indices.Add(face.C); indices.Add(face.D); }
                     }
-                    meshes.Add(new MeshData(positions, indices.ToArray(), color.R, color.G, color.B));
+                    meshes.Add(new MeshData(positions, indices.ToArray(), appearance.Color.R, appearance.Color.G, appearance.Color.B) { Material = appearance.Factors });
                 }
             }
             finally { foreach (Mesh mesh in generated) mesh.Dispose(); }
         }
-        return new RenderSnapshot(meshes, camera, string.IsNullOrWhiteSpace(doc.Name) ? global::Aholo.Core.UiText.Get("Rhino selection render") : Path.GetFileNameWithoutExtension(doc.Name) + global::Aholo.Core.UiText.Get(" · Selection render"));
+        if(meshes.Count==0)throw new InvalidOperationException(UiText.Get("Select at least one supported mesh or surface together with the lights."));
+        return new RenderSnapshot(meshes, camera, string.IsNullOrWhiteSpace(doc.Name) ? global::Aholo.Core.UiText.Get("Rhino selection render") : Path.GetFileNameWithoutExtension(doc.Name) + global::Aholo.Core.UiText.Get(" · Selection render"),lights.ToArray());
     }
-    private static IEnumerable<(RhinoObject Object,Transform Transform,Color Color)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc)
+    private sealed record MaterialSnapshot(Color Color,MeshMaterial? Factors,bool Assigned=false);
+    private static IEnumerable<(RhinoObject Object,Transform Transform,MaterialSnapshot Appearance)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc,bool includeLights)
     {
         var ancestry=new HashSet<Guid>();
-        var stack=new Stack<(IEnumerator<RhinoObject> Objects,Transform Transform,Guid? Definition,Color? ParentColor)>();
+        var stack=new Stack<(IEnumerator<RhinoObject> Objects,Transform Transform,Guid? Definition,MaterialSnapshot? ParentMaterial)>();
         stack.Push((roots.GetEnumerator(),Transform.Identity,null,null));
         try
         {
@@ -186,23 +194,65 @@ internal static class AholoHost
                 var obj=frame.Objects.Current;
                 if(GaussianDocument.IsGaussian(obj)||obj.Attributes.GetUserString(GaussianDocument.ProxyKey) is not null)
                     throw new InvalidOperationException(UiText.Get("Gaussian scenes cannot be exported as mesh bounds. Deselect GS objects before mesh rendering."));
-                Color color=obj.Attributes.DrawColor(doc);
-                if(obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromParent&&frame.ParentColor.HasValue)color=frame.ParentColor.Value;
-                else if(obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromObject&&obj.Attributes.MaterialIndex>=0)color=obj.GetMaterial(true).DiffuseColor;
-                else if(obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromLayer&&doc.Layers[obj.Attributes.LayerIndex].RenderMaterialIndex>=0)color=obj.GetMaterial(true).DiffuseColor;
+                var appearance = CaptureMaterial(obj,doc,frame.ParentMaterial);
                 if(obj is InstanceObject instance)
                 {
                     var definition=instance.InstanceDefinition??throw new InvalidOperationException(UiText.Get("A selected block definition is missing."));
                     if(!ancestry.Add(definition.Id))throw new InvalidOperationException(UiText.Get("A selected block has a cyclic reference."));
                     var transform=frame.Transform*instance.InstanceXform;
                     if(!transform.IsValid||Math.Abs(transform.Determinant)<1e-20)throw new InvalidOperationException(UiText.Get("A selected block transform is invalid."));
-                    stack.Push((((IEnumerable<RhinoObject>)definition.GetObjects()).GetEnumerator(),transform,definition.Id,color));
+                    stack.Push((((IEnumerable<RhinoObject>)definition.GetObjects()).GetEnumerator(),transform,definition.Id,appearance));
                 }
-                else if(obj.Geometry is Mesh or Brep or Extrusion)yield return(obj,frame.Transform,color);
+                else if(obj.Geometry is Mesh or Brep or Extrusion || includeLights&&obj.Geometry is Light)yield return(obj,frame.Transform,appearance);
                 else throw new InvalidOperationException(UiText.Get("The selection contains unsupported geometry. Select meshes, surfaces, extrusions or blocks containing them."));
             }
         }
         finally{while(stack.Count>0)stack.Pop().Objects.Dispose();}
+    }
+    private static RenderLight CaptureLight(Light light,Transform t,double mm,double radius,double multiplier,RhinoDoc doc)
+    {
+        var transform=new GaussianTransform(new(t.M00,t.M01,t.M02,t.M10,t.M11,t.M12,t.M20,t.M21,t.M22),new(t.M03,t.M13,t.M23));
+        var raw=new global::Rhino.Display.Color4f(light.Diffuse);
+        using var workflow=doc.RenderSettings.LinearWorkflow;
+        if(workflow.PreProcessColors)
+        {
+            float gamma=workflow.PreProcessGamma;
+            if(!float.IsFinite(gamma)||gamma<=0)throw new InvalidOperationException(UiText.Get("The document color preprocessing gamma is invalid."));
+            raw=global::Rhino.Display.Color4f.ApplyGamma(raw,gamma);
+        }
+        var color=new[]{(double)raw.R,raw.G,raw.B};double intensity=light.Intensity*multiplier;
+        var location=new GaussianVector(light.Location.X,light.Location.Y,light.Location.Z);
+        return light.LightStyle switch
+        {
+            LightStyle.WorldRectangular=>RenderLight.Rectangle(location,new(light.Length.X,light.Length.Y,light.Length.Z),new(light.Width.X,light.Width.Y,light.Width.Z),new(light.Direction.X,light.Direction.Y,light.Direction.Z),transform,mm,color,intensity),
+            LightStyle.WorldPoint=>RenderLight.PointApproximation(location,transform,mm,radius,color,intensity),
+            _=>throw new InvalidOperationException(UiText.Get("Selected lights include an unsupported type. Only world rectangular and point lights are supported."))
+        };
+    }
+    private static MaterialSnapshot CaptureMaterial(RhinoObject obj,RhinoDoc doc,MaterialSnapshot? parent)
+    {
+        if(obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromParent&&parent is not null)return parent.Assigned?parent:new(obj.Attributes.DrawColor(doc),null);
+        Color color=obj.Attributes.DrawColor(doc);
+        bool assigned=obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromObject&&obj.Attributes.MaterialIndex>=0
+            ||obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromLayer&&doc.Layers[obj.Attributes.LayerIndex].RenderMaterialIndex>=0;
+        if(!assigned)return new(color,null);
+        var material=obj.GetMaterial(true);
+        if(material is null)return new(color,null);
+        color=material.DiffuseColor;
+        if(!material.IsPhysicallyBased)return new(color,null,true);
+        var pbr=material.PhysicallyBased;var raw=pbr.BaseColor;
+        var factors=new MeshMaterial(raw.R,raw.G,raw.B,pbr.Alpha,pbr.Metallic,pbr.Roughness);
+        factors.Validate();
+        // Follow the host's input-color workflow once; the writer receives explicitly linear RGB.
+        using var workflow=doc.RenderSettings.LinearWorkflow;
+        if(workflow.PreProcessColors)
+        {
+            float gamma=workflow.PreProcessGamma;
+            if(!float.IsFinite(gamma)||gamma<=0)throw new InvalidOperationException(UiText.Get("The document color preprocessing gamma is invalid."));
+            var linear=global::Rhino.Display.Color4f.ApplyGamma(raw,gamma);
+            factors=factors with{R=linear.R,G=linear.G,B=linear.B};factors.Validate();
+        }
+        return new(color,factors,true);
     }
     private static Mesh[] MeshExtrusion(Extrusion extrusion)
     {

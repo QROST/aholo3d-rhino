@@ -3386,5 +3386,85 @@
   {
     "English": "Sign in before refreshing the account session.",
     "Chinese": "请先登录账号，再刷新会话。"
+  },
+  {
+    "English": "Include selected rectangular / point lights",
+    "Chinese": "包含选中的矩形灯/点灯"
+  },
+  {
+    "English": "Point-light radius before block scaling (mm)",
+    "Chinese": "块缩放前的点灯半径（毫米）"
+  },
+  {
+    "English": "Relative light intensity multiplier",
+    "Chinese": "相对灯光强度倍数"
+  },
+  {
+    "English": "Point lights use the chosen sphere radius. Light intensity is relative, not calibrated to Rhino lumens. Unsupported selected lights fail before upload.",
+    "Chinese": "点灯使用所选球体半径。灯光强度为相对值，未与 Rhino 流明标定。不支持的选中灯光会在上传前报错。"
+  },
+  {
+    "English": "Light radius and intensity multiplier must be positive numbers.",
+    "Chinese": "灯光半径和强度倍数必须为正数。"
+  },
+  {
+    "English": "The document color preprocessing gamma is invalid.",
+    "Chinese": "文档的颜色预处理伽马值无效。"
+  },
+  {
+    "English": "Select at least one supported mesh or surface together with the lights.",
+    "Chinese": "请在灯光之外，至少选中一个支持的网格或曲面。"
+  },
+  {
+    "English": "Selected lights include an unsupported type. Only world rectangular and point lights are supported.",
+    "Chinese": "所选灯光含不支持的类型，目前支持世界坐标矩形灯和点灯。"
+  },
+  {
+    "English": "Select meshes, surfaces, extrusions or mesh blocks and use a perspective view. Geometry, supported material constants, optional selected lights and camera will be uploaded.",
+    "Chinese": "请选中网格、曲面、挤出体或网格块，使用透视视图。将上传几何、支持的材质常量、可选的选中灯光及相机。"
+  },
+  {
+    "English": "Offline rendering captures nested block placements and supported PBR constants. Textures, material graphs, glass transmission and GS ingestion are not converted yet. Results appear in Library.",
+    "Chinese": "离线渲染捕获嵌套块放置和支持的 PBR 常量。贴图、材质网络、玻璃透射及 GS 入库暂不转换；结果显示在资产库。"
+  },
+  {
+    "English": "Material constants must be finite values from zero to one.",
+    "Chinese": "材质常量必须为零到一之间的有限值。"
+  },
+  {
+    "English": "Only rectangular and spherical cloud lights are supported.",
+    "Chinese": "云端灯光仅支持矩形灯和球体灯。"
+  },
+  {
+    "English": "Light pose must be a finite affine row-vector matrix.",
+    "Chinese": "灯光姿态必须是有限的仿射行向量矩阵。"
+  },
+  {
+    "English": "Light pose must be rigid and right handed; dimensions carry its scale.",
+    "Chinese": "灯光姿态必须为右手刚体变换，缩放由尺寸表示。"
+  },
+  {
+    "English": "Light color must contain three finite nonnegative linear values.",
+    "Chinese": "灯光颜色必须包含三个有限的非负线性值。"
+  },
+  {
+    "English": "Light intensity must be finite and nonnegative.",
+    "Chinese": "灯光强度必须为有限非负值。"
+  },
+  {
+    "English": "Light dimensions must be positive finite floats.",
+    "Chinese": "灯光尺寸必须是可表示为有限浮点数的正值。"
+  },
+  {
+    "English": "A rectangular light needs a perpendicular nonzero direction.",
+    "Chinese": "矩形灯需要垂直于灯面的非零发光方向。"
+  },
+  {
+    "English": "Sheared rectangular lights cannot be represented by RenderCloud.",
+    "Chinese": "RenderCloud 无法表达剪切后的非矩形面灯。"
+  },
+  {
+    "English": "Nonuniform or sheared point-light scaling is unsupported.",
+    "Chinese": "不支持点灯的非均匀缩放或剪切。"
   }
 ]

@@ -5,7 +5,7 @@ namespace Aholo.Core;
 
 public static class UsdaSceneBuilder
 {
-    public static string Build(string meshId, RenderCamera camera, int width, int height, double environmentIntensity = 1)
+    public static string Build(string meshId, RenderCamera camera, int width, int height, double environmentIntensity = 1, IReadOnlyList<RenderLight>? lights = null)
     {
         ArgumentNullException.ThrowIfNull(camera);
         if (string.IsNullOrWhiteSpace(meshId) || meshId.Any(c => !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c is '-' or '_')))
@@ -21,6 +21,7 @@ public static class UsdaSceneBuilder
         PositiveFloat(camera.Far, nameof(camera.Far));
         PositiveFloat(environmentIntensity, nameof(environmentIntensity));
         if (camera.Far <= camera.Near) throw new ArgumentException("Far clipping plane must exceed near clipping plane.", nameof(camera));
+        string lightScene=RenderLightsUsda.Build(lights);
         var pose = new StringBuilder();
         for (var row = 0; row < 4; row++)
         {
@@ -45,7 +46,7 @@ def Xform "World"
             payload = @manycore:/mesh/{{meshId}}@</mesh>
         ) {}
     }
-    def Xform "Cameras"
+{{lightScene}}    def Xform "Cameras"
     {
         def Camera "MainCamera"
         {

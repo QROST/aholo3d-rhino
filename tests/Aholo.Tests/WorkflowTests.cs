@@ -185,6 +185,45 @@ public sealed class WorkflowTests : IDisposable
         finally { release.TrySetResult(); }
         Assert.Equal("PENDING",(await first).Status);
     }
+    [Fact]
+    public async Task RenderSnapshotOwnsCameraAndLightsBeforeUploadCanObserveCallerMutation()
+    {
+        var light=RenderLight.PointApproximation(new(1,2,3),GaussianTransform.Identity,1,50,new[]{1d,.5,.2},2);
+        var input=new RenderRequest("Test",Path.Combine(root,"source.glb"),Camera with{Transform=Camera.Transform.ToArray()},Lights:new[]{light});
+        var env=Create(_=>
+        {
+            input.Camera.Transform[12]=999;light.Transform[12]=999;light.Color[0]=0;input.Lights![0]=light with{Radius=999};
+            throw new HttpRequestException("Upload deliberately stopped after snapshot");
+        });
+        GlbWriter.Write(input.GlbPath,new[]{new MeshData(new float[9],new[]{0,1,2},0,0,0)});
+        var result=await env.Flow.RenderAsync(Key,input,default);
+        var recorded=env.Store.Get(result.Id).Render!;
+        Assert.Equal(0,recorded.Camera.Transform[12]);Assert.Equal(1,recorded.Lights![0].Transform[12]);Assert.Equal(1,recorded.Lights[0].Color[0]);Assert.Equal(50,recorded.Lights[0].Radius);
+        Assert.Equal(1,env.Handler.Count);
+    }
+    [Fact]
+    public async Task InvalidLightFailsBeforeCreatingJournalOrUploading()
+    {
+        var env=Create(_=>throw new Exception("No network expected"));
+        var light=RenderLight.PointApproximation(new(),GaussianTransform.Identity,1,50,new[]{1d,1,1},2) with{Radius=-1};
+        await Assert.ThrowsAsync<ArgumentException>(()=>env.Flow.RenderAsync(Key,new("Test","unused",Camera,Lights:new[]{light}),default));
+        Assert.Empty(env.Store.List());Assert.Equal(0,env.Handler.Count);
+    }
+    [Fact]
+    public async Task RecoveredRenderContinuationUsesOriginalSavedLightSnapshot()
+    {
+        string? scene=null;var env=Create(async request=>
+        {
+            using var body=JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            scene=Encoding.UTF8.GetString(Convert.FromBase64String(body.RootElement.GetProperty("usdContent").GetString()!));
+            return Json("{\"operationId\":\"original-light-render\",\"done\":false}");
+        });
+        var light=RenderLight.PointApproximation(new(1,2,3),GaussianTransform.Identity,1000,50,new[]{1d,.5,.2},2);
+        var task=new LocalTask{Kind="render",ConnectionId=Key.ConnectionId,Status="MeshReady",MeshId="MESH",MeshTaskId="123",Render=new("Test","unused",Camera,Lights:new[]{light})};
+        env.Store.Save(task);light.Transform[12]=999;
+        await env.Flow.ContinueRenderAsync(Key,task.Id,default);
+        Assert.Contains("(1000, 2000, 3000, 1)",scene);Assert.Contains("def SphereLight",scene);Assert.Equal(1,env.Handler.Count);
+    }
     private static HttpResponseMessage Json(string text) => new(HttpStatusCode.OK){Content=new StringContent(text,Encoding.UTF8,"application/json")};
     private sealed class Stub(Func<HttpRequestMessage,Task<HttpResponseMessage>> responder):HttpMessageHandler
     {

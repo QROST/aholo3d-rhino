@@ -54,7 +54,10 @@ public static class GlbWriter
             var indexAccessor = accessors.Count;
             accessors.Add(new { bufferView = indexView, byteOffset = 0, componentType = 5125, count = mesh.Indices.Length, type = "SCALAR" });
             gltfMeshes.Add(new { primitives = new[] { new { attributes = new { POSITION = positionAccessor }, indices = indexAccessor, material = m, mode = 4 } } });
-            materials.Add(new { pbrMetallicRoughness = new { baseColorFactor = new[] { Linear(mesh.R), Linear(mesh.G), Linear(mesh.B), 1.0 }, metallicFactor = 0.0, roughnessFactor = 0.75 }, doubleSided = true });
+            if(mesh.Material is{} material)
+                materials.Add(new { pbrMetallicRoughness = new { baseColorFactor = material.LinearBaseColor(), metallicFactor = material.Metallic, roughnessFactor = material.Roughness }, alphaMode = material.Alpha < 1 ? "BLEND" : "OPAQUE", doubleSided = true });
+            else
+                materials.Add(new { pbrMetallicRoughness = new { baseColorFactor = new[] { Linear(mesh.R), Linear(mesh.G), Linear(mesh.B), 1.0 }, metallicFactor = 0.0, roughnessFactor = 0.75 }, doubleSided = true });
         }
         var json = JsonSerializer.SerializeToUtf8Bytes(new
         {

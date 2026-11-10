@@ -39,6 +39,8 @@ public sealed partial class AholoPanel : Panel,IPanel
     private readonly TextBox objectHeight=new(){Text="1"};
     private readonly DropDown exportScope=new(){DataStore=new[]{T("Selected top-level GS"),T("All top-level GS (including hidden and locked)")},SelectedIndex=0};
     private readonly DropDown resolution=new(){DataStore=new[]{"1280 × 720","1920 × 1080"},SelectedIndex=0};
+    private readonly CheckBox renderLights=new(){Text=T("Include selected rectangular / point lights")};
+    private readonly TextBox lightRadius=new(){Text="50"},lightMultiplier=new(){Text="1"};
     private readonly List<Button> actions=new();
     private readonly Button submit,render,refresh,download,place,continueRender;
     private readonly UITimer elapsed=new(){Interval=1};
@@ -82,8 +84,10 @@ public sealed partial class AholoPanel : Panel,IPanel
             Info("Local files"),Row(Action("Import GS",ImportGsAsync),Action("Export GS",ExportGsAsync)),exportScope,
             Row(Local("GS viewport",()=>GaussianViewport.Activate(Document())),Local("Diagnostics",()=>Report(GaussianViewport.Diagnostics(Document())))),
             worldId,Action("Restore World ID",async()=>{var task=await session.Client.ImportWorldAsync(worldId.Text.Trim(),token);session.Observe(task);await RevealAsync(task);}));
-        var renderPage=Column(Info("Select meshes, surfaces, extrusions or mesh blocks and use a perspective view. Geometry, base colors and camera will be uploaded."),resolution,render,
-            Info("Offline rendering uses a captured scene, including nested block placements. Results appear in Library. Textures, lights and GS ingestion are not converted yet."),
+        var lightFields=Column(Info("Point-light radius before block scaling (mm)"),lightRadius,Info("Relative light intensity multiplier"),lightMultiplier,Info("Point lights use the chosen sphere radius. Light intensity is relative, not calibrated to Rhino lumens. Unsupported selected lights fail before upload."));
+        lightFields.Visible=false;renderLights.CheckedChanged+=(_,_)=>lightFields.Visible=renderLights.Checked==true;
+        var renderPage=Column(Info("Select meshes, surfaces, extrusions or mesh blocks and use a perspective view. Geometry, supported material constants, optional selected lights and camera will be uploaded."),resolution,renderLights,lightFields,render,
+            Info("Offline rendering captures nested block placements and supported PBR constants. Textures, material graphs, glass transmission and GS ingestion are not converted yet. Results appear in Library."),
             Local("Open cloud preview",()=>CloudPreviewWindow.Open(Document(),Selected)),Info("Cloud preview uses an existing ingested asset. Its JPEG stream does not provide native depth compositing."));
         tabs.Pages.Add(new(){Text=T("Create"),Content=createPage});tabs.Pages.Add(new(){Text=T("Library"),Content=libraryPage});tabs.Pages.Add(new(){Text=T("Render"),Content=renderPage});
         cancel.Click+=(_,_)=>session.Operations.CancelPrefix(Scope);
@@ -255,9 +259,11 @@ public sealed partial class AholoPanel : Panel,IPanel
     private async Task RenderAsync()
     {
         int width=resolution.SelectedIndex==1?1920:1280,height=resolution.SelectedIndex==1?1080:720;
-        var snapshot=AholoHost.CaptureRender(Document(),width,height);string path=Path.Combine(session.Store.Root,"exports",Guid.NewGuid().ToString("N")+".glb");
+        double ParseLightValue(string text)
+        {if(!double.TryParse(text,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.CurrentCulture,out double value)||!double.IsFinite(value)||value<=0)throw new ArgumentException(T("Light radius and intensity multiplier must be positive numbers."));return value;}
+        var snapshot=AholoHost.CaptureRender(Document(),width,height,renderLights.Checked==true,renderLights.Checked==true?ParseLightValue(lightRadius.Text):50,renderLights.Checked==true?ParseLightValue(lightMultiplier.Text):1);string path=Path.Combine(session.Store.Root,"exports",Guid.NewGuid().ToString("N")+".glb");
         await Task.Run(()=>{Directory.CreateDirectory(Path.GetDirectoryName(path)!);GlbWriter.Write(path,snapshot.Meshes,token);},token);
-        var task=await session.RenderAsync(new(snapshot.Name,path,snapshot.Camera,width,height,Upload:uploadOptions),token);await RevealAsync(task);
+        var task=await session.RenderAsync(new(snapshot.Name,path,snapshot.Camera,width,height,Upload:uploadOptions,Lights:snapshot.Lights),token);await RevealAsync(task);
     }
     private void ShowSettings()
     {

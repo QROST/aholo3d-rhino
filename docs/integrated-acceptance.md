@@ -67,3 +67,9 @@ Exercise Start→immediate Stop/Close, document close/switch, changed units/view
 ## Optional account login
 
 With no API Key, open Settings → Account sign-in, complete browser login, then confirm generation remains unavailable. Cancel while waiting, close/reopen the dialog, refresh explicitly and sign out. Neither login nor logout may change the existing API Key, task identity or realtime authority. Closing after a completed login retains the process-local session; closing while still pending cancels only that attempt. Restarting/resetting the sidecar requires account login again. Use Mac/Windows and both UI languages; no credentials or full authorization URLs belong in logs/screenshots.
+
+## Material constants and scene lights
+
+Render PBR objects with distinct metallic/roughness/alpha constants, a legacy material and object/layer/parent material inheritance through nested blocks. Check a parent with no assigned material and a child with its own display color. Compare input-color preprocessing on/off and a nondefault gamma; no document material should be mutated. Textures, glass and per-face appearance remain unsupported.
+
+Explicitly include selected world rectangle/point lights, including transformed/reflected blocks. Compare corner-to-center position, physical millimetres, rectangle emission direction and width/height against a known cube. Point preview radius is specified before block scaling; relative intensity is not Rhino lumen parity. Unsupported light types, sheared rectangles and nonuniform point scaling must fail before upload. Restart after mesh processing and continue the original render: saved light/camera values must survive later scene edits. Repeat on both platforms; these are manual/live checks, not passed by mock tests.

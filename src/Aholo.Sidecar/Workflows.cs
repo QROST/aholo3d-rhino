@@ -30,7 +30,14 @@ public sealed partial class Workflows(AholoApiClient api, TaskStore store, Asset
     public async Task<LocalTask> RenderAsync(ApiKeyCredential key, RenderRequest request, CancellationToken ct)
     {
         // Validate optics, resolution, and scene serialization before any paid or upload action.
-        _ = UsdaSceneBuilder.Build("validation", request.Camera, request.Width, request.Height, request.EnvironmentIntensity);
+        ArgumentNullException.ThrowIfNull(request.Camera);
+        request = request with
+        {
+            Camera = request.Camera with { Transform = request.Camera.Transform?.ToArray() ?? throw new ArgumentException("Camera transform is missing.") },
+            Lights = request.Lights?.Select(light => light is null ? throw new ArgumentException("Light is missing.") : light with
+            { Transform = light.Transform?.ToArray() ?? throw new ArgumentException("Light transform is missing."), Color = light.Color?.ToArray() ?? throw new ArgumentException("Light color is missing.") }).ToArray()
+        };
+        _ = UsdaSceneBuilder.Build("validation", request.Camera, request.Width, request.Height, request.EnvironmentIntensity, request.Lights);
         var task = new LocalTask { Kind = "render", Name = Name(request.Name, "Aholo Render"), ConnectionId = key.ConnectionId };
         using var gate = store.LockTask(task.Id);
         store.Save(task);
@@ -74,7 +81,7 @@ public sealed partial class Workflows(AholoApiClient api, TaskStore store, Asset
         using var gate = store.LockTask(id);
         var task = await RefreshCoreAsync(key, store.GetForUpdate(id), ct).ConfigureAwait(false);
         if (!TaskCapabilities.For(task).CanContinueRender) return task;
-        string usda = UsdaSceneBuilder.Build(task.MeshId!, task.Render!.Camera, task.Render.Width, task.Render.Height, task.Render.EnvironmentIntensity);
+        string usda = UsdaSceneBuilder.Build(task.MeshId!, task.Render!.Camera, task.Render.Width, task.Render.Height, task.Render.EnvironmentIntensity, task.Render.Lights);
         TaskStore.WriteAtomic(Path.Combine(store.Root, "inputs", task.Id.ToString("N") + ".usda"), System.Text.Encoding.UTF8.GetBytes(usda));
         ct.ThrowIfCancellationRequested();
         task = Save(task with { Status = "RenderSubmitting", Error = null });

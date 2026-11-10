@@ -13,7 +13,7 @@ public sealed record ConnectRequest(string ApiKey, bool Remember, string Validat
 public sealed record GenerateWorldRequest(string Name, string Prompt, string? ImagePath = null);
 // Row-vector pose, translation in row 4, distances in millimetres; camera looks along local -Z.
 public sealed record RenderCamera(double[] Transform, double FocalLength, double HorizontalAperture, double VerticalAperture, double Near, double Far);
-public sealed record RenderRequest(string Name, string GlbPath, RenderCamera Camera, int Width = 1280, int Height = 720, double EnvironmentIntensity = 1, AssetUploadOptions? Upload = null);
+public sealed record RenderRequest(string Name, string GlbPath, RenderCamera Camera, int Width = 1280, int Height = 720, double EnvironmentIntensity = 1, AssetUploadOptions? Upload = null, RenderLight[]? Lights = null);
 public sealed record DownloadRequest(Guid Id, string Kind = "ply");
 public sealed record LocalTask
 {
