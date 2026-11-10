@@ -3466,5 +3466,9 @@
   {
     "English": "Nonuniform or sheared point-light scaling is unsupported.",
     "Chinese": "不支持点灯的非均匀缩放或剪切。"
+  },
+  {
+    "English": "Cannot compute valid mesh normals. Repair the selected mesh before rendering.",
+    "Chinese": "无法计算有效的网格法线。请修复所选网格后再渲染。"
   }
 ]

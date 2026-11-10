@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace Aholo.Core;
 
-/// <summary>Writes untextured triangle meshes as glTF 2.0, in metres with Y up.</summary>
+/// <summary>Writes triangle meshes with optional smooth normals and UVs as glTF 2.0, in metres with Y up.</summary>
 public static class GlbWriter
 {
     public static void Write(string path, IReadOnlyList<MeshData> meshes, CancellationToken ct = default)
@@ -53,7 +53,31 @@ public static class GlbWriter
             accessors.Add(new { bufferView = positionView, byteOffset = 0, componentType = 5126, count, type = "VEC3", min, max });
             var indexAccessor = accessors.Count;
             accessors.Add(new { bufferView = indexView, byteOffset = 0, componentType = 5125, count = mesh.Indices.Length, type = "SCALAR" });
-            gltfMeshes.Add(new { primitives = new[] { new { attributes = new { POSITION = positionAccessor }, indices = indexAccessor, material = m, mode = 4 } } });
+            var attributes = new Dictionary<string, int> { ["POSITION"] = positionAccessor };
+            if (mesh.Normals is { } normals)
+            {
+                if (normals.Length != mesh.Positions.Length) throw new ArgumentException("Normals must match the vertex count.");
+                for (int v = 0; v < normals.Length; v += 3)
+                {
+                    if ((v & 4095) == 0) ct.ThrowIfCancellationRequested();
+                    _ = new GaussianVector(normals[v], normals[v + 1], normals[v + 2]).Normalized();
+                }
+                attributes["NORMAL"] = accessors.Count;
+                accessors.Add(new { bufferView = views.Count, byteOffset = 0, componentType = 5126, count, type = "VEC3" });
+                long bytes = checked((long)normals.Length * sizeof(float));
+                views.Add(new { buffer = 0, byteOffset = binaryLength, byteLength = bytes, target = 34962 });
+                binaryLength = checked(binaryLength + bytes);
+            }
+            if (mesh.TexCoords is { } uv)
+            {
+                if (uv.LongLength != (long)count * 2 || uv.Any(v => !float.IsFinite(v))) throw new ArgumentException("Texture coordinates must contain two finite values per vertex.");
+                attributes["TEXCOORD_0"] = accessors.Count;
+                accessors.Add(new { bufferView = views.Count, byteOffset = 0, componentType = 5126, count, type = "VEC2" });
+                long bytes = checked((long)uv.Length * sizeof(float));
+                views.Add(new { buffer = 0, byteOffset = binaryLength, byteLength = bytes, target = 34962 });
+                binaryLength = checked(binaryLength + bytes);
+            }
+            gltfMeshes.Add(new { primitives = new[] { new { attributes, indices = indexAccessor, material = m, mode = 4 } } });
             if(mesh.Material is{} material)
                 materials.Add(new { pbrMetallicRoughness = new { baseColorFactor = material.LinearBaseColor(), metallicFactor = material.Metallic, roughnessFactor = material.Roughness }, alphaMode = material.Alpha < 1 ? "BLEND" : "OPAQUE", doubleSided = true });
             else
@@ -103,6 +127,20 @@ public static class GlbWriter
                         if ((i & 4095) == 0) ct.ThrowIfCancellationRequested();
                         writer.Write((uint)mesh.Indices[i]);
                     }
+                    if (mesh.Normals is { } normals)
+                        for (int v = 0; v < normals.Length; v += 3)
+                        {
+                            if ((v & 4095) == 0) ct.ThrowIfCancellationRequested();
+                            var n = new GaussianVector(normals[v], normals[v + 1], normals[v + 2]).Normalized();
+                            // (x,z,-y) is a proper rotation (determinant +1), not a reflection.
+                            writer.Write((float)n.X); writer.Write((float)n.Z); writer.Write((float)-n.Y);
+                        }
+                    if (mesh.TexCoords is { } uv)
+                        for (int i = 0; i < uv.Length; i++)
+                        {
+                            if ((i & 4095) == 0) ct.ThrowIfCancellationRequested();
+                            writer.Write(uv[i]);
+                        }
                 }
                 writer.Flush();
                 if (writer.BaseStream.Length != totalLength) throw new InvalidDataException("GLB byte length does not match its header.");

@@ -7,4 +7,8 @@ public sealed record SplatPoint(double X, double Y, double Z, byte R, byte G, by
 public sealed record MeshData(float[] Positions, int[] Indices, byte R, byte G, byte B)
 {
     public MeshMaterial? Material { get; init; }
+    /// <summary>Optional unit directions in Rhino Z-up coordinates, one per vertex.</summary>
+    public float[]? Normals { get; init; }
+    /// <summary>Optional UV pairs, with origin at the image upper-left as required by glTF.</summary>
+    public float[]? TexCoords { get; init; }
 }

@@ -156,6 +156,16 @@ internal static class AholoHost
                 if (generated.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("A selected object cannot be converted to a mesh. Nothing has been uploaded."));
                 foreach (Mesh mesh in generated)
                 {
+                    // Preserve custom/welded normals before Rhino transforms its private mesh copy.
+                    // Face winding is corrected separately below; inverse-transpose directions are not negated.
+                    if (mesh.Normals.Count != mesh.Vertices.Count && !mesh.Normals.ComputeNormals())
+                        throw new InvalidOperationException(UiText.Get("Cannot compute valid mesh normals. Repair the selected mesh before rendering."));
+                    var sourceNormals = new float[checked(mesh.Vertices.Count * 3)];
+                    for (int i = 0; i < mesh.Vertices.Count; i++)
+                    {
+                        var n = mesh.Normals[i]; sourceNormals[i * 3] = n.X; sourceNormals[i * 3 + 1] = n.Y; sourceNormals[i * 3 + 2] = n.Z;
+                    }
+                    var normals = MeshAttributes.TransformNormals(sourceNormals, new(transform.M00, transform.M01, transform.M02, transform.M10, transform.M11, transform.M12, transform.M20, transform.M21, transform.M22));
                     if (!mesh.Transform(transform)) throw new InvalidOperationException(UiText.Get("A block transform could not be applied."));
                     if(transform.Determinant < 0) mesh.Flip(true,true,true);
                     if (mesh.Vertices.Count == 0 || mesh.Faces.Count == 0 || !mesh.IsValid) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The selection contains empty or invalid meshes. Repair them in Rhino first."));
@@ -171,7 +181,7 @@ internal static class AholoHost
                         indices.Add(face.A); indices.Add(face.B); indices.Add(face.C);
                         if (face.IsQuad) { indices.Add(face.A); indices.Add(face.C); indices.Add(face.D); }
                     }
-                    meshes.Add(new MeshData(positions, indices.ToArray(), appearance.Color.R, appearance.Color.G, appearance.Color.B) { Material = appearance.Factors });
+                    meshes.Add(new MeshData(positions, indices.ToArray(), appearance.Color.R, appearance.Color.G, appearance.Color.B) { Material = appearance.Factors, Normals = normals });
                 }
             }
             finally { foreach (Mesh mesh in generated) mesh.Dispose(); }
