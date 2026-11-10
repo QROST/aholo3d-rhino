@@ -107,6 +107,7 @@ public sealed partial class AholoClient : IAholoServiceClient
             StandardOutputEncoding = new UTF8Encoding(false),
             StandardErrorEncoding = new UTF8Encoding(false)
         };
+        start.Environment["AHOLO_UI_LANGUAGE"]=UiText.Language;
         var endpoint=NewEndpoint();
         start.Environment["AHOLO_PARENT_PID"]=Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture);
         start.Environment["AHOLO_REALTIME_PIPE"]=endpoint.Name;

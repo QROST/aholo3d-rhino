@@ -1,6 +1,16 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Version: 0.1.1-beta.2. Date: 2026-11-06.
+Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.3. Earlier entries below retain their original scope.
+
+## Integrated development candidate alpha.3 — 2026-11-10 UTC
+
+Versioned Release build passed with zero warnings/errors; **784 .NET tests passed**, zero failed/skipped, on Apple Silicon macOS. Tests cover compatible GS references, upload missing-part selection, spatial DSL geometry, cloud history/recovery, mesh candidates/placement policy, mesh PLY/STL classification, real local IPC, realtime cleanup, OAuth callback/credential isolation and PBR/light snapshots. Deterministic GS alpha/opacity assets pass verification.
+
+An independent local OpenUSD check parsed a production-generated scene with RectLight, SphereLight and camera schemas. It verified centered rectangle dimensions, reflected emission direction, millimetre transforms, sphere radius and normalization. This is real local USD parsing, not evidence of RenderCloud ingestion or native Rhino visuals. Official OAuth public discovery was fetched read-only; no real sign-in, private account credentials or charged requests were used.
+
+Packaging verifies both platform-tagged archives against the allowlisted files and records commit/dirty state, SHA-256 and pending host/service acceptance in `artifacts/latest-package-{mac,win}.json`. Those receipts are the authority for whether an archive was produced; source compilation on a Mac does not prove Windows execution. No GUI automation, installation, push or publication is part of this candidate preparation.
+
+The current product is not full end-user parity solely because all HTTP routes exist. See the [alpha.3 parity table](api-capabilities.md#product-parity-at-alpha3) and [manual acceptance checklist](integrated-acceptance.md). Native cloud depth composition, World GS ingestion and progressive LOD retain contract gates; textures/normals/complex materials, additional mesh formats/animation, realtime model/light controls, remembered OAuth and China-region parity remain development work.
 
 ## Integrated development candidate — 2026-11-09
 

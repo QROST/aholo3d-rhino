@@ -80,3 +80,19 @@ Local API tests use mock HTTP. They verify request paths/bodies, validation befo
 Library exposes World/Lux3D/Spatial cloud history and recovery by existing World/Lux3D/Spatial/render ID. RenderCloud has no documented history-list endpoint. World LOD metadata is retained without assuming an unpublished progressive-loading schema. Durable upload recovery across tokens is not guaranteed by the public contract; cloud GS ingestion, native realtime compositing and full structural wall reconstruction are not implemented. Settings can validate through World, Lux3D or Spatial history; this never proves all other service entitlements. Render texture/material-network export, animation playback, undocumented output formats and Windows native execution require separate work.
 
 Downloaded files use immutable content-addressed names. Missing remote outputs retain downloaded local references. Rig/animation GLB files can be uploaded/downloaded, but static placement rejects unsupported skins, animations or required glTF extensions before touching the document. This is a format-support boundary, not a geometry-count cap. Generation/articulation URLs without a recognized format extension remain explicit unsupported results. Archives are retained as files and are not extracted automatically.
+
+## Product parity at alpha.3
+
+The 30 public HTTP routes and 13 create forms are implemented; that is not a claim that every reference-plugin behavior or returned artifact is fully supported in Rhino.
+
+| Area | Implemented in this source candidate | Remaining before a complete parity claim |
+| --- | --- | --- |
+| Lux3D workflows | Ten public creates, typed outputs, paged cloud history, original-ID recovery, three mesh candidates, CPlane/point placement and volatile original-generation placement intent | Animation playback; OBJ/FBX archives, 3MF and ordinary mesh USD placement; native material and Undo acceptance |
+| GSRhino capabilities | PLY/SPLAT/SPZ v1–4, local static GS USD/USDZ, compatible saved GS references, full SH0–3 data and experimental native display | Windows/new-host regression acceptance; transparent interleaving, nested GS instances, capture/layout/print/Raytraced support; further large-scene performance work |
+| Accounts | International API Key validation/storage plus separate optional PKCE OAuth login/refresh | Remembered OAuth sessions and China-region parity; authenticated account/browser acceptance |
+| World / Spatial | Generation/reconstruction, history/recovery, PLY/SPZ/panorama/LOD downloads, editable spatial DSL block | World LOD streaming schema; full structural solids/opening reconstruction; live reconstruction/DSL acceptance |
+| Offline rendering | Mesh/Brep/extrusion and ordinary nested blocks; PBR constants; selected rectangular/point lights; original camera/light snapshot and explicit recovered continuation | UV/textures, vertex-normal export and smooth shading fidelity, per-face/complex materials, glass transmission, calibrated light intensity, real ingestion/camera/render acceptance |
+| Realtime rendering | Existing ingested mesh/GS ID, modeless latest-JPEG preview, original camera updates, independent IPC and durable cleanup | Native mixed-depth viewport compositing; World GS-to-cloud ingestion contract; UI for model/light/environment patches; live session acceptance |
+| Release | Cross-platform compilation and local checks, bilingual interface/docs, package checks | Native Mac and Windows interaction tests, real authorized service acceptance, final publication decision |
+
+Public contract gates are distinct from ordinary implementation work: JPEG currently has no depth/alpha/camera-frame linkage; arbitrary World PLY/SPZ ingestion and progressive LOD metadata need provider-confirmed contracts. Texture/normal/material export, format import, patch controls and account persistence remain actionable development backlog. None is silently marked complete by endpoint counts or mock tests.

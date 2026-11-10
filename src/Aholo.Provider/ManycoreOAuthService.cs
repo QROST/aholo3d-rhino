@@ -173,7 +173,7 @@ public sealed class ManycoreOAuthService : IAccountAuthorization
                         catch (ProviderException error) { denied = error.Code == "oauth_denied"; }
                 }
                 string body = code is not null ? "Authorization callback received. Return to Rhino to see the sign-in result." : "Invalid sign-in callback. Return to Rhino and try again.";
-                byte[] payload = Encoding.UTF8.GetBytes(body);
+                byte[] payload = Encoding.UTF8.GetBytes(global::Aholo.Core.UiText.Get(body));
                 byte[] header = Encoding.ASCII.GetBytes($"HTTP/1.1 {(code is not null ? "200 OK" : "400 Bad Request")}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {payload.Length}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n");
                 await stream.WriteAsync(header, connectionTimeout.Token).ConfigureAwait(false);
                 await stream.WriteAsync(payload, connectionTimeout.Token).ConfigureAwait(false);

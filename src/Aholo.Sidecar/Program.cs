@@ -5,6 +5,7 @@ using Aholo.Core;
 using Aholo.Provider;
 using Aholo.Sidecar;
 
+UiText.Initialize(null,Environment.GetEnvironmentVariable("AHOLO_UI_LANGUAGE") ?? "en");
 Console.InputEncoding = new UTF8Encoding(false);
 Console.OutputEncoding = new UTF8Encoding(false);
 var store = new TaskStore(Environment.GetEnvironmentVariable("AHOLO_RHINO_STATE_DIR") ?? TaskStore.DefaultRoot);
