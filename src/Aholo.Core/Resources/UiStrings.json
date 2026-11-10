@@ -2598,5 +2598,113 @@
   {
     "English": "Invalid missing upload part range.",
     "Chinese": "服务返回的缺失上传分块区间无效。"
+  },
+  {
+    "English": "Line {0}: an unknown spatial entity type was skipped.",
+    "Chinese": "第 {0} 行：已跳过未知空间实体类型。"
+  },
+  {
+    "English": "Spatial result line {0}: {1}",
+    "Chinese": "空间结果第 {0} 行：{1}"
+  },
+  {
+    "English": "Expected id=Type(arguments).",
+    "Chinese": "应为 id=Type(arguments) 格式。"
+  },
+  {
+    "English": "Invalid entity identifier.",
+    "Chinese": "实体标识无效。"
+  },
+  {
+    "English": "Duplicate entity identifier.",
+    "Chinese": "实体标识重复。"
+  },
+  {
+    "English": "A box needs a class and seven numbers.",
+    "Chinese": "包围盒需要类别和七个数值。"
+  },
+  {
+    "English": "The box class is empty.",
+    "Chinese": "包围盒类别为空。"
+  },
+  {
+    "English": "Box dimensions must be positive.",
+    "Chinese": "包围盒尺寸必须大于零。"
+  },
+  {
+    "English": "The entity has the wrong number of arguments.",
+    "Chinese": "实体参数数量不正确。"
+  },
+  {
+    "English": "Wall height must be positive and thickness nonnegative.",
+    "Chinese": "墙高必须大于零，厚度不能为负。"
+  },
+  {
+    "English": "The wall baseline has no horizontal direction.",
+    "Chinese": "墙基线没有有效水平方向。"
+  },
+  {
+    "English": "Invalid wall reference.",
+    "Chinese": "墙引用无效。"
+  },
+  {
+    "English": "Opening dimensions must be positive.",
+    "Chinese": "开口尺寸必须大于零。"
+  },
+  {
+    "English": "The opening refers to a missing or non-wall entity.",
+    "Chinese": "开口引用了不存在或非墙类型的实体。"
+  },
+  {
+    "English": "The spatial result contains no supported entities.",
+    "Chinese": "空间结果不含受支持的实体。"
+  },
+  {
+    "English": "Unsupported spatial entity.",
+    "Chinese": "不支持该空间实体。"
+  },
+  {
+    "English": "Spatial geometry exceeds the numeric range.",
+    "Chinese": "空间几何超出有效数值范围。"
+  },
+  {
+    "English": "Expected a finite number.",
+    "Chinese": "需要有限数值。"
+  },
+  {
+    "English": "The downloaded spatial result changed. Download the original result again.",
+    "Chinese": "已下载的空间结果发生变化。请重新下载原结果。"
+  },
+  {
+    "English": "Set standard document units before placing spatial geometry.",
+    "Chinese": "放置空间几何前请设置标准文档单位。"
+  },
+  {
+    "English": "This spatial result is already in the document.",
+    "Chinese": "此空间结果已在文档中。"
+  },
+  {
+    "English": "Rhino could not construct a spatial entity.",
+    "Chinese": "Rhino 无法构造空间实体。"
+  },
+  {
+    "English": "Place spatial geometry",
+    "Chinese": "放置空间几何"
+  },
+  {
+    "English": "Placed {0:N0} spatial entities as a block. Walls are surfaces, openings are outlines, and boxes retain their orientation. Use BlockEdit or Explode to edit; one Undo removes the placement.",
+    "Chinese": "已将 {0:N0} 个空间实体放入一个块。墙为曲面，开口为轮廓，包围盒保留方向。可使用 BlockEdit 或 Explode 编辑；一次撤销移除本次放置。"
+  },
+  {
+    "English": "Detected wall thickness is retained as metadata; this version creates wall surfaces without thickness or automatic openings.",
+    "Chinese": "识别的墙厚保留为元数据；此版本创建无厚度墙面，不自动开洞。"
+  },
+  {
+    "English": "The spatial result differs from the existing block. The existing model is retained.",
+    "Chinese": "空间结果与已有块不同。已保留现有模型。"
+  },
+  {
+    "English": "Spatial placement stopped, but cleanup was incomplete. Use Undo to remove the new geometry.",
+    "Chinese": "空间放置已停止，但清理未完成。请使用撤销移除新几何。"
   }
 ]

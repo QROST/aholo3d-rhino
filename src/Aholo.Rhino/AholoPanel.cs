@@ -131,7 +131,7 @@ public sealed class AholoPanel : Panel,IPanel
         bool sameAccount=task?.ConnectionId==session.Connection.ConnectionId;
         refresh.Enabled=!busy&&connected&&sameAccount&&capability?.CanQuery==true;
         download.Enabled=!busy&&connected&&sameAccount&&capability?.CanDownload==true&&artifact is not null&&artifact.Error is null;
-        place.Enabled=!busy&&task is not null&&artifact is not null&&artifact.Format is "glb" or "ply" or "spz"&&artifact.LocalPath is not null&&File.Exists(artifact.LocalPath);
+        place.Enabled=!busy&&task is not null&&artifact is not null&&artifact.Format is "glb" or "ply" or "spz" or "dsl"&&artifact.LocalPath is not null&&File.Exists(artifact.LocalPath);
         continueRender.Enabled=!busy&&connected&&sameAccount&&capability?.CanContinueRender==true;
         continueRender.Visible=task?.Kind=="render"&&capability?.CanContinueRender==true;
         cancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
@@ -221,6 +221,8 @@ public sealed class AholoPanel : Panel,IPanel
         var task=Selected??throw new InvalidOperationException(T("Select a task first."));var artifact=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
         if(artifact.LocalPath is null||!File.Exists(artifact.LocalPath))throw new InvalidOperationException(T("Download the selected result first."));
         var target=AholoHost.CaptureTarget(Document());
+        if(artifact.Format=="dsl")
+        {string message=await SpatialDocument.PlaceAsync(artifact.LocalPath,artifact.Sha256,target,task.Id,artifact.Key,token);AholoHost.Ui(()=>Report(message));return;}
         if(artifact.Format=="ply")
         {string up=Axis()=="Auto"?task.UpAxis??"Z":Axis();string message=await GaussianDocument.ImportAsync(artifact.LocalPath,target,Scale(),up,task.Id,token);AholoHost.Ui(()=>Report(message));return;}
         if(artifact.Format=="spz")
