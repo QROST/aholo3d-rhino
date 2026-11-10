@@ -37,12 +37,12 @@ internal static partial class GaussianDocument
                 DeletedObjects = false, ActiveObjects = true, ReferenceObjects = false, VisibleFilter = false
             };
             objects = doc.Objects.GetObjectList(settings).OfType<InstanceObject>()
-                .Where(obj => obj.Attributes.GetUserString(Marker) is not null).ToArray();
+                .Where(HasGaussianMarker).ToArray();
         }
         if (objects.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The current document has no exportable top-level GS blocks."));
         var parts = objects.OrderBy(o => o.Id).Select(obj =>
         {
-            GaussianReferenceMetadata reference = GaussianReferenceMetadata.Resolve(obj.Attributes.GetUserString, () => Array.Empty<string>()) ?? throw new InvalidDataException(global::Aholo.Core.UiText.Get("Invalid GS reference."));
+            GaussianReferenceMetadata reference = Reference(obj) ?? throw new InvalidDataException(global::Aholo.Core.UiText.Get("Invalid GS reference."));
             Transform t = obj.InstanceXform;
             if (!t.IsValid || t.M30 != 0 || t.M31 != 0 || t.M32 != 0 || t.M33 != 1)
                 throw new InvalidDataException(global::Aholo.Core.UiText.Get("A GS block has an invalid or non-affine transform. Export was stopped."));

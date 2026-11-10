@@ -21,6 +21,39 @@ public sealed class GaussianReferenceTests : IDisposable
         return path;
     }
 
+    [Theory]
+    [InlineData("Aholo.GS")]
+    [InlineData("GSRhino.GS")]
+    [InlineData("LegacyViewer.GS")]
+    public void MarkedInvalidReferencesRemainDistinguishableFromOrdinaryObjects(string prefix)
+    {
+        var values = Properties(prefix, new string('a', 64));
+        bool Marked() => GaussianReferenceMetadata.HasMarker(key => values.GetValueOrDefault(key), () => values.Keys);
+        Assert.True(Marked()); Assert.NotNull(Resolve(values));
+        values[prefix + ".Version"] = "2";
+        Assert.True(Marked()); Assert.Null(Resolve(values));
+        values[prefix + ".Version"] = "1"; values[prefix + ".Sha256"] = "invalid";
+        Assert.True(Marked()); Assert.Null(Resolve(values));
+        values.Clear(); values["ordinary.Version"] = "1";
+        Assert.False(Marked()); Assert.Null(Resolve(values));
+    }
+
+    [Fact]
+    public void IndependentProducerReferenceReusesVerifiedAssetWithoutRelabeling()
+    {
+        string source = Source(), hash = Hash(source), cache = Path.Combine(directory, "cache");
+        var values = Properties("GSRhino.GS", hash.ToUpperInvariant(), source);
+        values["GSRhino.GS.Antialiased"] = "true";
+        values["GSRhino.GS.SourceUpAxis"] = "Y";
+        var before = values.ToArray();
+        var reference = Resolve(values)!;
+        var loaded = GaussianReferenceAsset.Load(reference, cache);
+        Assert.False(reference.IsNative); Assert.Equal(hash, Hash(loaded.Path));
+        Assert.Equal("true", values[reference.Prefix + ".Antialiased"]);
+        Assert.Equal(before, values.ToArray());
+        Assert.DoesNotContain("Aholo.GS.Version", values.Keys);
+    }
+
     [Fact]
     public void NativeReferencesDoNotEnumerateUnrelatedMetadata()
     {

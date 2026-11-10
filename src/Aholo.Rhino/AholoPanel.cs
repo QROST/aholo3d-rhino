@@ -34,6 +34,7 @@ public sealed class AholoPanel : Panel,IPanel
     private readonly Button previous=new(){Text=T("Previous")},next=new(){Text=T("Next")},cancel=new(){Text=T("Cancel local operation"),Enabled=false};
     private readonly TextBox scale=new(){Text="1"};
     private readonly DropDown axis=new(){DataStore=new[]{T("Automatic up axis"),"Z-up","Y-up"},SelectedIndex=0};
+    private readonly DropDown sourceUnits=new(){DataStore=new[]{T("Auto · Source units; 1:1 if unspecified"),T("1 file unit = 1 document unit")},SelectedIndex=0};
     private readonly TextBox objectHeight=new(){Text="1"};
     private readonly DropDown exportScope=new(){DataStore=new[]{T("Selected top-level GS"),T("All top-level GS (including hidden and locked)")},SelectedIndex=0};
     private readonly DropDown resolution=new(){DataStore=new[]{"1280 × 720","1920 × 1080"},SelectedIndex=0};
@@ -44,6 +45,7 @@ public sealed class AholoPanel : Panel,IPanel
     private readonly CancellationTokenSource lifetime=new();
     private CancellationToken token;
     private bool busy,disposed;
+    private long operationGeneration;
     private int offset;
     private string workName="";
     private LocalTask? Selected=>tasks.SelectedValue as LocalTask;
@@ -104,7 +106,7 @@ public sealed class AholoPanel : Panel,IPanel
     private void Report(string text){if(!disposed)feedback.Text=text;}
     private async Task RunAsync(string name,Func<Task> work)
     {
-        if(disposed||busy)return;busy=true;workName=T(name);clock.Restart();elapsed.Start();UpdateActions();
+        if(disposed||busy)return;busy=true;operationGeneration++;workName=T(name);clock.Restart();elapsed.Start();UpdateActions();
         try
         {
             await session.Operations.RunAsync(Scope+"foreground",name,async ct=>{token=ct;try{await work();}finally{token=default;}},lifetime.Token);
@@ -202,8 +204,16 @@ public sealed class AholoPanel : Panel,IPanel
     {string? path=SelectedArtifact?.LocalPath;string folder=path is not null?Path.GetDirectoryName(path)!:Path.Combine(session.Store.Root,"assets");Process.Start(new ProcessStartInfo(folder){UseShellExecute=true});}
     private void Pause(){if(Selected is{} task){session.PauseTask(task.Id);Describe();Report(T("Local polling paused. The remote task continues."));}}
     private void Resume(){if(Selected is{} task){session.ResumeQueries(task.Id);Describe();}}
+    private IProgress<string> StageProgress()
+    {
+        long generation=operationGeneration;
+        return new Progress<string>(message=>AholoHost.Ui(()=>
+        {
+            if(!disposed&&busy&&generation==operationGeneration){workName=message;operation.Text=message;}
+        }));
+    }
     private double Scale()
-    {if(!double.TryParse(scale.Text,NumberStyles.Float,CultureInfo.InvariantCulture,out double value)||!double.IsFinite(value)||value<=0)throw new ArgumentException(T("Enter an import scale greater than zero, such as 1 or 1000."));return value;}
+    {if(!(double.TryParse(scale.Text,NumberStyles.Float,CultureInfo.CurrentCulture,out double value)||double.TryParse(scale.Text,NumberStyles.Float,CultureInfo.InvariantCulture,out value))||!double.IsFinite(value)||value<=0)throw new ArgumentException(T("Enter an import scale greater than zero, such as 1 or 1000."));return value;}
     private string Axis()=>axis.SelectedIndex==1?"Z":axis.SelectedIndex==2?"Y":"Auto";
     private async Task PlaceAsync()
     {
@@ -213,7 +223,7 @@ public sealed class AholoPanel : Panel,IPanel
         if(artifact.Format=="ply")
         {string up=Axis()=="Auto"?task.UpAxis??"Z":Axis();string message=await GaussianDocument.ImportAsync(artifact.LocalPath,target,Scale(),up,task.Id,token);AholoHost.Ui(()=>Report(message));return;}
         if(artifact.Format=="spz")
-        {string message=await GaussianDocument.ImportSceneAsync(artifact.LocalPath,target,Scale(),Axis(),true,token,taskId:task.Id);AholoHost.Ui(()=>Report(message));return;}
+        {string message=await GaussianDocument.ImportSceneAsync(artifact.LocalPath,target,Scale(),Axis(),sourceUnits.SelectedIndex==0,token,StageProgress(),taskId:task.Id);AholoHost.Ui(()=>Report(message));return;}
         if(artifact.Format!="glb")throw new InvalidOperationException(T("This result format cannot be placed directly."));
         if(!double.TryParse(objectHeight.Text,NumberStyles.Float,CultureInfo.InvariantCulture,out double height)||!double.IsFinite(height)||height<=0)throw new ArgumentException(T("Enter a positive model height in document units."));
         var trace=new HostImportTrace(task.Id,serial,AholoPlugin.DisplayVersion,session.Store.Root);
@@ -243,12 +253,12 @@ public sealed class AholoPanel : Panel,IPanel
     {
         using var dialog=new OpenFileDialog{Title=T("Import GS"),MultiSelect=false};dialog.Filters.Add(new FileFilter("Gaussian scene",".ply",".splat",".spz",".usd",".usda",".usdc",".usdz"));
         if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
-        var target=AholoHost.CaptureTarget(Document());string message=await GaussianDocument.ImportSceneAsync(dialog.FileName,target,Scale(),Axis(),true,token);AholoHost.Ui(()=>Report(message));
+        var target=AholoHost.CaptureTarget(Document());string message=await GaussianDocument.ImportSceneAsync(dialog.FileName,target,Scale(),Axis(),sourceUnits.SelectedIndex==0,token,StageProgress());AholoHost.Ui(()=>Report(message));
     }
     private async Task ExportGsAsync()
     {
         var snapshot=GaussianDocument.CaptureExport(Document(),selectedOnly:exportScope.SelectedIndex==0);using var dialog=GaussianExportDialogs.CreateSaveDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
-        string message=await GaussianDocument.ExportAsync(GaussianExportDialogs.NormalizePath(dialog),snapshot,token);AholoHost.Ui(()=>Report(message));
+        string message=await GaussianDocument.ExportAsync(GaussianExportDialogs.NormalizePath(dialog),snapshot,token,StageProgress());AholoHost.Ui(()=>Report(message));
     }
     private async Task RenderAsync()
     {
@@ -263,7 +273,7 @@ public sealed class AholoPanel : Panel,IPanel
         var validation=new DropDown{DataStore=new[]{"World","Lux3D",T("Spatial understanding")},SelectedIndex=0};
         var key=new PasswordBox();var remember=new CheckBox{Text=T("Save in secure local storage")};
         var auto=new CheckBox{Text=T("Auto-refresh active tasks (every 8 seconds)"),Checked=session.AutoRefresh};auto.CheckedChanged+=(_,_)=>session.AutoRefresh=auto.Checked==true;
-        var settingsScale=new TextBox{Text=scale.Text};var settingsAxis=new DropDown{DataStore=axis.DataStore,SelectedIndex=axis.SelectedIndex};var settingsHeight=new TextBox{Text=objectHeight.Text};
+        var settingsScale=new TextBox{Text=scale.Text};var settingsAxis=new DropDown{DataStore=axis.DataStore,SelectedIndex=axis.SelectedIndex};var settingsHeight=new TextBox{Text=objectHeight.Text};var settingsUnits=new DropDown{DataStore=sourceUnits.DataStore,SelectedIndex=sourceUnits.SelectedIndex};
         var status=Info(session.Connection.Connected?"International · Connected":"International · Not connected");
         var connectionError=Info(session.LastError??"");
         using var dialog=new Dialog{Title=T("Settings"),ClientSize=new Size(460,620),Resizable=true};
@@ -286,7 +296,7 @@ public sealed class AholoPanel : Panel,IPanel
         // Dialog controls are snapshots; closing it preserves placement values in this panel.
         dialog.Content=Column(status,connectionError,Row(restore,settingsCancel),Info("International API Key"),key,remember,Info("Validate access with"),validation,connect,disconnect,
             Info("Validation queries the selected service history. Each service may need separate account permissions. OAuth login does not replace an API Key."),auto,
-            Info("GS import scale (document units per source unit)"),settingsScale,settingsAxis,Info("Mesh height (document units)"),settingsHeight,
+            Info("GS import scale (document units per source unit)"),settingsScale,settingsAxis,Info("Source units"),settingsUnits,Info("Mesh height (document units)"),settingsHeight,
             Local("Open local asset folder",()=>Process.Start(new ProcessStartInfo(Path.Combine(session.Store.Root,"assets")){UseShellExecute=true})),
             Info("Closing the panel keeps tasks running. Reopen it to view progress. Cancel stops local waiting only; remote tasks remain on the service."),
             Info("Local USD import and export"),usdStatus,usdCheck,Info("Optional runtime setup command (runs only when you execute it):"),usdSetup,
@@ -294,7 +304,7 @@ public sealed class AholoPanel : Panel,IPanel
         void UpdateSettings()=>Application.Instance.AsyncInvoke(()=>{if(!closed){status.Text=T(session.Connection.Connected?"International · Connected":"International · Not connected");connectionError.Text=UiText.TranslateKnownMessage(session.LastError??"");settingsCancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));}});
         session.Changed+=UpdateSettings;
         try{dialog.ShowModal(this);}finally{closed=true;session.Changed-=UpdateSettings;}
-        scale.Text=settingsScale.Text;axis.SelectedIndex=settingsAxis.SelectedIndex;objectHeight.Text=settingsHeight.Text;
+        scale.Text=settingsScale.Text;axis.SelectedIndex=settingsAxis.SelectedIndex;sourceUnits.SelectedIndex=settingsUnits.SelectedIndex;objectHeight.Text=settingsHeight.Text;
     }
     private void SessionChanged()=>Application.Instance.AsyncInvoke(()=>{if(!disposed)UpdateActions();});
     private void TaskChanged(LocalTask task)=>Application.Instance.AsyncInvoke(()=>{if(!disposed)_=ReloadAsync();});

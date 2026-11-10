@@ -2542,5 +2542,21 @@
   {
     "English": "OpenUSD returned an invalid readiness response.",
     "Chinese": "OpenUSD 返回了无效的就绪检查响应。"
+  },
+  {
+    "English": "Auto · Source units; 1:1 if unspecified",
+    "Chinese": "自动 · 使用源单位；未指定时为 1:1"
+  },
+  {
+    "English": "1 file unit = 1 document unit",
+    "Chinese": "1 个文件单位 = 1 个文档单位"
+  },
+  {
+    "English": "Source units",
+    "Chinese": "源单位"
+  },
+  {
+    "English": "Compatible GS references: {0}. Source metadata is retained.\nGS cache: {1}\nOriginal files: {2}",
+    "Chinese": "兼容 GS 引用：{0}。保留原始元数据。\nGS 缓存：{1}\n原始文件：{2}"
   }
 ]

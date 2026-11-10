@@ -24,6 +24,7 @@ internal static partial class GaussianDocument
         internal string? Error;
         internal bool Loading;
         internal CancellationTokenSource? Cancellation;
+        internal HashSet<string> AttemptedSources = new(StringComparer.Ordinal);
     }
     internal sealed record Placement(InstanceObject Object, AssetData Asset, GaussianTransform Transform);
     private static string CacheRoot => System.IO.Path.Combine(AholoPlugin.Session.Store.Root, "assets", "gaussians");
@@ -67,7 +68,7 @@ internal static partial class GaussianDocument
             // Deleted assets need not retain all splats in managed memory until document close.
             if (Documents.TryGetValue(doc.RuntimeSerialNumber, out var assets))
             {
-                var hashes = instances.Select(o => o.Attributes.GetUserString(HashKey)).ToHashSet();
+                var hashes = instances.Select(o => Reference(o)?.Hash).ToHashSet();
                 string[] unused = assets.Keys.Where(hash => !hashes.Contains(hash)).ToArray();
                 foreach (string hash in unused) { assets[hash].Cancellation?.Cancel(); assets.Remove(hash); }
                 if (unused.Length > 0) GaussianViewport.ForgetDocument(doc.RuntimeSerialNumber);
@@ -88,10 +89,14 @@ internal static partial class GaussianDocument
         foreach (RhinoObject obj in doc.Objects.GetObjectList(settings))
             if (obj is InstanceObject instance && IsGaussian(instance) && (includeHidden || instance.Visible)) yield return instance;
     }
-    internal static bool IsGaussian(RhinoObject obj) => obj.Attributes.GetUserString(Marker) == "1";
+    private static GaussianReferenceMetadata? Reference(RhinoObject obj) => GaussianReferenceMetadata.Resolve(
+        obj.Attributes.GetUserString, () => obj.Attributes.GetUserStrings()?.AllKeys.OfType<string>() ?? Array.Empty<string>());
+    private static bool HasGaussianMarker(RhinoObject obj) => GaussianReferenceMetadata.HasMarker(
+        obj.Attributes.GetUserString, () => obj.Attributes.GetUserStrings()?.AllKeys.OfType<string>() ?? Array.Empty<string>());
+    internal static bool IsGaussian(RhinoObject obj) => Reference(obj) is not null;
     internal static AssetData? Ready(RhinoDoc doc, RhinoObject obj)
     {
-        string? hash = obj.Attributes.GetUserString(HashKey);
+        string? hash = Reference(obj)?.Hash;
         return hash is not null && Documents.TryGetValue(doc.RuntimeSerialNumber, out var assets) && assets.TryGetValue(hash, out var entry) ? entry.Data : null;
     }
     internal static List<Placement> Placements(RhinoDoc doc, global::Rhino.Display.RhinoViewport viewport)
@@ -121,24 +126,30 @@ internal static partial class GaussianDocument
     }
     private static void EnsureLoaded(RhinoDoc doc, InstanceObject obj)
     {
-        string? hash = obj.Attributes.GetUserString(HashKey);
-        if (hash is null || hash.Length != 64 || hash.Any(c => !Uri.IsHexDigit(c))) return;
+        GaussianReferenceMetadata? reference = Reference(obj);
+        if (reference is null) return;
+        string hash = reference.Hash;
         if (!Documents.TryGetValue(doc.RuntimeSerialNumber, out var assets)) Documents.Add(doc.RuntimeSerialNumber, assets = new());
-        if (assets.ContainsKey(hash)) return;
-        var entry = new AssetEntry { Loading = true, Cancellation = new CancellationTokenSource() }; assets.Add(hash, entry);
+        string source = reference.AssetPath ?? "";
+        assets.TryGetValue(hash, out var previous);
+        if (previous is not null && (previous.Data is not null || previous.Loading || previous.Error is null || previous.AttemptedSources.Contains(source))) return;
+        // A second instance may reference the same bytes at a surviving local path.
+        // Each path is tried once until explicit reload, avoiding an idle retry loop.
+        var entry = new AssetEntry { Loading = true, Cancellation = new CancellationTokenSource(),
+            AttemptedSources = previous is null ? new(StringComparer.Ordinal) : new(previous.AttemptedSources, StringComparer.Ordinal) };
+        entry.AttemptedSources.Add(source); assets[hash] = entry;
         uint serial = doc.RuntimeSerialNumber;
-        string? savedPath = obj.Attributes.GetUserString(PathKey);
-        _ = LoadAsync(serial, hash, savedPath, entry);
+        _ = LoadAsync(serial, reference, entry);
     }
-    private static async Task LoadAsync(uint serial, string hash, string? savedPath, AssetEntry entry)
+    private static async Task LoadAsync(uint serial, GaussianReferenceMetadata reference, AssetEntry entry)
     {
+        string hash = reference.Hash;
         CancellationTokenSource cancellation = entry.Cancellation!;
         CancellationToken ct = cancellation.Token;
         try
         {
             AssetData data = await Task.Run(() =>
             {
-                var reference = new GaussianReferenceMetadata(GaussianReferenceMetadata.NativePrefix, hash, savedPath);
                 GaussianReferenceData loaded = GaussianReferenceAsset.Load(reference, CacheRoot, ct);
                 return PrepareAsset(loaded.Splats, loaded.Path, hash, ct);
             }, ct).ConfigureAwait(false);
@@ -318,8 +329,10 @@ internal static partial class GaussianDocument
     }
     internal static string Diagnostics(RhinoDoc doc)
     {
-        int instances=Instances(doc,null,true).Count();
-        if(!Documents.TryGetValue(doc.RuntimeSerialNumber,out var assets)) return global::Aholo.Core.UiText.Format("GS block instances: {0}; assets are not loaded yet.", instances);
-        return global::Aholo.Core.UiText.Format("GS block instances: {0}; loaded assets: {1}; loading: {2}; asset errors: {3}.", instances, assets.Values.Count(a=>a.Data is not null), assets.Values.Count(a=>a.Loading), assets.Values.Count(a=>a.Error is not null));
+        var objects=Instances(doc,null,true).ToArray();
+        int compatible=objects.Count(obj=>Reference(obj)?.IsNative==false);
+        string locations=UiText.Format("Compatible GS references: {0}. Source metadata is retained.\nGS cache: {1}\nOriginal files: {2}", compatible, CacheRoot, System.IO.Path.Combine(AholoPlugin.Session.Store.Root,"sources"));
+        if(!Documents.TryGetValue(doc.RuntimeSerialNumber,out var assets)) return UiText.Format("GS block instances: {0}; assets are not loaded yet.", objects.Length)+"\n"+locations;
+        return UiText.Format("GS block instances: {0}; loaded assets: {1}; loading: {2}; asset errors: {3}.", objects.Length, assets.Values.Count(a=>a.Data is not null), assets.Values.Count(a=>a.Loading), assets.Values.Count(a=>a.Error is not null))+"\n"+locations;
     }
 }

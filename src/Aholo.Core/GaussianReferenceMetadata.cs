@@ -6,6 +6,9 @@ public sealed record GaussianReferenceMetadata(string Prefix, string Hash, strin
     public const string NativePrefix = "Aholo.GS";
     public bool IsNative => Prefix == NativePrefix;
 
+    public static bool HasMarker(Func<string, string?> read, Func<IEnumerable<string>> keys)
+        => read(NativePrefix + ".Version") is not null || keys().Any(key => key.EndsWith(".GS.Version", StringComparison.Ordinal));
+
     public static GaussianReferenceMetadata? Resolve(Func<string, string?> read, Func<IEnumerable<string>> keys)
     {
         // An explicitly authored native marker owns the reference; do not mix it with foreign fields.
