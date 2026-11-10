@@ -93,63 +93,6 @@ public sealed partial class AholoApiClient
         return result;
     }
 
-    public async Task<string> UploadAsync(ApiKeyCredential key, string filePath, CancellationToken ct = default)
-    {
-        // Hash and upload a single immutable snapshot; stream parts without a mesh size or vertex ceiling.
-        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.ReadWrite, Share = FileShare.None, Options = FileOptions.Asynchronous | FileOptions.DeleteOnClose };
-        if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        await using var snapshot = new FileStream(Path.Combine(Path.GetTempPath(), "aholo-upload-" + Guid.NewGuid().ToString("N")), options);
-        await using (var source = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.Asynchronous))
-            await source.CopyToAsync(snapshot, ct).ConfigureAwait(false);
-        if (snapshot.Length == 0) throw new ArgumentException("The upload file cannot be empty.", nameof(filePath));
-        snapshot.Position = 0;
-        string md5 = Convert.ToHexString(await MD5.HashDataAsync(snapshot, ct).ConfigureAwait(false)).ToLowerInvariant();
-        using var tokenRequest = Gateway(key, HttpMethod.Get, "asset/v1/token");
-        var token = await SendAsync(_apiHttp, tokenRequest, ct).ConfigureAwait(false);
-        string ousToken = RequiredString(token, "ousToken");
-        if (ousToken.Any(char.IsControl) || ousToken.Any(char.IsWhiteSpace)) throw InvalidResponse();
-        var host = new Uri(HttpsUrl(RequiredString(token, "globalDomain")));
-        if (!host.Host.Equals("ous-sg.kujiale.com", StringComparison.OrdinalIgnoreCase) || host.AbsolutePath != "/" || host.Query.Length != 0)
-            throw new ProviderException("invalid_upload_origin", "The upload address is outside the verified international upload service.");
-        if (!token.TryGetProperty("blockSize", out var block) || !block.TryGetInt64(out var blockSize) || blockSize <= 0) throw InvalidResponse();
-        string name = Path.GetFileName(filePath);
-        if (snapshot.Length <= blockSize)
-        {
-            using var form = new MultipartFormDataContent();
-            form.Add(new StringContent(md5), "md5");
-            form.Add(new SnapshotContent(snapshot, 0, snapshot.Length), "file", name);
-            _ = await SendOusAsync(host, ousToken, "single/upload", HttpMethod.Post, form, ct).ConfigureAwait(false);
-        }
-        else
-        {
-            long blocks = 1 + (snapshot.Length - 1) / blockSize;
-            string query = "block/upload/init?md5=" + md5 + "&blocks=" + blocks.ToString(CultureInfo.InvariantCulture) + "&size=" + snapshot.Length.ToString(CultureInfo.InvariantCulture) + "&name=" + Uri.EscapeDataString(name);
-            var initialized = await SendOusAsync(host, ousToken, query, HttpMethod.Post, null, ct).ConfigureAwait(false);
-            if (initialized.ValueKind != JsonValueKind.Object) throw InvalidResponse();
-            bool deduplicated = initialized.TryGetProperty("deduplicated", out var dedup) && dedup.ValueKind == JsonValueKind.True;
-            if (!deduplicated)
-            {
-                for (long n = 1; n <= blocks; n++)
-                {
-                    using var part = new MultipartFormDataContent();
-                    part.Add(new StringContent(n.ToString(CultureInfo.InvariantCulture)), "block");
-                    long offset = checked((n - 1) * blockSize);
-                    part.Add(new SnapshotContent(snapshot, offset, Math.Min(blockSize, snapshot.Length - offset)), "file", name + ".part-" + n.ToString(CultureInfo.InvariantCulture));
-                    _ = await SendOusAsync(host, ousToken, "block/upload/part", HttpMethod.Post, part, ct).ConfigureAwait(false);
-                }
-            }
-        }
-        for (int attempt = 0; attempt < 25; attempt++)
-        {
-            var result = await SendOusAsync(host, ousToken, "upload/status", HttpMethod.Get, null, ct).ConfigureAwait(false);
-            if (!result.TryGetProperty("status", out var status) || !status.TryGetInt32(out var value)) throw InvalidResponse();
-            if (value == 5) return HttpsUrl(RequiredString(result, "url"));
-            if (value is 6 or 8) throw new ProviderException("upload_failed", "File upload failed. Retry the upload.");
-            if (attempt < 24) await Task.Delay(TimeSpan.FromMilliseconds(250), ct).ConfigureAwait(false);
-        }
-        throw new ProviderException("upload_timeout", "File upload has not finished. Retry the upload later.");
-    }
-
     private async Task<JsonElement> SendOusAsync(Uri host, string token, string path, HttpMethod method, HttpContent? content, CancellationToken ct)
     {
         if (_uploadHttp.DefaultRequestHeaders.Contains("Authorization")) throw new InvalidOperationException("The upload client must not include API authorization.");
@@ -157,7 +100,7 @@ public sealed partial class AholoApiClient
         request.Headers.Add("ous-token-v2", token);
         request.Content = content;
         var root = await SendAsync(_uploadHttp, request, ct).ConfigureAwait(false);
-        if (!root.TryGetProperty("c", out var code) || !root.TryGetProperty("d", out var data)) throw InvalidResponse();
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("c", out var code) || !root.TryGetProperty("d", out var data)) throw InvalidResponse();
         if (Scalar(code) != "0") throw new ProviderException("upload_rejected", "The upload service rejected the request.");
         return data;
     }

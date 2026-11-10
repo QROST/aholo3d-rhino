@@ -19,7 +19,7 @@ public sealed partial class Workflows
             { ct.ThrowIfCancellationRequested();snapshots[(input.Field,i)]=SnapshotServiceInput(task.Id,input.Paths[i],ct); }
             var urls=new Dictionary<(string,int),string>();
             foreach(var entry in snapshots)
-            {task=Save(task with{Status="Uploading"});urls[entry.Key]=await api.UploadAsync(key,entry.Value,ct).ConfigureAwait(false);}
+            {task=Save(task with{Status="Uploading"});urls[entry.Key]=await api.UploadAsync(key,entry.Value,request.Upload,ct).ConfigureAwait(false);}
             var body=ServiceRequest.Bind(request,(field,i)=>urls[(field.Field,i)]);
             ct.ThrowIfCancellationRequested();task=Save(task with{Status="Submitting"});
             var remote=await api.CreateServiceTaskAsync(key,request.Operation,body,ct).ConfigureAwait(false);

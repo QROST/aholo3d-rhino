@@ -88,3 +88,9 @@ The Rhino host now resolves versioned GS references across producer namespaces f
 Settings exposes automatic source units versus explicit 1:1 import. GS import/export reports preparation stages; late progress from an old operation cannot replace a later operation's status. Diagnostics identifies compatible references and local asset directories. Pure reference/cache tests cover independent producer metadata, immutable verified assets and malformed marked-object classification; native display, hidden-object lifetime, Undo and export acceptance remain manual.
 
 Validation: Release build passed with zero warnings/errors; 68 reference/cache, localization and display-status tests passed. Remote Sol review identified the shared-hash alternate-path issue; the parent corrected it and reviewed the host lifecycle. Native host acceptance is pending.
+
+## M5b — server-directed multipart resume
+
+Uploads now honor inclusive missing-part ranges returned by multipart initialization, merge overlaps without expanding an unbounded part list, and expose documented metadata/prefix/filename options in advanced Settings. Single-file requests reject unsupported custom fields explicitly. Completion polling has a cancellable two-minute deadline including HTTP waits; failed/uncertain parts are not blindly resent. A subsequent explicit upload can use server-directed resume, but persistence across tokens is not promised by the official contract.
+
+Upload origin validation also checks port, user info and fragments. Malformed protocol values become handled provider failures. Release build passed with zero warnings/errors; 97 upload/provider/workflow/localization tests passed, including lost replies, malformed values, range deduplication, exact part bytes, credential boundaries and cancellation. Remote Sol design and implementation review contributed the range rules and malformed-response fix; parent verified and executed all changes. No real file was uploaded.

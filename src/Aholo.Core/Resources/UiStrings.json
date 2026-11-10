@@ -2558,5 +2558,45 @@
   {
     "English": "Compatible GS references: {0}. Source metadata is retained.\nGS cache: {1}\nOriginal files: {2}",
     "Chinese": "兼容 GS 引用：{0}。保留原始元数据。\nGS 缓存：{1}\n原始文件：{2}"
+  },
+  {
+    "English": "Advanced upload settings",
+    "Chinese": "高级上传设置"
+  },
+  {
+    "English": "Multipart upload options apply to every local input. Leave blank for automatic storage. Small files do not support these fields.",
+    "Chinese": "分块上传选项适用于每个本地输入。留空使用自动存储。小文件不支持这些字段。"
+  },
+  {
+    "English": "Upload metadata",
+    "Chinese": "上传元数据"
+  },
+  {
+    "English": "Storage prefix",
+    "Chinese": "存储前缀"
+  },
+  {
+    "English": "Stored filename",
+    "Chinese": "存储文件名"
+  },
+  {
+    "English": "Custom upload metadata and names are supported only for multipart files. Clear these settings for a small file.",
+    "Chinese": "自定义上传元数据和名称仅支持分块文件。上传小文件前请清空这些设置。"
+  },
+  {
+    "English": "The upload still has missing parts. Retry the original input to request server-directed resume. No generation task was submitted.",
+    "Chinese": "上传仍有缺失分块。重试原输入可请求服务端续传。尚未提交生成任务。"
+  },
+  {
+    "English": "The upload exceeds the service protocol's representable part index.",
+    "Chinese": "上传分块数超过服务协议可表示的索引范围。"
+  },
+  {
+    "English": "Invalid missing upload part ranges.",
+    "Chinese": "服务返回的缺失上传分块范围无效。"
+  },
+  {
+    "English": "Invalid missing upload part range.",
+    "Chinese": "服务返回的缺失上传分块区间无效。"
   }
 ]

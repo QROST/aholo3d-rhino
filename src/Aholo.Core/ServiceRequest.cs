@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 namespace Aholo.Core;
 
 public sealed record ServiceFileInput(string Field, string[] Paths);
-public sealed record CreateServiceRequest(string Operation, string Name, JsonElement Parameters, ServiceFileInput[]? Files=null);
+public sealed record CreateServiceRequest(string Operation, string Name, JsonElement Parameters, ServiceFileInput[]? Files=null, AssetUploadOptions? Upload=null);
 public sealed record TaskArtifact(string Key,string Label,string Format,string? Url=null,string? LocalPath=null,string? Sha256=null,string? Error=null)
 {
     public override string ToString()=>UiText.TranslateKnownMessage(Label)+" · "+Format.ToUpperInvariant()+(LocalPath is null?"":" · "+UiText.Get("Downloaded"))+(Error is null?"":" · "+UiText.Get("Unavailable"));

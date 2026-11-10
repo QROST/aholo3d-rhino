@@ -35,6 +35,7 @@ public sealed class AholoPanel : Panel,IPanel
     private readonly TextBox scale=new(){Text="1"};
     private readonly DropDown axis=new(){DataStore=new[]{T("Automatic up axis"),"Z-up","Y-up"},SelectedIndex=0};
     private readonly DropDown sourceUnits=new(){DataStore=new[]{T("Auto · Source units; 1:1 if unspecified"),T("1 file unit = 1 document unit")},SelectedIndex=0};
+    private AssetUploadOptions uploadOptions=new();
     private readonly TextBox objectHeight=new(){Text="1"};
     private readonly DropDown exportScope=new(){DataStore=new[]{T("Selected top-level GS"),T("All top-level GS (including hidden and locked)")},SelectedIndex=0};
     private readonly DropDown resolution=new(){DataStore=new[]{"1280 × 720","1920 × 1080"},SelectedIndex=0};
@@ -177,7 +178,7 @@ public sealed class AholoPanel : Panel,IPanel
         var rows=Outputs(task);artifacts.DataStore=rows;int index=Array.FindIndex(rows,a=>a.Key==key);artifacts.SelectedIndex=index>=0?index:rows.Length>0?0:-1;UpdateActions();
     }
     private async Task CreateAsync()
-    {var request=form.Capture();var task=await session.Client.CreateServiceAsync(request,token);session.Observe(task);await RevealAsync(task);}
+    {var request=form.Capture() with {Upload=uploadOptions};var task=await session.Client.CreateServiceAsync(request,token);session.Observe(task);await RevealAsync(task);}
     private async Task RevealAsync(LocalTask task)
     {
         if(disposed)return;
@@ -265,7 +266,7 @@ public sealed class AholoPanel : Panel,IPanel
         int width=resolution.SelectedIndex==1?1920:1280,height=resolution.SelectedIndex==1?1080:720;
         var snapshot=AholoHost.CaptureRender(Document(),width,height);string path=Path.Combine(session.Store.Root,"exports",Guid.NewGuid().ToString("N")+".glb");
         await Task.Run(()=>{Directory.CreateDirectory(Path.GetDirectoryName(path)!);GlbWriter.Write(path,snapshot.Meshes,token);},token);
-        var task=await session.RenderAsync(new(snapshot.Name,path,snapshot.Camera,width,height),token);await RevealAsync(task);
+        var task=await session.RenderAsync(new(snapshot.Name,path,snapshot.Camera,width,height,Upload:uploadOptions),token);await RevealAsync(task);
     }
     private void ShowSettings()
     {
@@ -280,6 +281,9 @@ public sealed class AholoPanel : Panel,IPanel
         var connect=Local("Validate and connect",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}string value=key.Text;bool save=remember.Checked==true;string service=validation.SelectedIndex switch{1=>"lux",2=>"spatial",_=>"world"};key.Text="";_=RunAsync("Connecting",async()=>{await session.ConnectAsync(new(value,save,service),token);AholoHost.Ui(()=>Report(T("Connected. Service permissions and credits are checked per operation.")));});});
         var disconnect=Local("Disconnect and clear credentials",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}_=RunAsync("Disconnecting",async()=>{await session.DisconnectAsync(token);AholoHost.Ui(()=>Report(T("Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.")));});});
         var restore=Local("Restore saved connection",()=>{if(busy)return;_=RunAsync("Restoring connection",async()=>{await session.ReadConnectionAsync(token);});});
+        var uploadMetadata=new TextBox{Text=uploadOptions.Metadata??""};var uploadPrefix=new TextBox{Text=uploadOptions.CustomPrefix??""};var uploadFilename=new TextBox{Text=uploadOptions.CustomFilename??""};
+        var uploadFields=new StackLayout{Spacing=6,Visible=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={Info("Multipart upload options apply to every local input. Leave blank for automatic storage. Small files do not support these fields."),Info("Upload metadata"),uploadMetadata,Info("Storage prefix"),uploadPrefix,Info("Stored filename"),uploadFilename}};
+        var uploadAdvanced=new CheckBox{Text=T("Advanced upload settings")};uploadAdvanced.CheckedChanged+=(_,_)=>uploadFields.Visible=uploadAdvanced.Checked==true;
         var usdStatus=Info("USD readiness has not been checked.");
         string setup;
         try{setup=UsdRuntime.SetupCommand(UsdRuntime.SetupScript,OperatingSystem.IsWindows());}
@@ -299,11 +303,13 @@ public sealed class AholoPanel : Panel,IPanel
             Info("GS import scale (document units per source unit)"),settingsScale,settingsAxis,Info("Source units"),settingsUnits,Info("Mesh height (document units)"),settingsHeight,
             Local("Open local asset folder",()=>Process.Start(new ProcessStartInfo(Path.Combine(session.Store.Root,"assets")){UseShellExecute=true})),
             Info("Closing the panel keeps tasks running. Reopen it to view progress. Cancel stops local waiting only; remote tasks remain on the service."),
-            Info("Local USD import and export"),usdStatus,usdCheck,Info("Optional runtime setup command (runs only when you execute it):"),usdSetup,
+            uploadAdvanced,uploadFields,Info("Local USD import and export"),usdStatus,usdCheck,Info("Optional runtime setup command (runs only when you execute it):"),usdSetup,
             Info("Aholo3D for Rhino "+AholoPlugin.DisplayVersion+"\nCuriousArc · qrost"),close);
         void UpdateSettings()=>Application.Instance.AsyncInvoke(()=>{if(!closed){status.Text=T(session.Connection.Connected?"International · Connected":"International · Not connected");connectionError.Text=UiText.TranslateKnownMessage(session.LastError??"");settingsCancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));}});
         session.Changed+=UpdateSettings;
         try{dialog.ShowModal(this);}finally{closed=true;session.Changed-=UpdateSettings;}
+        static string? Optional(string value)=>string.IsNullOrEmpty(value)?null:value;
+        uploadOptions=new(Optional(uploadMetadata.Text),Optional(uploadPrefix.Text),Optional(uploadFilename.Text));
         scale.Text=settingsScale.Text;axis.SelectedIndex=settingsAxis.SelectedIndex;sourceUnits.SelectedIndex=settingsUnits.SelectedIndex;objectHeight.Text=settingsHeight.Text;
     }
     private void SessionChanged()=>Application.Instance.AsyncInvoke(()=>{if(!disposed)UpdateActions();});

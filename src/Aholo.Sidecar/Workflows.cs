@@ -38,7 +38,7 @@ public sealed partial class Workflows(AholoApiClient api, TaskStore store, Asset
         {
             string snapshot = store.SnapshotInput(task.Id, request.GlbPath, true);
             task = Save(task with { Render = request with { GlbPath = snapshot }, Status = "Uploading" });
-            string url = await api.UploadAsync(key, snapshot, ct).ConfigureAwait(false);
+            string url = await api.UploadAsync(key, snapshot, request.Upload, ct).ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();
             task = Save(task with { Status = "MeshSubmitting" });
             string meshTaskId = await api.CreateMeshAsync(key, url, ct).ConfigureAwait(false);
