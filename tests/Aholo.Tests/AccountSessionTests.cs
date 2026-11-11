@@ -24,7 +24,7 @@ public sealed class AccountSessionTests
     {
         int opened=0;var service=new Fake();using var manager=new AccountSessionManager(service,_=>opened++);
         manager.Begin(Guid.NewGuid());await service.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        var old=manager.Completion;manager.SignOut();
+        var old=manager.Completion;await manager.SignOutAsync();
         Assert.Throws<OperationCanceledException>(()=>service.Open!(new Uri("https://www.aholo.ai/oauth/authorize")));
         service.Login.TrySetResult(Token());await old;
         Assert.Equal("SignedOut",manager.Status().Stage);Assert.Equal(0,opened);
@@ -38,7 +38,7 @@ public sealed class AccountSessionTests
         Guid id=Guid.NewGuid();Assert.Equal("Refreshing",manager.Begin(id,true).Stage);
         Assert.Equal(id,manager.Begin(Guid.NewGuid(),true).AttemptId);
         await service.RefreshEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));var pending=manager.Completion;
-        manager.SignOut();service.Refresh.TrySetResult(Token("rotated-secret"));await pending;
+        await manager.SignOutAsync();service.Refresh.TrySetResult(Token("rotated-secret"));await pending;
         Assert.Equal("SignedOut",manager.Status().Stage);Assert.Equal(1,service.Refreshes);
     }
     [Fact]
@@ -46,9 +46,9 @@ public sealed class AccountSessionTests
     {
         var service=new Fake();using var manager=new AccountSessionManager(service,_=>{});
         Guid id=Guid.NewGuid();manager.Begin(id);service.Login.TrySetResult(Token());await manager.Completion;
-        Assert.Equal("SignedIn",manager.SignOut(Guid.NewGuid()).Stage);
-        Assert.Equal("SignedIn",manager.SignOut(id).Stage);
-        Assert.Equal("SignedOut",manager.SignOut().Stage);
+        Assert.Equal("SignedIn",(await manager.CancelPendingAsync(Guid.NewGuid())).Stage);
+        Assert.Equal("SignedIn",(await manager.CancelPendingAsync(id)).Stage);
+        Assert.Equal("SignedOut",(await manager.SignOutAsync()).Stage);
     }
     [Fact]
     public async Task CancellationIgnoringSuccessCannotLeavePermanentPendingState()
@@ -62,7 +62,7 @@ public sealed class AccountSessionTests
     public async Task ClosingCurrentPendingAttemptRejectsItsLateResult()
     {
         var service=new Fake();using var manager=new AccountSessionManager(service,_=>{});Guid id=Guid.NewGuid();
-        manager.Begin(id);await service.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));manager.SignOut(id);
+        manager.Begin(id);await service.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));await manager.CancelPendingAsync(id);
         service.Login.TrySetResult(Token());await manager.Completion;Assert.Equal("SignedOut",manager.Status().Stage);
     }
     [Fact]
@@ -85,7 +85,7 @@ public sealed class AccountSessionTests
             Assert.Equal(before.Epoch,(await credentials.ReadAsync()).Epoch);
             await Assert.ThrowsAsync<InvalidOperationException>(()=>credentials.RequireAsync(before.Epoch));
             var key=await credentials.ConnectAsync(new ApiKeyCredential("local-test-key"),false);
-            manager.SignOut();Assert.Equal(key.Key,await credentials.RequireAsync(key.Epoch));
+            await manager.SignOutAsync();Assert.Equal(key.Key,await credentials.RequireAsync(key.Epoch));
         }
         finally{if(Directory.Exists(root))Directory.Delete(root,true);}
     }

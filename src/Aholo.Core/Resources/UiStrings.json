@@ -3742,5 +3742,37 @@
   {
     "English": "The panel is busy. Wait for the current operation or cancel it, then load the mesh.",
     "Chinese": "面板正在处理，请等待当前操作完成或取消后再载入网格。"
+  },
+  {
+    "English": "Remember this account on this device",
+    "Chinese": "在此设备记住账号登录"
+  },
+  {
+    "English": "Remembered account tokens use macOS Keychain or Windows user encryption. Otherwise they last only for this process. Sign-in replaces the shared account on this device; sign-out removes its saved session across Rhino instances. Neither action revokes server tokens or changes your API Key.",
+    "Chinese": "记住的账号令牌使用 macOS 钥匙串或 Windows 用户加密存储；未勾选时仅在本次后台进程内保留。登录会替换此设备的共享账号，退出会移除所有 Rhino 实例共用的已保存会话。这些操作不会撤销服务端令牌或改变 API Key。"
+  },
+  {
+    "English": "Signed in for this process only. The account could not be saved securely.",
+    "Chinese": "已登录，但账号无法安全保存，仅在本次后台进程内有效。"
+  },
+  {
+    "English": "The saved account session changed or is incomplete. Sign in again; API Key access is unchanged.",
+    "Chinese": "已保存的账号会话已改变或不完整，请重新登录；API Key 访问不受影响。"
+  },
+  {
+    "English": "The saved account session could not be restored. Sign in again or sign out to clear it; API Key access is unchanged.",
+    "Chinese": "无法恢复已保存的账号会话，请重新登录或退出以清理；API Key 访问不受影响。"
+  },
+  {
+    "English": "The remembered account could not be fully removed. Retry sign out; API Key access is unchanged.",
+    "Chinese": "未能完全移除已记住的账号，请重试退出；API Key 访问不受影响。"
+  },
+  {
+    "English": "Another account storage operation is active. Try again after it finishes.",
+    "Chinese": "另一个账号存储操作正在进行，请等待完成后重试。"
+  },
+  {
+    "English": "Sign out of account",
+    "Chinese": "退出账号登录"
   }
 ]

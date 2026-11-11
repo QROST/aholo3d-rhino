@@ -218,3 +218,10 @@ Remote Sol reviewed the mode plan and final command/mathematics. Its extreme-coo
 ## Candidate checkpoint — alpha.6
 
 Consolidates task-linked USD placement and result identity (`0b6d474`) with local mesh import/placement modes (`8f5963c`) as `0.2.0-alpha.6`. Stable plugin/assembly/Yak identities remain unchanged. The runtime source passes 921 offline tests and Release compilation; local archive receipts separately bind clean metadata source and actual payload bytes. Native/service acceptance remains pending, and this candidate is not automatically installed or published.
+
+
+## Remembered OAuth accounts after alpha.6
+
+Optional account login now supports explicit OS-protected persistence, local-only restoration, refresh-token rotation and cross-instance sign-out. A dedicated coordinator keeps credential envelopes separate from the API Key and writes only non-secret epoch/ready flags to disk. Pending operations and ambiguous refresh failures cannot revive older sessions; shutdown preserves completed remembered credentials. Account UI remains bilingual, defaults opt-in off, and distinguishes sign-out from closing/canceling an attempt.
+
+Remote Sol supplied design and two implementation/integration reviews. The parent adapted the proposed refresh-failure behavior to fail closed for ambiguous rotating tokens. A suggested pending-cancel deletion was rejected as conflating dialog closure with explicit sign-out; the API now separates these actions and deterministic tests cover both. A claimed busy-poll race was disproved by the existing timer guard; duplicate-attempt ownership was additionally clarified. Actual separate-process fixtures verify lock ordering and stale refresh rejection using synthetic storage. Native OS-store/browser acceptance remains pending.

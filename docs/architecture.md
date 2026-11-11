@@ -60,13 +60,13 @@ GLB writes triangle meshes with glTF's canonical metres/Y-up convention `(x,z,-y
 
 **Open integration question:** the public mesh processing contract does not explicitly guarantee that fast GLB ingestion preserves native vertex units/axes. The conversion is internally consistent and fixture-tested, but visual parity and scale must be confirmed with an actual account. This cannot be established by HTTP mocks.
 
-## Deliberate first-version limits
+## Current integration boundaries
 
-International endpoint only; no OAuth button or China endpoint; no realtime cloud viewport; basic diffuse cloud-render colors only; no custom render meshes, PBR textures or light export. Nested ordinary blocks are traversed with their placements; GS bounds are explicitly rejected. Host/UI and service entitlement validation remain manual acceptance items.
+International endpoints are wired today. Optional OAuth is separate from API Key access, with opt-in remembered sessions as described below. Mesh capture includes supported normals/PBR constants/direct UV bitmaps and selected rectangle/point lights. The realtime workflow is connected to a separate JPEG window, not a native depth-composited viewport. Nested ordinary blocks are traversed with their placements; GS bounds are explicitly rejected as mesh geometry. See `api-capabilities.md` for the current remaining implementation scope. Host/UI and service entitlement validation remain manual acceptance items.
 
 ## Realtime protocol foundation
 
-The Provider library has injected REST/WebSocket transports and serial scene patches. Adjacent pending camera updates may coalesce, but cannot cross a scene edit barrier; final camera state can be flushed. Creation and unknown requests are never automatically replayed. `RealtimeSession` takes ownership only of an already-known ACTIVE operation, waits for the stream initialization status and closes the update queue, WebSocket and REST session. Cleanup uncertainty retains the session ID and an explicit retry obligation. This library is not connected to the panel/sidecar workflow yet.
+The Provider library has injected REST/WebSocket transports and serial scene patches. Adjacent pending camera updates may coalesce, but cannot cross a scene edit barrier; final camera state can be flushed. Creation and unknown requests are never automatically replayed. `RealtimeSession` takes ownership only of an already-known ACTIVE operation, waits for the stream initialization status and closes the update queue, WebSocket and REST session. Cleanup uncertainty retains the session ID and an explicit retry obligation. The panel/sidecar workflow uses this library, a private control pipe and durable session cleanup records.
 
 Stream credentials are ephemeral, omitted from normal JSON/diagnostic formatting and never replace the API Key at the gateway. WSS connections use TLS/443, actual-socket public DNS pinning, no redirects/proxy/cookies and no gateway Key. Status and JPEG message byte limits bound protocol reassembly, not scene geometry. JPEG framing checks are not a full image-decoder validation.
 
@@ -83,3 +83,12 @@ One `AholoSession` per Rhino process owns the pipe, connection state, polling an
 Generic service submission validates the official request schema and local file mapping before uploading. Every input is snapshotted before the first upload. Submission barriers precede each charged request. Local-only Spatial input guarantees the plugin performed its Asset upload. Result decoders preserve ordered output/action identity, avoid raw server errors in diagnostics, and retain signed URLs only in memory. Downloads publish immutable hash-named files before the journal switches references, preserving old bytes across interrupted re-downloads.
 
 Static GLB placement uses adapted container validation, private snapshots, native headless preflight, limited degenerate-face/normal repair and native import/block wrapping from the sibling Lux3D integration. Independent Aholo mesh markers protect duplicate imports, Undo and recovery. The target document, units and state are rechecked before mutation. Render selection expands ordinary nested blocks without exploding user objects. These new native paths await host acceptance.
+
+
+## Optional remembered OAuth account
+
+The OAuth session coordinator uses a separate OS credential account and a fixed coordination scope independent of task-directory overrides. Token/client/expiry data live only in memory or the OS-protected credential envelope. Coordination files carry schema, opaque epoch and ready/remembered flags; account status RPC exposes no tokens or client identifier. API Key credentials, epochs and task ownership are untouched.
+
+Opening account status restores locally without discovery, refresh or browser work. Login/refresh reserve a new epoch before network work, invalidating earlier sessions. A successful opted-in result atomically publishes its secure credential envelope and ready flag. Late results must match the reserved epoch. Explicit sign-out invalidates that epoch before deleting the secure item; failed deletion stays non-ready and requires retry. Store-save failure falls back to process memory with a visible warning and no restorable credential flag. Ordinary shutdown preserves completed remembered sessions.
+
+A refresh can rotate the server token before its response arrives. Cancellation/failure after reservation therefore never restores the earlier saved token; sign in again. Closing a dialog is a narrower cancel-only action: it cancels its own unfinished attempt, preserving an earlier completed saved session if the replacement has not reserved a new epoch. Sign-out is the explicit account removal action. Multiple coordinators use a permanent file lock; native OS credential behavior and real OAuth acceptance still require their host checks.

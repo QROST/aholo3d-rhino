@@ -31,7 +31,7 @@ string? requestEpoch = null;
 using var parentLost=new CancellationTokenSource();
 using var oauthHttp=AholoApiClient.CreateHttpClient();
 using var account=new AccountSessionManager(new ManycoreOAuthService(oauthHttp),uri=>
-{ using var browser=Process.Start(new ProcessStartInfo(uri.AbsoluteUri){UseShellExecute=true}); },parentLost.Token);
+{ using var browser=Process.Start(new ProcessStartInfo(uri.AbsoluteUri){UseShellExecute=true}); },parentLost.Token,new OAuthSessionCoordinator(CredentialStoreFactory.CreateDefault()));
 using var parentLifetime=int.TryParse(Environment.GetEnvironmentVariable("AHOLO_PARENT_PID"),out int parentId)&&parentId>0?new ParentProcessLifetime(parentId,parentLost):null;
 try
 {
@@ -62,13 +62,14 @@ while (true)
             case "account":
                 string action = payload.GetProperty("action").GetString() ?? "";
                 Guid? attemptId = payload.TryGetProperty("attemptId", out var attempt) && attempt.ValueKind == JsonValueKind.String ? attempt.GetGuid() : null;
+                bool? rememberAccount=payload.TryGetProperty("remember",out var savedAccount)&&savedAccount.ValueKind is JsonValueKind.True or JsonValueKind.False?savedAccount.GetBoolean():null;
                 result = action switch
                 {
-                    "status" => account.Status(),
-                    "begin" => account.Begin(attemptId ?? throw new ArgumentException("Account attempt identifier is missing.")),
-                    "refresh" => account.Begin(attemptId ?? throw new ArgumentException("Account attempt identifier is missing."), true),
-                    "signOut" => account.SignOut(),
-                    "cancel" => account.SignOut(attemptId ?? throw new ArgumentException("Account attempt identifier is missing.")),
+                    "status" => await account.StatusAsync(ct),
+                    "begin" => account.Begin(attemptId ?? throw new ArgumentException("Account attempt identifier is missing."),remember:rememberAccount),
+                    "refresh" => account.Begin(attemptId ?? throw new ArgumentException("Account attempt identifier is missing."), true,rememberAccount),
+                    "signOut" => await account.SignOutAsync(ct:ct),
+                    "cancel" => await account.CancelPendingAsync(attemptId ?? throw new ArgumentException("Account attempt identifier is missing."),ct),
                     _ => throw new ArgumentException("Unknown account operation.")
                 }; break;
             case "connection":
