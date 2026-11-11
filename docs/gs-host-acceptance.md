@@ -88,3 +88,8 @@ New implementation, **native acceptance pending on both Mac and Windows**. Earli
 5. In an ordinary document without GS, exercise deeply repeated shared blocks and keep Rhino idle in non-GS mode. Definition scanning should not expand a GS-free subtree once per implied copy. Offline coverage includes a 60-level binary shared definition graph and a 20,000-level chain; those are algorithm checks, not a native performance measurement.
 
 Record Rhino version, OS/device, scene, observed visual/lifecycle behavior and any limitations. Do not mark host acceptance from build or offline tests. / 请记录实际版本、设备、场景及显示和生命周期结果；编译和离线测试不能替代实机验收。
+
+
+## Antialiased source mode (after alpha.22)
+
+Native results remain pending. Follow [the paired-scene checklist](gs-antialiasing.md#manual-host-acceptance-pending) with packaged `fixtures/gaussian-antialiasing.usda`. Check both projection types, zoom, repeated/nested instances, source metadata changes while the camera remains fixed, Undo/save/reopen, DPI changes and USD re-export. Record actual Mac and Windows results; CPU or file validation does not accept these display interactions.

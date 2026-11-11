@@ -422,3 +422,12 @@ The primary ran 1350 offline tests, Release compilation, an independent Pillow p
 ### Candidate checkpoint — alpha.22
 
 Packages independent image/material alpha handling from `4431fc6`, with 1350 passing offline tests, independent Pillow/OpenUSD oracles and zero-warning/error Release compilation. The converter adds no image runtime dependency; stable assembly/plugin/Yak identities remain unchanged. Both platform archives remain local candidates. Native Mac/Windows appearance and actual cloud rendering require separate acceptance; no installation or publication is performed.
+
+
+## Per-instance GS antialiasing after alpha.22
+
+The native projection request now captures the actual GS leaf's resolved antialias flag, includes it in frame identity and applies view-dependent opacity compensation once. Shared source/prepared assets keep their original opacity, scale and SH values; source-prefix ownership and USD export semantics remain intact. Equivalent DPI callbacks use the canonical sampling grid; same-source instances may have different modes.
+
+Two local read-only reviewers checked the math and native snapshot/cache chain. The primary reproduced a near-singular valid shear that caused a negative variance in the newly exercised compensation path, then changed both projectors to use a principal-axis Gram factor. The prepared representation adds 24 bytes per GS while retaining zero per-GS projection/sort allocations. Balanced exponents and compensated products retain tiny representable area factors. The independent Decimal/matrix oracle, broad regression and reproducible paired USD sample validate offline behavior; native appearance remains pending.
+
+Remote allowance was still insufficient (135 tokens); no new remote inference ran. The source defaults to classic mode when no antialias flag is declared. No source opacity is baked, no geometry-count ceiling is added, and the existing 256-level display opacity limit remains explicit. See [behavior and native acceptance](gs-antialiasing.md).

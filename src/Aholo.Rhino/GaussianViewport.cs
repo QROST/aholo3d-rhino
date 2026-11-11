@@ -335,7 +335,7 @@ internal sealed class GaussianViewport : DisplayConduit
             else
             {
                 // Capture only immutable data and value transforms. The worker never reads RhinoObject/RhinoDoc state.
-                var snapshot=placements.Select(p=>new GaussianNativePlacement(p.Instance,p.Asset.Hash,p.Asset.Prepared)).ToArray();
+                var snapshot=placements.Select(p=>new GaussianNativePlacement(p.Instance,p.Asset.Hash,p.Asset.Prepared,p.Antialiased)).ToArray();
                 var request=new GaussianNativeRequest(e.RhinoDoc.RuntimeSerialNumber,e.Viewport.Id,0,camera,key,snapshot);
                 _candidates[e.Viewport.Id]=new ViewCandidate(request,DateTime.UtcNow,reason);
             }
@@ -573,8 +573,7 @@ internal sealed class GaussianViewport : DisplayConduit
         var key=new StringBuilder();
         foreach(var p in placements)
         {
-            key.Append(p.Instance.Path).Append(':').Append(p.Asset.Hash).Append(':');Transform t=p.WorldTransform;
-            for(int row=0;row<3;row++)for(int col=0;col<4;col++)key.Append(t[row,col].ToString("R",CultureInfo.InvariantCulture)).Append(',');key.Append(';');
+            new GaussianPlacementIdentity(p.Instance.Path,p.Asset.Hash,p.Transform,p.Antialiased).AppendTo(key);
         }
         return key.ToString();
     }

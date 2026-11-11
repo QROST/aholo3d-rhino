@@ -6,7 +6,7 @@ namespace Aholo.Rhino;
 
 /// <summary>Worker-owned managed arrays. No document or display API is touched while preparing these.</summary>
 internal sealed record GaussianNativeBatchData(Point3d[] Vertices, Vector3f[] Normals, Point2f[] Uv, Color[] Colors, MeshFace[] Faces, int[] FaceIndices);
-internal sealed record GaussianNativePlacement(GaussianInstanceOccurrence Instance,string Hash,GaussianPreparedAsset Asset)
+internal sealed record GaussianNativePlacement(GaussianInstanceOccurrence Instance,string Hash,GaussianPreparedAsset Asset,bool Antialiased)
 {
     internal GaussianTransform Transform=>Instance.World!.Value;
 }
@@ -30,7 +30,7 @@ internal static class GaussianNativeBatchBuilder
             for(int i=0;i<request.Placements.Length;i++)
             {
                 ct.ThrowIfCancellationRequested(); var placement=request.Placements[i];
-                var context=GaussianProjectionContext.Create(request.Camera,placement.Transform,i);
+                var context=GaussianProjectionContext.Create(request.Camera,placement.Transform,i,antialiased:placement.Antialiased);
                 visible+=context.Project(placement.Asset,values.AsSpan(visible,placement.Asset.Count),ordinal,ct);
                 ordinal+=placement.Asset.Count;
             }

@@ -5,6 +5,7 @@ public sealed record GaussianReferenceMetadata(string Prefix, string Hash, strin
 {
     public const string NativePrefix = "Aholo.GS";
     public bool IsNative => Prefix == NativePrefix;
+    public bool Antialiased { get; init; }
 
     public static bool HasMarker(Func<string, string?> read, Func<IEnumerable<string>> keys)
         => read(NativePrefix + ".Version") is not null || keys().Any(key => key.EndsWith(".GS.Version", StringComparison.Ordinal));
@@ -31,6 +32,6 @@ public sealed record GaussianReferenceMetadata(string Prefix, string Hash, strin
         if (read(prefix + ".Version") != "1") return null;
         string? hash = read(prefix + ".Sha256");
         if (hash is null || hash.Length != 64 || hash.Any(c => !Uri.IsHexDigit(c))) return null;
-        return new(prefix, hash.ToLowerInvariant(), read(prefix + ".AssetPath"));
+        return new(prefix, hash.ToLowerInvariant(), read(prefix + ".AssetPath")) { Antialiased = read(prefix + ".Antialiased") == "true" };
     }
 }

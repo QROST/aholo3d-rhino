@@ -156,7 +156,7 @@ internal static partial class GaussianDocument
         messages.Add(global::Aholo.Core.UiText.Format("Imported {0:N0} GS in {1:N0} parts; one Undo reverses the import. Up axis {2}, effective scale {3:G8}.", count, added.Count, upAxis, effectiveScale));
         messages.Add(global::Aholo.Core.UiText.Get("The original file was archived and the complete local GS cache retained. Bounds are shown during preparation; full GS returns when the view is stationary."));
         if (prepared.Parts.Any(part => part.Antialiased))
-            messages.Add(global::Aholo.Core.UiText.Get("This scene declares antialiased mode. The viewport does not yet implement its compensation formula, so appearance may differ."));
+            messages.Add(global::Aholo.Core.UiText.Get("Antialiased GS parts use view-dependent opacity compensation. Original opacity is preserved; native display still uses 256 opacity levels."));
         if (prepared.Scene.Warnings is not null) messages.AddRange(prepared.Scene.Warnings.Select(w=>UiText.TranslateKnownMessage(w)));
         try
         {

@@ -396,8 +396,8 @@
     "Chinese": "原始文件已存档；完整本地 GS 缓存保留。显示准备期间显示包围盒，静止后恢复完整 GS。"
   },
   {
-    "English": "This scene declares antialiased mode. The viewport does not yet implement its compensation formula, so appearance may differ.",
-    "Chinese": "此场景声明了 antialiased 模式；当前视口尚未实现该模式的补偿公式，视觉结果可能不同。"
+    "English": "Antialiased GS parts use view-dependent opacity compensation. Original opacity is preserved; native display still uses 256 opacity levels.",
+    "Chinese": "启用抗锯齿的 GS 部分会按视角补偿透明度。原始透明度保持不变；原生显示仍使用 256 级透明度。"
   },
   {
     "English": "The model is in the document, but the display mode is not ready. Bounds are retained. ",

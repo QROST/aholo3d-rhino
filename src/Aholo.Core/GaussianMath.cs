@@ -19,6 +19,14 @@ public static class GaussianMath
     }
     public static GaussianMatrix Covariance(GaussianSplat splat, GaussianTransform transform)
     {
+        GaussianMatrix axes = PrincipalAxes(splat, transform);
+        GaussianMatrix result = axes * axes.Transpose();
+        if (!result.IsFinite) throw new ArgumentException("Gaussian covariance exceeds numeric precision.");
+        return result;
+    }
+    /// <summary>Columns are the transformed principal axes, retaining a Gram factor for stable projection.</summary>
+    public static GaussianMatrix PrincipalAxes(GaussianSplat splat, GaussianTransform transform)
+    {
         ArgumentNullException.ThrowIfNull(splat);
         if (!transform.Translation.IsFinite || !transform.Linear.IsFinite) throw new ArgumentException("Gaussian transform must be finite.");
         _ = transform.Linear.Inverse();
@@ -27,9 +35,8 @@ public static class GaussianMath
         if (!double.IsFinite(sx) || !double.IsFinite(sy) || !double.IsFinite(sz) || sx <= 0 || sy <= 0 || sz <= 0)
             throw new ArgumentException("Gaussian scales exceed numeric precision.");
         GaussianMatrix axes = transform.Linear * rotation * new GaussianMatrix(sx, 0, 0, 0, sy, 0, 0, 0, sz);
-        GaussianMatrix result = axes * axes.Transpose();
-        if (!result.IsFinite) throw new ArgumentException("Gaussian covariance exceeds numeric precision.");
-        return result;
+        if (!axes.IsFinite) throw new ArgumentException("Gaussian axes exceed numeric precision.");
+        return axes;
     }
 }
 
@@ -83,7 +90,7 @@ public static class GaussianHarmonics
 
 public static class GaussianProjector
 {
-    public static ProjectedGaussian? Project(GaussianSplat splat, GaussianCamera camera, GaussianTransform transform, double filterVariance = .3, double supportSigma = 3)
+    public static ProjectedGaussian? Project(GaussianSplat splat, GaussianCamera camera, GaussianTransform transform, double filterVariance = .3, double supportSigma = 3, bool antialiased = false)
     {
         ArgumentNullException.ThrowIfNull(splat); ArgumentNullException.ThrowIfNull(camera); camera.Validate();
         if (!double.IsFinite(filterVariance) || filterVariance < 0 || !double.IsFinite(supportSigma) || supportSigma <= 0)
@@ -96,7 +103,7 @@ public static class GaussianProjector
         // This is standard center-based clipping. It does not claim volumetric near-plane clipping.
         if (z < camera.Near || z > camera.Far) return null;
         double centerX = camera.Cx + camera.Fx * (camera.Perspective ? x / z : x), centerY = camera.Cy + camera.Fy * (camera.Perspective ? y / z : y);
-        GaussianMatrix covariance = GaussianMath.Covariance(splat, transform);
+        GaussianMatrix axes = GaussianMath.PrincipalAxes(splat, transform);
         GaussianVector jx = camera.Right * (camera.Perspective ? camera.Fx / z : camera.Fx);
         GaussianVector jy = -camera.Up * (camera.Perspective ? camera.Fy / z : camera.Fy);
         if (camera.Perspective)
@@ -104,8 +111,10 @@ public static class GaussianProjector
             jx -= camera.Forward * (camera.Fx * x / (z * z));
             jy -= camera.Forward * (camera.Fy * y / (z * z));
         }
-        double xx = GaussianVector.Dot(jx, covariance.Transform(jx)) + filterVariance,
-            xy = GaussianVector.Dot(jx, covariance.Transform(jy)), yy = GaussianVector.Dot(jy, covariance.Transform(jy)) + filterVariance;
+        // Project the principal axes first. Squared lengths cannot become negative through covariance expansion.
+        GaussianVector projectedX = axes.Transpose().Transform(jx), projectedY = axes.Transpose().Transform(jy);
+        double rawXX = GaussianVector.Dot(projectedX, projectedX), rawYY = GaussianVector.Dot(projectedY, projectedY);
+        double xx = rawXX + filterVariance, xy = GaussianVector.Dot(projectedX, projectedY), yy = rawYY + filterVariance;
         double determinant = xx * yy - xy * xy;
         if (!double.IsFinite(centerX) || !double.IsFinite(centerY) || !double.IsFinite(xx) || !double.IsFinite(xy) || !double.IsFinite(yy) || !double.IsFinite(determinant) || xx <= 0 || yy <= 0 || determinant <= 0)
             throw new ArgumentException("Projected Gaussian covariance is not finite and positive definite.");
@@ -122,7 +131,9 @@ public static class GaussianProjector
             throw new ArgumentException("Projected Gaussian axes exceed numeric precision.");
         GaussianVector direction = inverse.Transform(camera.Perspective ? relative : camera.Forward);
         GaussianColor color = GaussianHarmonics.Evaluate(splat, direction);
-        return new(centerX, centerY, z, xx, xy, yy, color, GaussianMath.Sigmoid(splat.OpacityLogit),
+        double opacity = GaussianMath.Sigmoid(splat.OpacityLogit);
+        if (antialiased && filterVariance > 0) opacity *= GaussianAntialiasing.Compensation(rawXX, xy, rawYY, determinant);
+        return new(centerX, centerY, z, xx, xy, yy, color, opacity,
             major * cosine, major * sine, -minor * sine, minor * cosine, supportSigma);
     }
 }

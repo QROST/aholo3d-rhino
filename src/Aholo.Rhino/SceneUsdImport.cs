@@ -84,7 +84,7 @@ internal static partial class GaussianDocument
                     if(gs is not null)GaussianViewport.Activate(doc);doc.Views.Redraw();
                 }
                 catch(Exception ex){messages.Add(UiText.Get("The model is in the document, but the display mode is not ready. Bounds are retained. ")+AholoHost.FriendlyError(ex));}
-                if(gs is not null&&gs.Parts.Any(p=>p.Antialiased))messages.Add(UiText.Get("This scene declares antialiased mode. The viewport does not yet implement its compensation formula, so appearance may differ."));
+                if(gs is not null&&gs.Parts.Any(p=>p.Antialiased))messages.Add(UiText.Get("Antialiased GS parts use view-dependent opacity compensation. Original opacity is preserved; native display still uses 256 opacity levels."));
                 messages.AddRange(prepared.Scene.Warnings.Select(w=>UiText.TranslateKnownMessage(w)));return string.Join(Environment.NewLine,messages);
             }).ConfigureAwait(false);
         }

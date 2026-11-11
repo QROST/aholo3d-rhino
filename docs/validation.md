@@ -318,3 +318,12 @@ Two local read-only reviewers supplied candidate checks; the primary implemented
 ### Alpha.22 source checkpoint
 
 Candidate `0.2.0-alpha.22` includes `4431fc6` and the bilingual PNG alpha support boundaries. Numeric assembly version remains `0.2.0.0`. The package allowlist now includes the conversion/acceptance document. Final archive verification binds clean source, payload bytes and platform hashes; both packages are built on Mac and do not establish Windows or Rhino execution. No installation or publication is part of this checkpoint.
+
+
+## GS antialiasing and stable projection (2026-11-11 UTC)
+
+Release compilation passed with zero warnings/errors. **1382 offline .NET tests passed**, zero failed/skipped: 32 additional cases cover independent area factors, subnormal/near-singular matrices, the reproduced valid-shear regression, source covariance overflow, same-asset opposite modes, repeated projection/source preservation, prefix ownership, full placement identity, DPI normalization, both camera types and all SH0–3 degrees. The six 212,864-splat allocation cases cover classic/antialiased modes without an input cap or per-GS projection/sort allocation.
+
+The standard-library `fixtures/gaussian-antialias-verify.py` passed 35 independent 120-digit Decimal determinant cases and 24 independently calculated affine projection/integral cases. It is now in the Mac/Windows CI definition; no remote CI execution is implied. Actual OpenUSD 26.11 and the public C# writer/reader verified the paired GS USDA fixture, including byte reproducibility, original opacity 0.5, opposing antialias flags, matching source attributes, units and placement.
+
+Two local read-only reviewers supplied analysis; the primary reproduced the reported numerical failure before fixing it and ran all checks. The prepared factor representation adds 24 bytes per Gaussian; CPU allocation evidence is not native frame-rate evidence. Mac/Windows viewport appearance, atlas quantization, attribute-change redraw, nested-object lifecycle and save/reopen remain manual acceptance items. No computer use, Rhino automation, authenticated service call, installation, push or publication occurred; remote allowance was insufficient for new delegation.

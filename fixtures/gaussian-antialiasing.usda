@@ -1,0 +1,52 @@
+#usda 1.0
+(
+    defaultPrim = "GaussianScene"
+    doc = "Official static Gaussian splats. Positions are rebased per part; positions, scales, normalized orientations and activated opacity use float32. Object transforms use matrix4d. Normal float rounding is expected; this is not arbitrary-double lossless storage. Neutral gaussianSplatting customData preserves sourceName, localOrigin and the antialiased flag."
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "GaussianScene"
+{
+    def ParticleField3DGaussianSplat "Part000000" (
+        customData = {
+            dictionary gaussianSplatting = {
+                bool antialiased = 0
+                double3 localOrigin = (0, -1.2, 0)
+                string sourceName = "Classic — left"
+            }
+        }
+        displayName = "Classic — left"
+    )
+    {
+        float[] opacities = [0.5, 0.5, 0.5, 0.5]
+        quatf[] orientations = [(1, 0, 0, 0), (1, 0, 0, 0), (1, 0, 0, 0), (1, 0, 0, 0)]
+        point3f[] positions = [(0, 0, 0), (0, 0.8, 0), (0, 1.6, 0), (0, 2.4, 0)]
+        float3[] radiance:sphericalHarmonicsCoefficients = [(-1.417963, 1.0634723, 1.7724539), (-1.417963, 1.0634723, 1.7724539), (-1.417963, 1.0634723, 1.7724539), (-1.417963, 1.0634723, 1.7724539)]
+        uniform int radiance:sphericalHarmonicsDegree = 0
+        float3[] scales = [(0.02, 0.02, 0.01), (0.04, 0.04, 0.01), (0.08, 0.08, 0.01), (0.16, 0.16, 0.01)]
+        matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (-1.25, -1.2, 0, 1) )
+        uniform token[] xformOpOrder = ["xformOp:transform"]
+    }
+
+    def ParticleField3DGaussianSplat "Part000001" (
+        customData = {
+            dictionary gaussianSplatting = {
+                bool antialiased = 1
+                double3 localOrigin = (0, -1.2, 0)
+                string sourceName = "Antialiased — right"
+            }
+        }
+        displayName = "Antialiased — right"
+    )
+    {
+        float[] opacities = [0.5, 0.5, 0.5, 0.5]
+        quatf[] orientations = [(1, 0, 0, 0), (1, 0, 0, 0), (1, 0, 0, 0), (1, 0, 0, 0)]
+        point3f[] positions = [(0, 0, 0), (0, 0.8, 0), (0, 1.6, 0), (0, 2.4, 0)]
+        float3[] radiance:sphericalHarmonicsCoefficients = [(-1.417963, 1.0634723, 1.7724539), (-1.417963, 1.0634723, 1.7724539), (-1.417963, 1.0634723, 1.7724539), (-1.417963, 1.0634723, 1.7724539)]
+        uniform int radiance:sphericalHarmonicsDegree = 0
+        float3[] scales = [(0.02, 0.02, 0.01), (0.04, 0.04, 0.01), (0.08, 0.08, 0.01), (0.16, 0.16, 0.01)]
+        matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (1.25, -1.2, 0, 1) )
+        uniform token[] xformOpOrder = ["xformOp:transform"]
+    }
+}

@@ -26,7 +26,7 @@ internal static partial class GaussianDocument
         internal CancellationTokenSource? Cancellation;
         internal HashSet<string> AttemptedSources = new(StringComparer.Ordinal);
     }
-    internal sealed record Placement(InstanceObject Object, AssetData Asset, GaussianTransform Transform, Transform WorldTransform, GaussianInstanceOccurrence Instance);
+    internal sealed record Placement(InstanceObject Object, AssetData Asset, GaussianTransform Transform, Transform WorldTransform, GaussianInstanceOccurrence Instance, bool Antialiased);
     private static string CacheRoot => System.IO.Path.Combine(AholoPlugin.Session.Store.Root, "assets", "gaussians");
 
     internal static void Initialize()
@@ -104,9 +104,11 @@ internal static partial class GaussianDocument
         var result = new List<Placement>();
         foreach (var occurrence in Occurrences(doc, viewport))
         {
-            AssetData? asset = Ready(doc, occurrence.Object);
-            if (asset is null || occurrence.Instance.World is not GaussianTransform world) continue;
-            result.Add(new(occurrence.Object,asset,world,ToRhino(world),occurrence.Instance));
+            var reference = Reference(occurrence.Object);
+            if (reference is null || !Documents.TryGetValue(doc.RuntimeSerialNumber,out var assets) ||
+                !assets.TryGetValue(reference.Hash,out var entry) || entry.Data is not AssetData asset ||
+                occurrence.Instance.World is not GaussianTransform world) continue;
+            result.Add(new(occurrence.Object,asset,world,ToRhino(world),occurrence.Instance,reference.Antialiased));
         }
         // The complete path keeps repeated definition members distinct and tie-break ordering stable.
         result.Sort((a,b)=>StringComparer.Ordinal.Compare(a.Instance.Path,b.Instance.Path));

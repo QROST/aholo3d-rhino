@@ -55,7 +55,7 @@ internal static partial class GaussianDocument
         var linear = new GaussianMatrix(t.M00,t.M01,t.M02,t.M10,t.M11,t.M12,t.M20,t.M21,t.M22);
         _ = linear.Inverse();
         var transform = new GaussianTransform(linear, new GaussianVector(t.M03,t.M13,t.M23));
-        bool antialiased = obj.Attributes.GetUserString(reference.Prefix + ".Antialiased") == "true";
+        bool antialiased = reference.Antialiased;
         return new(obj.Name ?? "", reference, transform, antialiased, Ready(doc, obj)?.Splats);
     }
 

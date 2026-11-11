@@ -15,15 +15,11 @@ public sealed class GaussianBatchTests
         degree, Enumerable.Range(0, 3 * (degree + 1) * (degree + 1)).Select(i => (float)Math.Sin(i * .7)).ToArray());
 
     [Theory]
-    [InlineData(0, true)]
-    [InlineData(1, true)]
-    [InlineData(2, true)]
-    [InlineData(3, true)]
-    [InlineData(0, false)]
-    [InlineData(1, false)]
-    [InlineData(2, false)]
-    [InlineData(3, false)]
-    public void BatchMatchesIndependentOracleForCameraInstanceAndAllShDegrees(int degree, bool perspective)
+    [InlineData(0, true, false)][InlineData(1, true, false)][InlineData(2, true, false)][InlineData(3, true, false)]
+    [InlineData(0, false, false)][InlineData(1, false, false)][InlineData(2, false, false)][InlineData(3, false, false)]
+    [InlineData(0, true, true)][InlineData(1, true, true)][InlineData(2, true, true)][InlineData(3, true, true)]
+    [InlineData(0, false, true)][InlineData(1, false, true)][InlineData(2, false, true)][InlineData(3, false, true)]
+    public void BatchMatchesIndependentOracleForCameraInstanceAndAllShDegrees(int degree, bool perspective, bool antialiased)
     {
         var random = new Random(7289 + degree);
         var source = new GaussianSplat[128];
@@ -38,13 +34,13 @@ public sealed class GaussianBatchTests
         var transform = new GaussianTransform(new(1.2, .15, .2, -.1, .8, .05, .1, -.15, 1.8), new(2, 1, -3));
         GaussianCamera camera = Camera(perspective);
         GaussianPreparedAsset asset = GaussianPreparedAsset.Prepare(source);
-        GaussianProjectionContext context = GaussianProjectionContext.Create(camera, transform, 73);
+        GaussianProjectionContext context = GaussianProjectionContext.Create(camera, transform, 73, antialiased: antialiased);
         var output = new GaussianProjectedValue[source.Length];
         int visible = context.Project(asset, output, 4000);
         int expectedVisible = 0;
         for (int i = 0; i < source.Length; ++i)
         {
-            ProjectedGaussian? expected = GaussianProjector.Project(source[i], camera, transform);
+            ProjectedGaussian? expected = GaussianProjector.Project(source[i], camera, transform, antialiased: antialiased);
             bool present = context.TryProject(in asset[i], i, 4000 + i, out GaussianProjectedValue actual);
             Assert.Equal(expected is not null, present);
             if (expected is null) continue;
@@ -196,10 +192,9 @@ public sealed class GaussianBatchTests
     }
 
     [Theory]
-    [InlineData(0, true)]
-    [InlineData(3, true)]
-    [InlineData(3, false)]
-    public void RealWorldSizedBatchHasNoPerGaussianHeapAllocationOrInputLimit(int degree, bool perspective)
+    [InlineData(0, true, false)][InlineData(3, true, false)][InlineData(3, false, false)]
+    [InlineData(0, true, true)][InlineData(3, true, true)][InlineData(3, false, true)]
+    public void RealWorldSizedBatchHasNoPerGaussianHeapAllocationOrInputLimit(int degree, bool perspective, bool antialiased)
     {
         const int count = 212_864;
         GaussianSplat splat = Splat(degree);
@@ -208,7 +203,7 @@ public sealed class GaussianBatchTests
         GaussianPreparedAsset asset = GaussianPreparedAsset.Prepare(source);
         long preparationBytes = GC.GetAllocatedBytesForCurrentThread() - preparationBefore;
         double preparationMs = Stopwatch.GetElapsedTime(preparationStart).TotalMilliseconds;
-        GaussianProjectionContext context = GaussianProjectionContext.Create(Camera(perspective), GaussianTransform.Identity);
+        GaussianProjectionContext context = GaussianProjectionContext.Create(Camera(perspective), GaussianTransform.Identity, antialiased: antialiased);
         var output = new GaussianProjectedValue[count]; var indices = new int[count]; var scratch = new int[count];
         for (int i = 0; i < count; ++i) indices[i] = i;
         // Warm the same hot paths before measuring managed allocations. Caller buffers are allocated above.
@@ -227,7 +222,7 @@ public sealed class GaussianBatchTests
         Assert.True(afterProjection == before, $"Projection allocated {afterProjection - before} bytes.");
         Assert.True(afterSort == beforeSort, $"Sorting allocated {afterSort - beforeSort} bytes.");
         Assert.Equal(count - 1, indices[0]); Assert.Equal(0, indices[^1]);
-        _output.WriteLine($"CPU only, repeated synthetic source: {count:N0} GS, degree={degree}, perspective={perspective}; prepare={preparationMs:F1}ms/{preparationBytes:N0} bytes, project={projectMs:F1}ms/0 bytes, sort={sortMs:F1}ms/0 bytes. Excludes native resources and draw time.");
+        _output.WriteLine($"CPU only, repeated synthetic source: {count:N0} GS, degree={degree}, perspective={perspective}, antialiased={antialiased}; prepare={preparationMs:F1}ms/{preparationBytes:N0} bytes, project={projectMs:F1}ms/0 bytes, sort={sortMs:F1}ms/0 bytes. Excludes native resources and draw time.");
     }
 
     private static GaussianProjectedValue Value(double depth, long ordinal) => new(0, 0, depth, 1, 0, 1, new(.5, .5, .5), .5, 3, 0, 0, 3, 3, 0, 0, ordinal);

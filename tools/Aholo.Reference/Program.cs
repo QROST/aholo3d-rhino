@@ -5,6 +5,8 @@ using System.Text.Json;
 using Aholo.Core;
 
 // This portable image oracle does not load Rhino or make network calls.
+if (args.Length == 2 && args[0] == "--antialias-fixtures") return AntialiasFixtures.Run(args[1]);
+if (args.Length == 2 && args[0] == "--antialias-scene-fixture") return AntialiasFixtures.WriteScene(args[1]);
 if (args.Length == 2 && args[0] == "--png-alpha-fixtures") return PngAlphaFixtures.Run(args[1]);
 if (args.Length == 2 && args[0] == "--scene-import-fixtures") return SceneFixtures.VerifyImports(args[1]);
 if (args.Length == 2 && args[0] == "--scene-fixtures") return SceneFixtures.Run(args[1]);

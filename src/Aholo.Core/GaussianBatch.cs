@@ -11,11 +11,19 @@ public readonly record struct GaussianCovariance(double XX, double XY, double XZ
 public readonly struct GaussianPreparedSplat
 {
     public GaussianSplat Source { get; }
-    public GaussianCovariance Covariance { get; }
+    internal GaussianMatrix PrincipalAxes { get; }
+    public GaussianCovariance Covariance
+    {
+        get
+        {
+            GaussianMatrix value = PrincipalAxes * PrincipalAxes.Transpose();
+            return new(value.M11,value.M12,value.M13,value.M22,value.M23,value.M33);
+        }
+    }
     public double Opacity { get; }
     public GaussianColor DcColor { get; }
-    internal GaussianPreparedSplat(GaussianSplat source, GaussianCovariance covariance, double opacity, GaussianColor dcColor)
-    { Source = source; Covariance = covariance; Opacity = opacity; DcColor = dcColor; }
+    internal GaussianPreparedSplat(GaussianSplat source, GaussianMatrix axes, double opacity, GaussianColor dcColor)
+    { Source = source; PrincipalAxes = axes; Opacity = opacity; DcColor = dcColor; }
 }
 
 /// <summary>Owns its prepared array; original immutable source Gaussians and every SH coefficient remain available.</summary>
@@ -33,11 +41,12 @@ public sealed class GaussianPreparedAsset
         {
             if ((i & 127) == 0) ct.ThrowIfCancellationRequested();
             GaussianSplat splat = source[i] ?? throw new ArgumentException("Gaussian source cannot contain null entries.", nameof(source));
-            GaussianMatrix covariance = GaussianMath.Covariance(splat, GaussianTransform.Identity);
+            GaussianMatrix axes = GaussianMath.PrincipalAxes(splat, GaussianTransform.Identity);
+            if (!(axes * axes.Transpose()).IsFinite) throw new ArgumentException("Gaussian covariance exceeds numeric precision.");
             ReadOnlySpan<float> sh = splat.Coefficients.Span;
             double dc = Math.Sqrt(1 / (4 * Math.PI));
             var color = new GaussianColor(Math.Max(0, .5 + dc * sh[0]), Math.Max(0, .5 + dc * sh[1]), Math.Max(0, .5 + dc * sh[2]));
-            prepared[i] = new(splat, new(covariance.M11, covariance.M12, covariance.M13, covariance.M22, covariance.M23, covariance.M33), GaussianMath.Sigmoid(splat.OpacityLogit), color);
+            prepared[i] = new(splat, axes, GaussianMath.Sigmoid(splat.OpacityLogit), color);
         }
         ct.ThrowIfCancellationRequested();
         return new GaussianPreparedAsset(prepared);
@@ -61,9 +70,10 @@ public sealed class GaussianProjectionContext
     private readonly double _filterVariance, _supportSigma;
     public GaussianCamera Camera => _camera;
     public int InstanceId { get; }
-    private GaussianProjectionContext(GaussianCamera camera, GaussianTransform transform, GaussianMatrix inverse, int instanceId, double filterVariance, double supportSigma)
+    public bool Antialiased { get; }
+    private GaussianProjectionContext(GaussianCamera camera, GaussianTransform transform, GaussianMatrix inverse, int instanceId, double filterVariance, double supportSigma, bool antialiased)
     {
-        _camera = camera; InstanceId = instanceId; _filterVariance = filterVariance; _supportSigma = supportSigma;
+        _camera = camera; InstanceId = instanceId; Antialiased = antialiased; _filterVariance = filterVariance; _supportSigma = supportSigma;
         GaussianMatrix transposed = transform.Linear.Transpose();
         _rowX = transposed.Transform(camera.Right); _rowY = transposed.Transform(-camera.Up); _rowZ = transposed.Transform(camera.Forward);
         GaussianVector translated = transform.Translation - camera.Eye;
@@ -77,14 +87,14 @@ public sealed class GaussianProjectionContext
             FillBasis(3, inverse.Transform(camera.Forward), _orthographicBasis);
         }
     }
-    public static GaussianProjectionContext Create(GaussianCamera camera, GaussianTransform transform, int instanceId = 0, double filterVariance = .3, double supportSigma = 3)
+    public static GaussianProjectionContext Create(GaussianCamera camera, GaussianTransform transform, int instanceId = 0, double filterVariance = .3, double supportSigma = 3, bool antialiased = false)
     {
         ArgumentNullException.ThrowIfNull(camera); camera.Validate();
         if (!double.IsFinite(filterVariance) || filterVariance < 0 || !double.IsFinite(supportSigma) || supportSigma <= 0)
             throw new ArgumentException("Gaussian pixel filter and support must be finite and nonnegative/positive.");
         if (!transform.Translation.IsFinite) throw new ArgumentException("Gaussian translation must be finite.");
         GaussianMatrix inverse = transform.Linear.Inverse();
-        return new(camera, transform, inverse, instanceId, filterVariance, supportSigma);
+        return new(camera, transform, inverse, instanceId, filterVariance, supportSigma, antialiased);
     }
 
     /// <summary>Writes the visible prefix. No input-count cap or LOD is applied. Cancellation leaves a partial destination that must not be published.</summary>
@@ -118,9 +128,10 @@ public sealed class GaussianProjectionContext
         {
             jx -= _rowZ * (_camera.Fx * x / (z * z)); jy -= _rowZ * (_camera.Fy * y / (z * z));
         }
-        GaussianVector covarianceY = prepared.Covariance.Transform(jy);
-        double xx = GaussianVector.Dot(jx, prepared.Covariance.Transform(jx)) + _filterVariance,
-            xy = GaussianVector.Dot(jx, covarianceY), yy = GaussianVector.Dot(jy, covarianceY) + _filterVariance;
+        GaussianMatrix axes = prepared.PrincipalAxes.Transpose();
+        GaussianVector projectedX = axes.Transform(jx), projectedY = axes.Transform(jy);
+        double rawXX = GaussianVector.Dot(projectedX, projectedX), rawYY = GaussianVector.Dot(projectedY, projectedY);
+        double xx = rawXX + _filterVariance, xy = GaussianVector.Dot(projectedX, projectedY), yy = rawYY + _filterVariance;
         double determinant = xx * yy - xy * xy;
         if (!double.IsFinite(centerX) || !double.IsFinite(centerY) || !double.IsFinite(xx) || !double.IsFinite(xy) || !double.IsFinite(yy) || !double.IsFinite(determinant) || xx <= 0 || yy <= 0 || determinant <= 0)
             throw new ArgumentException("Projected Gaussian covariance is not finite and positive definite.");
@@ -132,7 +143,9 @@ public sealed class GaussianProjectionContext
         double major = _supportSigma * Math.Sqrt(lambda1), minor = _supportSigma * Math.Sqrt(lambda2);
         if (!double.IsFinite(major) || !double.IsFinite(minor) || major <= 0 || minor <= 0) throw new ArgumentException("Projected Gaussian axes exceed numeric precision.");
         GaussianColor color = source.Degree == 0 ? prepared.DcColor : Evaluate(source);
-        result = new(centerX, centerY, z, xx, xy, yy, color, prepared.Opacity, major * cosine, major * sine,
+        double opacity = prepared.Opacity;
+        if (Antialiased && _filterVariance > 0) opacity *= GaussianAntialiasing.Compensation(rawXX, xy, rawYY, determinant);
+        result = new(centerX, centerY, z, xx, xy, yy, color, opacity, major * cosine, major * sine,
             -minor * sine, minor * cosine, _supportSigma, InstanceId, sourceIndex, globalOrdinal);
         return true;
     }
