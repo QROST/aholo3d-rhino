@@ -186,10 +186,16 @@ public sealed partial class RealtimePreviewManagerTests
         await using var h=await Harness.New("china");var request=h.Request();await h.Manager.StartAsync(request,h.Epoch,default);
         await h.Backend.Created.Task.WaitAsync(Timeout);h.Backend.CreateReply.SetException(new ProviderException("unknown","fixture",true));
         await Eventually(()=>h.Journal.Read(request.Id).Stage=="SubmissionUnknown");
-        var next=await h.Credentials.ConnectAsync(new("fixture-only","international"),false);
-        await Assert.ThrowsAsync<InvalidOperationException>(()=>h.Manager.ConfirmExternalResolutionAsync(request.Id,next.Epoch,default));
-        var original=await h.Credentials.ConnectAsync(new("fixture-only","china"),false);
-        await h.Manager.ConfirmExternalResolutionAsync(request.Id,original.Epoch,default);Assert.False(h.Journal.Read(request.Id).NeedsCleanup);
+        // Follow the production credential-change barrier: the unknown journal state
+        // precedes completion of the worker that still owns its file lease.
+        string nextEpoch;
+        using(await h.Manager.BeforeCredentialChangeAsync(default).WaitAsync(Timeout))
+            nextEpoch=(await h.Credentials.ConnectAsync(new("fixture-only","international"),false)).Epoch;
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>h.Manager.ConfirmExternalResolutionAsync(request.Id,nextEpoch,default));
+        string originalEpoch;
+        using(await h.Manager.BeforeCredentialChangeAsync(default).WaitAsync(Timeout))
+            originalEpoch=(await h.Credentials.ConnectAsync(new("fixture-only","china"),false)).Epoch;
+        await h.Manager.ConfirmExternalResolutionAsync(request.Id,originalEpoch,default);Assert.False(h.Journal.Read(request.Id).NeedsCleanup);
     }
     private sealed class FakeBackend:IRealtimePreviewBackend
     {
