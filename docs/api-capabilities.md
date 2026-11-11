@@ -97,3 +97,6 @@ The 30 public HTTP routes and 13 create forms are implemented; that is not a cla
 | Release | Cross-platform compilation and local checks, bilingual interface/docs, package checks | Native Mac and Windows interaction tests, real authorized service acceptance, final publication decision |
 
 Public contract gates are distinct from ordinary implementation work: JPEG currently has no depth/alpha/camera-frame linkage; arbitrary World PLY/SPZ ingestion and progressive LOD metadata need provider-confirmed contracts. Texture/material export, format import, patch controls and regional account support remain actionable development backlog. None is silently marked complete by endpoint counts or mock tests.
+
+
+China-region public contracts were independently fetched and compared on 2026-11-11: all five service schemas and public-client OAuth discovery are available. This moves region parity into implementation work, not an undisclosed-contract blocker. The runtime remains international-only. Exact sources, hashes and comparison limits: [regional contract audit](regional-contracts.md).

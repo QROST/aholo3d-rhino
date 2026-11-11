@@ -16,3 +16,6 @@ Re-verified 2026-11-08: the original World, RenderCloud and Asset snapshots are 
 - [spatialunderstanding.openapi.json](spatialunderstanding.openapi.json) — https://labs.aholo.ai/api-docs/specifications/services/spatialunderstanding/openapi.en.json — SHA-256 `35098d56d83267a205f881d61a5aa7e901b1855adb938aff351b9f4b030d292e`
 
 Coverage and workflow status: [capability matrix](../api-capabilities.md). The official public index is https://labs.aholo.ai/api-docs/en/llms.txt .
+
+
+China-region World, Lux3D, SpatialUnderstanding, RenderCloud, Asset/OUS and public OAuth discovery snapshots were captured on 2026-11-11. See [China sources](china/README.md) and [regional contract audit](../regional-contracts.md). These references do not change the currently international-only runtime.

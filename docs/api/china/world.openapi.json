@@ -1,0 +1,1321 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "World Open API",
+    "description": "对外开放的 3D 高斯溅射（3DGS）**世界**接口：创建重建/生成任务、查询任务详情与列表。\n\n**路径前缀**（相对网关根路径）：`/world/v1`（如 `POST /world/v1/reconstructions` 创建重建任务）。\n\n**异步任务**：创建类接口受理成功后返回 `WorldAsyncOperation`，仅含 `worldId`；使用该 id 调用「查询世界详情」轮询进度与结果。\n\n**资源入参**：创建重建任务时，若 `resources` 含图片（`type=image` 或省略 type），图片须 **至少 20 条**；仅视频时将 `type` 设为 `video`。\n\n**时间与分页**：详情/列表中 `createTime`、`updateTime` 为 **Unix 毫秒**；列表使用 `pageNum`、`pageSize`。\n\n**认证**：在请求头设置 `Authorization`（API key，无需 Bearer 前缀），详见全局安全方案。\n\n**响应**：成功时 HTTP 200 且 body 为业务对象；失败时 HTTP 4xx 且 body 为统一错误结构（含业务码）。",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.aholo3d.cn",
+      "description": "Aholo 开放平台 HTTPS 入口"
+    }
+  ],
+  "tags": [
+    {
+      "name": "World",
+      "description": "3D 高斯溅射世界重建相关接口",
+      "x-displayName": "世界"
+    }
+  ],
+  "paths": {
+    "/world/v1/reconstructions": {
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "summary": "创建 3DGS 世界重建任务",
+        "description": "异步创建一条 3DGS 世界重建任务。受理成功后返回 `WorldAsyncOperation`，仅含 `worldId`，与「查询世界详情」路径 `{worldId}` 一致。**资源格式**：image：.jpg / .jpeg / .png / .webp；video：.mp4 / .mov；insv：.insv。\n**输入规则**：若 `resources` 中含有图片类资源（`type=image` 或省略 `type`），则图片类条数须 **至少 20 条**；仅使用视频时请设 `type=video`，Insta360 全景视频请设 `type=insv`（均不触发「至少 20 张图」限制）。",
+        "operationId": "createWorld",
+        "parameters": [
+          {
+            "name": "x-source",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "创建任务请求体。含图时须满足图片张数与「CreateWorldRequest」中说明一致。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorldRequest"
+              },
+              "examples": {
+                "createWorldWithVideo": {
+                  "description": "单视频 + 室内场景；`type: video`，支持 .mp4 / .mov",
+                  "value": {
+                    "name": "客厅重建",
+                    "resources": [
+                      {
+                        "url": "https://cdn.example.com/input/room-001.mp4",
+                        "type": "video"
+                      }
+                    ],
+                    "taskQuality": "high",
+                    "scene": "space"
+                  }
+                },
+                "createWorldWithInsv": {
+                  "description": "Insta360 全景视频；`type: insv`，支持 .insv",
+                  "value": {
+                    "name": "全景客厅重建",
+                    "resources": [
+                      {
+                        "url": "https://cdn.example.com/input/room-001.insv",
+                        "type": "insv"
+                      }
+                    ],
+                    "taskQuality": "high",
+                    "scene": "space"
+                  }
+                },
+                "createWorldWithImages": {
+                  "description": "多图：须 ≥20 条 image（或省略 type 按图计），支持 .jpg / .jpeg / .png / .webp；此处为结构示意",
+                  "value": {
+                    "name": "客厅重建",
+                    "resources": [
+                      {
+                        "url": "https://cdn.example.com/in/1.jpg",
+                        "type": "image"
+                      },
+                      {
+                        "url": "https://cdn.example.com/in/2.jpg",
+                        "type": "image"
+                      }
+                    ],
+                    "taskQuality": "high",
+                    "scene": "space"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "受理成功：返回 `WorldAsyncOperation`，含 `worldId`。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldAsyncOperation"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "创建受理成功",
+                    "description": "success",
+                    "value": {
+                      "worldId": "A1b2C3d4E5"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数/请求体校验失败、积分不足等（ApiError，`details.metaData.bizCode` 为原业务码）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "参数/请求体校验失败",
+                    "description": "业务码 10001（PARAMS_INVALID）",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  },
+                  "insufficientCredits": {
+                    "summary": "积分不足以完成任务",
+                    "description": "业务码 11003；若当前环境创建接口未扣积分则可能不出现",
+                    "value": {
+                      "code": 400,
+                      "message": "insufficient credits to complete task",
+                      "status": "FAILED_PRECONDITION",
+                      "details": {
+                        "reason": "BIZ_11003",
+                        "domain": "api.aholo3d.cn",
+                        "message": "insufficient credits to complete task",
+                        "metaData": {
+                          "bizCode": "11003"
+                        }
+                      }
+                    }
+                  },
+                  "taskMattingError": {
+                    "summary": "任务域其它错误（示例）",
+                    "description": "业务码 11004，与本创建链路未必出现",
+                    "value": {
+                      "code": 400,
+                      "message": "matting error",
+                      "status": "FAILED_PRECONDITION",
+                      "details": {
+                        "reason": "BIZ_11004",
+                        "domain": "api.aholo3d.cn",
+                        "message": "matting error",
+                        "metaData": {
+                          "bizCode": "11004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败（ApiError）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "未登录或鉴权失败",
+                    "description": "业务码 10004（NOT_LOGGED_IN）",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "全局任务并发或限流（ApiError）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "taskGlobalRateLimit": {
+                    "summary": "全局任务并发达上限",
+                    "description": "业务码 11001",
+                    "value": {
+                      "code": 429,
+                      "message": "task global rate limit",
+                      "status": "RESOURCE_EXHAUSTED",
+                      "details": {
+                        "reason": "BIZ_11001",
+                        "domain": "api.aholo3d.cn",
+                        "message": "task global rate limit",
+                        "metaData": {
+                          "bizCode": "11001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 10,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createWorldClient } from '@manycore/aholo-sdk-world';\n\nconst world = createWorldClient({ region: 'cn' });\nconst { worldId } = await world.reconstructions.create({\n  name: '客厅',\n  resources: [{ url: 'https://cdn.example.com/room.mp4', type: 'video' }],\n  taskQuality: 'normal',\n  scene: 'model',\n});\nconst detail = await world.waitFor(worldId);\nconsole.log(detail.assets?.splats?.urls?.plyPath);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.world.WorldClient;\nimport com.manycoreapis.sdk.world.model.ReconstructionCreateParams;\nimport com.manycoreapis.sdk.world.model.GenerationCreateParams;\nimport com.manycoreapis.sdk.world.model.WorldListParams;\nimport com.manycoreapis.sdk.world.model.WorldAsyncOperation;\nimport com.manycoreapis.sdk.world.model.WorldDetail;\nimport com.manycoreapis.sdk.world.model.WorldPagedList;\n\nWorldClient world = WorldClient.create(AholoClientConfig.ofRegion(\"cn\"));\nWorldAsyncOperation op = world.reconstructions().create(\n    ReconstructionCreateParams.builder()\n        .name(\"客厅\")\n        .addResource(\"https://cdn.example.com/room.mp4\", \"video\")\n        .taskQuality(\"normal\")\n        .scene(\"model\")\n        .build());\nWorldDetail detail = world.waitFor(op.worldId());"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_world import create_world_client\n\nworld = create_world_client(region='cn')\nop = world.reconstructions.create(\n    name='客厅',\n    resources=[{'url': 'https://cdn.example.com/room.mp4', 'type': 'video'}],\n    task_quality='normal',\n    scene='model',\n)\ndetail = world.wait_for(op['worldId'])\nprint(detail.get('assets', {}).get('splats', {}).get('urls', {}).get('plyPath'))"
+          }
+        ]
+      }
+    },
+    "/world/v1/generations": {
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "summary": "创建 3DGS 世界生成任务",
+        "description": "异步创建一条3DGS 世界生成任务（Spatial Gen）。当前 **室内空间** 场景效果更成熟、更稳定，建议优先用于室内。也允许提交 **非室内** 类文案或素材，但非室内生成仍处于 **Beta**，质量与一致性可能明显弱于室内，请按需评估风险。受理成功后返回 `WorldAsyncOperation`（仅含 `worldId`）。支持纯文案、单张图片或图文组合。若 `resources` 中含图片，最多允许 1 张（image：.jpg / .jpeg / .png / .webp。）。",
+        "operationId": "generateWorld",
+        "parameters": [
+          {
+            "name": "x-source",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "生成世界请求体。支持纯文案、单张图片或图文组合。至多 1 张图片（image：.jpg / .jpeg / .png / .webp。）。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateWorldRequest"
+              },
+              "examples": {
+                "generateWorldRequest": {
+                  "summary": "图文组合示例",
+                  "description": "generateWorldRequest",
+                  "value": {
+                    "name": "客厅生成",
+                    "cover": "https://cdn.example.com/cover/gen-cover.jpg",
+                    "prompt": "现代简约风格客厅",
+                    "resources": [
+                      {
+                        "url": "https://cdn.example.com/input/room.jpg",
+                        "type": "image"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "受理成功：返回 `WorldAsyncOperation`，含 `worldId`。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldAsyncOperation"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "创建受理成功",
+                    "description": "success",
+                    "value": {
+                      "worldId": "B2c3D4e5F6"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数/请求体校验失败等业务错误（ApiError）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "参数/请求体校验失败",
+                    "description": "业务码 10001（PARAMS_INVALID）",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败（ApiError）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "未登录或鉴权失败",
+                    "description": "业务码 10004（NOT_LOGGED_IN）",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 15,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createWorldClient } from '@manycore/aholo-sdk-world';\n\nconst world = createWorldClient({ region: 'cn' });\nconst { worldId } = await world.generations.create({\n  name: '森林小屋',\n  prompt: '森林中的现代风格小木屋',\n});\nconst detail = await world.waitFor(worldId);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.world.WorldClient;\nimport com.manycoreapis.sdk.world.model.ReconstructionCreateParams;\nimport com.manycoreapis.sdk.world.model.GenerationCreateParams;\nimport com.manycoreapis.sdk.world.model.WorldListParams;\nimport com.manycoreapis.sdk.world.model.WorldAsyncOperation;\nimport com.manycoreapis.sdk.world.model.WorldDetail;\nimport com.manycoreapis.sdk.world.model.WorldPagedList;\n\nWorldClient world = WorldClient.create(AholoClientConfig.ofRegion(\"cn\"));\nWorldAsyncOperation op = world.generations().create(\n    GenerationCreateParams.builder()\n        .name(\"森林小屋\")\n        .prompt(\"森林中的现代风格小木屋\")\n        .build());\nWorldDetail detail = world.waitFor(op.worldId());"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_world import create_world_client\n\nworld = create_world_client(region='cn')\nop = world.generations.create(\n    name='森林小屋',\n    prompt='森林中的现代风格小木屋',\n)\ndetail = world.wait_for(op['worldId'])"
+          }
+        ]
+      }
+    },
+    "/world/v1/{worldId}": {
+      "get": {
+        "tags": [
+          "World"
+        ],
+        "summary": "查询世界详情",
+        "description": "根据世界 id 查询详情。重建成功且产出可用时，响应中包含 splat（ply/spz）等重建产物的下载地址；若已完成 LOD 后处理，`assets.splats.urls.lodMetaPath` 将包含 LOD 分块元数据文件的下载地址。AI 生成（Spatial Gen）世界在全景图产出后，`assets.imagery.panoUrl` 返回全景图下载地址。",
+        "operationId": "getWorldDetail",
+        "parameters": [
+          {
+            "name": "worldId",
+            "in": "path",
+            "description": "世界 id（与创建接口成功响应 `WorldAsyncOperation.worldId` 一致）",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "A1b2C3d4E5"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功时响应体为世界详情对象。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldDetail"
+                },
+                "examples": {
+                  "reconstructionWorldDetail": {
+                    "summary": "3D 重建世界详情",
+                    "description": "重建成功，含 splats 与坐标系元数据，无 imagery。",
+                    "value": {
+                      "worldId": "A1b2C3d4E5",
+                      "name": "客厅重建",
+                      "cover": "https://cdn.example.com/cover/world-001.jpg",
+                      "scene": "space",
+                      "createTime": 1699339916000,
+                      "updateTime": 1699340120000,
+                      "status": "SUCCEEDED",
+                      "progress": 1,
+                      "assets": {
+                        "splats": {
+                          "urls": {
+                            "plyPath": "https://cdn.example.com/output/world-001.ply",
+                            "spzPath": "https://cdn.example.com/output/world-001.spz",
+                            "lodMetaPath": "https://cdn.example.com/output/world-001-lod-meta.json"
+                          }
+                        },
+                        "semanticsMetadata": {
+                          "upAxis": "Z"
+                        }
+                      }
+                    }
+                  },
+                  "generateWorldDetail": {
+                    "summary": "AI 生成世界详情",
+                    "description": "生成成功，含全景图 imagery.panoUrl 与 splats。",
+                    "value": {
+                      "worldId": "B2c3D4e5F6",
+                      "name": "现代简约客厅",
+                      "cover": "https://cdn.example.com/cover/world-gen-001.jpg",
+                      "scene": "ai_gen",
+                      "createTime": 1699339916000,
+                      "updateTime": 1699340120000,
+                      "status": "SUCCEEDED",
+                      "progress": 1,
+                      "assets": {
+                        "imagery": {
+                          "panoUrl": "https://cdn.example.com/output/world-gen-001-pano.jpg"
+                        },
+                        "splats": {
+                          "urls": {
+                            "plyPath": "https://cdn.example.com/output/world-gen-001.ply",
+                            "spzPath": "https://cdn.example.com/output/world-gen-001.spz",
+                            "lodMetaPath": "https://cdn.example.com/output/world-gen-001-lod-meta.json"
+                          }
+                        },
+                        "semanticsMetadata": {
+                          "upAxis": "Z"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "路径参数校验失败等业务错误（ApiError）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "路径参数校验失败",
+                    "description": "业务码 10001",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败（ApiError）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "未登录或鉴权失败",
+                    "description": "业务码 10004（NOT_LOGGED_IN）",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无访问权限（ApiError）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "noPermission": {
+                    "summary": "无权限查看",
+                    "description": "业务码 12003",
+                    "value": {
+                      "code": 403,
+                      "message": "no permission",
+                      "status": "PERMISSION_DENIED",
+                      "details": {
+                        "reason": "BIZ_12003",
+                        "domain": "api.aholo3d.cn",
+                        "message": "no permission",
+                        "metaData": {
+                          "bizCode": "12003"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "世界不存在（ApiError）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "projectNotExist": {
+                    "summary": "世界（项目）不存在",
+                    "description": "业务码 12001",
+                    "value": {
+                      "code": 404,
+                      "message": "project not exist",
+                      "status": "NOT_FOUND",
+                      "details": {
+                        "reason": "BIZ_12001",
+                        "domain": "api.aholo3d.cn",
+                        "message": "project not exist",
+                        "metaData": {
+                          "bizCode": "12001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 20,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createWorldClient } from '@manycore/aholo-sdk-world';\n\nconst world = createWorldClient({ region: 'cn' });\nconst detail = await world.retrieve('A1b2C3d4E5');\nconsole.log(detail.status);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.world.WorldClient;\nimport com.manycoreapis.sdk.world.model.ReconstructionCreateParams;\nimport com.manycoreapis.sdk.world.model.GenerationCreateParams;\nimport com.manycoreapis.sdk.world.model.WorldListParams;\nimport com.manycoreapis.sdk.world.model.WorldAsyncOperation;\nimport com.manycoreapis.sdk.world.model.WorldDetail;\nimport com.manycoreapis.sdk.world.model.WorldPagedList;\n\nWorldClient world = WorldClient.create(AholoClientConfig.ofRegion(\"cn\"));\nWorldDetail detail = world.retrieve(\"A1b2C3d4E5\");\ndetail.status().ifPresent(System.out::println);"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_world import create_world_client\n\nworld = create_world_client(region='cn')\ndetail = world.retrieve('A1b2C3d4E5')\nprint(detail.get('status'))"
+          }
+        ]
+      }
+    },
+    "/world/v1/list": {
+      "post": {
+        "tags": [
+          "World"
+        ],
+        "summary": "分页查询我的世界列表",
+        "description": "分页查询当前账号下的 3DGS 世界列表。",
+        "operationId": "getMyWorldList",
+        "requestBody": {
+          "description": "分页与筛选条件。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorldListQueryRequest"
+              },
+              "examples": {
+                "listWorldRequest": {
+                  "description": "示例：第一页、每页 20、按运行中与成功筛选",
+                  "value": {
+                    "pageNum": 0,
+                    "pageSize": 20,
+                    "statusList": [
+                      "RUNNING",
+                      "SUCCEEDED"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "成功时响应体为分页列表对象（含 `pageNum`、`pageSize`、列表项等）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldPagedList"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "查询成功",
+                    "description": "success",
+                    "value": {
+                      "pageNum": 0,
+                      "pageSize": 20,
+                      "count": 1,
+                      "totalCount": 1,
+                      "hasMore": false,
+                      "result": [
+                        {
+                          "worldId": "A1b2C3d4E5",
+                          "name": "客厅重建",
+                          "cover": "https://cdn.example.com/cover/world-001.jpg",
+                          "scene": "space",
+                          "createTime": 1699339916000,
+                          "updateTime": 1699340120000,
+                          "status": "RUNNING",
+                          "progress": 0.45
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "分页参数等校验失败（ApiError）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "请求体/参数校验失败",
+                    "description": "业务码 10001",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败（ApiError）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "未登录或鉴权失败",
+                    "description": "业务码 10004（NOT_LOGGED_IN）",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 30,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createWorldClient } from '@manycore/aholo-sdk-world';\n\nconst world = createWorldClient({ region: 'cn' });\nconst page = await world.list({ pageNum: 1, pageSize: 20 });\npage.result?.forEach((w) => console.log(w.worldId, w.status));"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.world.WorldClient;\nimport com.manycoreapis.sdk.world.model.ReconstructionCreateParams;\nimport com.manycoreapis.sdk.world.model.GenerationCreateParams;\nimport com.manycoreapis.sdk.world.model.WorldListParams;\nimport com.manycoreapis.sdk.world.model.WorldAsyncOperation;\nimport com.manycoreapis.sdk.world.model.WorldDetail;\nimport com.manycoreapis.sdk.world.model.WorldPagedList;\n\nWorldClient world = WorldClient.create(AholoClientConfig.ofRegion(\"cn\"));\nWorldPagedList page = world.list(\n    WorldListParams.builder().pageNum(1).pageSize(20).build());\npage.result().ifPresent(items ->\n    items.forEach(w -> System.out.println(w.worldId() + \" \" + w.status())));"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_world import create_world_client\n\nworld = create_world_client(region='cn')\npage = world.list(page_num=1, page_size=20)\nfor w in page.get('result', []):\n    print(w.get('worldId'), w.get('status'))"
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateWorldRequest": {
+        "required": [
+          "resources",
+          "scene",
+          "taskQuality"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "世界展示名称",
+            "example": "客厅重建"
+          },
+          "cover": {
+            "type": "string",
+            "description": "封面图 URL；可选",
+            "example": "https://cdn.example.com/cover/custom-cover.jpg"
+          },
+          "resources": {
+            "minItems": 1,
+            "type": "array",
+            "description": "输入资源列表，至少 1 条。格式见 CreateWorldRequest 说明（image：.jpg / .jpeg / .png / .webp；video：.mp4 / .mov；insv：.insv。）。含图片时须至少 20 条图片类（`type=image` 或省略 type）；纯视频请显式 `type=video`；Insta360 全景视频请显式 `type=insv`。",
+            "items": {
+              "$ref": "#/components/schemas/WorldResourceItem"
+            }
+          },
+          "useMask": {
+            "type": "boolean",
+            "description": "是否对上传资源进行抠图。`true` 开启；省略或 `false` 不抠图。",
+            "example": false
+          },
+          "taskQuality": {
+            "$ref": "#/components/schemas/WorldOpenApiTaskQuality"
+          },
+          "scene": {
+            "$ref": "#/components/schemas/WorldOpenApiProjectScene"
+          }
+        },
+        "description": "创建 3DGS 世界重建任务的请求体。`scene` 仅支持 model 与 space；`taskQuality` 含义见 `WorldOpenApiTaskQuality`（low 极速预览 / normal 标准 / high 专业）。\n**资源格式**：image：.jpg / .jpeg / .png / .webp；video：.mp4 / .mov；insv：.insv。\n**资源条数**：若 `resources` 中出现图片类资源（`type=image` 或省略 `type`，后者按图片计），则图片类至少 **20 条**；若仅使用视频或 Insta360 全景视频，请为每条资源设置 `type=video` 或 `type=insv`（不触发「至少 20 张图」规则）。"
+      },
+      "WorldOpenApiProjectScene": {
+        "type": "string",
+        "description": "项目场景类型。model：物体场景；space：室内场景。",
+        "example": "space",
+        "enum": [
+          "model",
+          "space"
+        ]
+      },
+      "WorldOpenApiResourceType": {
+        "type": "string",
+        "description": "输入资源类型。image：图片，支持 .jpg / .jpeg / .png / .webp；video：普通视频，支持 .mp4 / .mov；insv：Insta360 全景视频，支持 .insv。",
+        "example": "image",
+        "enum": [
+          "image",
+          "video",
+          "insv"
+        ]
+      },
+      "WorldOpenApiTaskQuality": {
+        "type": "string",
+        "description": "3DGS 重建任务质量档位。low：极速预览；normal：标准；high：专业。",
+        "example": "high",
+        "enum": [
+          "low",
+          "normal",
+          "high"
+        ]
+      },
+      "WorldResourceItem": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "minLength": 1,
+            "type": "string",
+            "description": "资源地址 URL；扩展名须与 `type` 一致（image：.jpg / .jpeg / .png / .webp；video：.mp4 / .mov；insv：.insv。）。",
+            "example": "https://cdn.example.com/input/room-001.jpg"
+          },
+          "type": {
+            "$ref": "#/components/schemas/WorldOpenApiResourceType"
+          }
+        },
+        "description": "重建任务单条输入资源。未传 `type` 按图片计；普通视频传 `video`；Insta360 全景视频传 `insv`。image：.jpg / .jpeg / .png / .webp；video：.mp4 / .mov；insv：.insv。"
+      },
+      "WorldAsyncOperation": {
+        "required": [
+          "worldId"
+        ],
+        "type": "object",
+        "properties": {
+          "worldId": {
+            "type": "string",
+            "description": "世界 id；填入 `GET /world/v1/{worldId}` 的路径参数即可轮询任务状态与产出。",
+            "example": "A1b2C3d4E5"
+          }
+        },
+        "description": "异步创建受理结果：封装 `worldId`，供调用方作为资源 id 请求详情直至终态。"
+      },
+      "ApiError": {
+        "required": [
+          "code",
+          "details",
+          "message",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "HTTP状态码",
+            "format": "int32",
+            "example": 403
+          },
+          "message": {
+            "type": "string",
+            "description": "面向开发者的错误消息（英文），用户可见的本地化消息请使用localizedMessage字段",
+            "example": "Permission denied to access this resource"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Code"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ErrorDetails"
+          },
+          "localizedMessage": {
+            "$ref": "#/components/schemas/LocalizedMessage"
+          },
+          "help": {
+            "$ref": "#/components/schemas/Help"
+          }
+        },
+        "description": "API错误响应对象，包含完整的错误信息、状态码和帮助信息"
+      },
+      "Code": {
+        "type": "string",
+        "description": "REST API标准状态码，符合Google API设计规范，用于统一的错误码表示",
+        "example": "PERMISSION_DENIED",
+        "enum": [
+          "OK",
+          "CANCELLED",
+          "UNKNOWN",
+          "INVALID_ARGUMENT",
+          "DEADLINE_EXCEEDED",
+          "NOT_FOUND",
+          "ALREADY_EXISTS",
+          "PERMISSION_DENIED",
+          "UNAUTHENTICATED",
+          "RESOURCE_EXHAUSTED",
+          "FAILED_PRECONDITION",
+          "ABORTED",
+          "OUT_OF_RANGE",
+          "UNIMPLEMENTED",
+          "INTERNAL",
+          "UNAVAILABLE",
+          "DATA_LOSS",
+          "PARTIAL_ELEMENT_UPDATE_FAILED"
+        ]
+      },
+      "ErrorDetails": {
+        "required": [
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
+            "maxLength": 63,
+            "pattern": "[A-Z][A-Z0-9_]+[A-Z0-9]",
+            "type": "string",
+            "description": "错误原因标识符，使用大写蛇形命名法（UPPER_SNAKE_CASE），最多63个字符",
+            "example": "RESOURCE_NOT_FOUND"
+          },
+          "message": {
+            "type": "string",
+            "description": "针对此错误的人类可读说明，提供具体的错误上下文",
+            "nullable": true,
+            "example": "The requested design with ID 12345 does not exist"
+          },
+          "domain": {
+            "type": "string",
+            "description": "错误域，通常是生成错误的服务名称",
+            "nullable": true,
+            "example": "restapi.qunhe.com"
+          },
+          "metaData": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "description": "错误的附加元数据，键值对格式，键最多64个字符，符合模式 /[a-zA-Z0-9-_]/",
+              "nullable": true,
+              "example": "{\"instanceLimitPerRequest\":\"100\",\"currentInstanceCount\":\"150\"}"
+            },
+            "description": "错误的附加元数据，键值对格式，键最多64个字符，符合模式 /[a-zA-Z0-9-_]/",
+            "nullable": true,
+            "example": {
+              "instanceLimitPerRequest": "100",
+              "currentInstanceCount": "150"
+            }
+          }
+        },
+        "description": "错误详情对象，提供错误的详细上下文信息，包括原因、域和元数据"
+      },
+      "Help": {
+        "required": [
+          "desc",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "desc": {
+            "type": "string",
+            "description": "链接内容的描述，说明此帮助文档的用途",
+            "example": "如何解决权限拒绝错误"
+          },
+          "url": {
+            "type": "string",
+            "description": "帮助文档的URL链接",
+            "example": "https://docs.example.com/errors/permission-denied"
+          }
+        },
+        "description": "帮助信息对象，提供解决错误的文档链接和说明",
+        "nullable": true
+      },
+      "LocalizedMessage": {
+        "required": [
+          "locale",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "description": "消息的语言环境标识",
+            "example": "zh_CN"
+          },
+          "message": {
+            "type": "string",
+            "description": "本地化后的错误消息文本，面向最终用户",
+            "example": "您没有访问此资源的权限"
+          }
+        },
+        "description": "本地化消息对象，提供特定语言环境的错误消息",
+        "nullable": true
+      },
+      "WorldListQueryRequest": {
+        "type": "object",
+        "properties": {
+          "pageNum": {
+            "minimum": 0,
+            "type": "integer",
+            "description": "页码（从 0 起）。",
+            "format": "int32",
+            "example": 0
+          },
+          "pageSize": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer",
+            "description": "每页条数，最大 100；为 0 或未传时按 20 条计。",
+            "format": "int32",
+            "example": 20
+          },
+          "statusList": {
+            "type": "array",
+            "description": "按重建任务状态过滤；为空表示不按状态过滤。",
+            "items": {
+              "$ref": "#/components/schemas/WorldOpenApiTaskStatus"
+            }
+          }
+        },
+        "description": "分页查询「我的世界」列表的请求体：`pageNum` 从 0 起；`pageSize` 为每页条数（1–100，缺省或 0 时按 20 条计）。仅查询当前账号下的 3DGS 世界数据。"
+      },
+      "WorldOpenApiTaskStatus": {
+        "type": "string",
+        "description": "重建任务状态。**进行中**：`PENDING` 排队中；`PREPROCESSING` 预处理中；`RUNNING` 执行中。**终态**：`SUCCEEDED` 成功；`FAILED` 失败；`CANCELED` 取消；`TIMEOUT` 超时；`REJECTED` 被拒绝。",
+        "example": "SUCCEEDED",
+        "enum": [
+          "PENDING",
+          "PREPROCESSING",
+          "RUNNING",
+          "SUCCEEDED",
+          "FAILED",
+          "CANCELED",
+          "TIMEOUT",
+          "REJECTED"
+        ]
+      },
+      "SplatFileUrls": {
+        "type": "object",
+        "properties": {
+          "plyPath": {
+            "type": "string",
+            "description": "PLY 文件 URL（output.plyPath）。",
+            "example": "https://cdn.example.com/output/world-001.ply"
+          },
+          "spzPath": {
+            "type": "string",
+            "description": "SPZ 文件 URL（output.spzPath）。",
+            "example": "https://cdn.example.com/output/world-001.spz"
+          },
+          "lodMetaPath": {
+            "type": "string",
+            "description": "LOD 分块元数据文件下载 URL（output.lodMetaPath）。任务成功且已完成 LOD 后处理时存在，否则为 null。",
+            "example": "https://cdn.example.com/output/world-001-lod-meta.json"
+          }
+        },
+        "description": "3DGS Splat 相关产物的下载地址：PLY / SPZ 与可选的 LOD 分块元数据（对应任务 output 的同名字段）。"
+      },
+      "WorldAssetBundle": {
+        "type": "object",
+        "properties": {
+          "splats": {
+            "$ref": "#/components/schemas/WorldSplatBundle"
+          },
+          "imagery": {
+            "$ref": "#/components/schemas/WorldImagery"
+          },
+          "semanticsMetadata": {
+            "$ref": "#/components/schemas/WorldSemanticsMetadata"
+          }
+        },
+        "description": "世界产物容器。3D 重建任务成功时填充 `splats`（ply/spz/lodMetaPath 在 `splats.urls` 中）；AI 生成任务另在 `imagery.panoUrl` 返回全景图下载地址。"
+      },
+      "WorldDetail": {
+        "required": [
+          "worldId"
+        ],
+        "type": "object",
+        "properties": {
+          "worldId": {
+            "type": "string",
+            "description": "世界唯一标识；开放「创建世界」接口在 `WorldAsyncOperation.worldId` 字段中返回与本字段相同的值。",
+            "example": "A1b2C3d4E5"
+          },
+          "name": {
+            "type": "string",
+            "description": "世界名称",
+            "example": "客厅重建"
+          },
+          "cover": {
+            "type": "string",
+            "description": "封面图 URL。",
+            "example": "https://cdn.example.com/cover/world-001.jpg"
+          },
+          "scene": {
+            "$ref": "#/components/schemas/WorldOpenApiProjectScene"
+          },
+          "createTime": {
+            "type": "integer",
+            "description": "创建时间，Unix 毫秒时间戳。",
+            "format": "int64",
+            "example": 1699339916000
+          },
+          "updateTime": {
+            "type": "integer",
+            "description": "最近修改时间，Unix 毫秒时间戳。",
+            "format": "int64",
+            "example": 1699340120000
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorldOpenApiTaskStatus"
+          },
+          "progress": {
+            "type": "number",
+            "description": "重建任务进度 [0.0, 1.0]。",
+            "format": "float",
+            "example": 0.65
+          },
+          "assets": {
+            "$ref": "#/components/schemas/WorldAssetBundle"
+          }
+        },
+        "description": "世界信息。`worldId` 为业务侧世界唯一标识；`scene`/`status` 等为约定字符串；`createTime` / `updateTime` 为 Unix 毫秒时间戳（与 1.6.2-2-1 时间字段约定一致）。详情接口在产出可用时，可能返回 splat 等下载地址；AI 生成世界另在 `assets.imagery.panoUrl` 返回全景图。"
+      },
+      "WorldImagery": {
+        "type": "object",
+        "properties": {
+          "panoUrl": {
+            "type": "string",
+            "description": "AI 生成全景图下载地址。仅 AI 生成（Spatial Gen）世界在全景图子任务成功后有值。",
+            "example": "https://cdn.example.com/output/world-001-pano.jpg"
+          }
+        },
+        "description": "AI 生成世界的图片产物；当前仅包含全景图下载地址。"
+      },
+      "WorldOpenApiUpAxis": {
+        "type": "string",
+        "description": "世界坐标 up 轴。Y：+Y 朝上（glTF/USD 默认）；Z：+Z 朝上（本服务 3DGS 产出约定）。",
+        "example": "Z",
+        "enum": [
+          "Y",
+          "Z"
+        ]
+      },
+      "WorldPagedList": {
+        "type": "object",
+        "properties": {
+          "pageNum": {
+            "type": "integer",
+            "description": "本次请求使用的页码（从 0 起）。",
+            "format": "int32",
+            "example": 0
+          },
+          "pageSize": {
+            "type": "integer",
+            "description": "本次请求使用的每页条数。",
+            "format": "int32",
+            "example": 20
+          },
+          "count": {
+            "type": "integer",
+            "description": "当前页记录条数。",
+            "format": "int32",
+            "example": 20
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "符合筛选条件的总记录数。",
+            "format": "int32",
+            "example": 128
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "是否还有下一页。",
+            "example": false
+          },
+          "result": {
+            "type": "array",
+            "description": "当前页的世界记录列表（由 ProjectAggregateDTO 映射为 WorldOpen，列表查询默认 withResult=false）。",
+            "items": {
+              "$ref": "#/components/schemas/WorldDetail"
+            }
+          }
+        },
+        "description": "世界列表分页结果：含本次请求的 `pageNum` / `pageSize`，以及当前页数据与总计。"
+      },
+      "WorldSemanticsMetadata": {
+        "type": "object",
+        "properties": {
+          "upAxis": {
+            "$ref": "#/components/schemas/WorldOpenApiUpAxis"
+          }
+        },
+        "description": "语义元数据（相机位姿、比例、偏移、坐标系约定等）。任务成功且返回 splat 产物时，应包含 upAxis 以标明坐标系。"
+      },
+      "WorldSplatBundle": {
+        "type": "object",
+        "properties": {
+          "urls": {
+            "$ref": "#/components/schemas/SplatFileUrls"
+          }
+        },
+        "description": "3DGS splat 输出文件集合。"
+      },
+      "GenerateWorldRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "项目 / 世界展示名称",
+            "example": "客厅生成"
+          },
+          "cover": {
+            "type": "string",
+            "description": "封面图 URL；可选。",
+            "example": "https://cdn.example.com/cover/gen-cover.jpg"
+          },
+          "resources": {
+            "type": "array",
+            "description": "输入资源列表；与 prompt 至少满足其一。仅支持图片，至多 1 条；未传 type 时按图片处理。image：.jpg / .jpeg / .png / .webp。",
+            "items": {
+              "$ref": "#/components/schemas/GenerateWorldResourceItem"
+            }
+          },
+          "prompt": {
+            "type": "string",
+            "description": "文本提示词；可与 resources 同时提供。",
+            "example": "现代简约风格，阳光充足的客厅"
+          }
+        },
+        "description": "创建 3DGS「生成世界」任务的请求体；支持纯文案、单张图片或图文组合。室内场景效果更成熟；非室内为 Beta（详见同路径 POST 说明）。\n至少需提供非空 prompt 或至少一条图片资源（至多 1 张）；image：.jpg / .jpeg / .png / .webp。"
+      },
+      "GenerateWorldResourceItem": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "minLength": 1,
+            "type": "string",
+            "description": "图片资源 URL；扩展名须为 image：.jpg / .jpeg / .png / .webp。",
+            "example": "https://cdn.example.com/input/room.jpg"
+          },
+          "type": {
+            "$ref": "#/components/schemas/WorldOpenApiGenResourceType"
+          }
+        },
+        "description": "生成任务单条输入资源（图片）。未传 `type` 时按图片处理。image：.jpg / .jpeg / .png / .webp。"
+      },
+      "WorldOpenApiGenResourceType": {
+        "type": "string",
+        "description": "生成任务输入资源类型，仅支持 image（图片），支持 .jpg / .jpeg / .png / .webp。",
+        "example": "image",
+        "enum": [
+          "image"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "AuthorizationHeader": {
+        "type": "apiKey",
+        "description": "开放平台访问凭证。API key 鉴权,在 Header 中增加 Authorization，值为平台申请的 API key，无需 Bearer 前缀。",
+        "name": "Authorization",
+        "in": "header"
+      }
+    }
+  }
+}

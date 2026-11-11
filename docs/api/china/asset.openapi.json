@@ -1,0 +1,934 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Upload Open API",
+    "description": "对外开放的资产上传接口：获取 OUS 上传凭证，并在 OUS 返回的 `globalDomain`（COS）上完成直传或分片上传。\n\n**路径**：开放平台网关下获取凭证为 `GET /asset/v1/token`；实际上传与状态轮询在 COS 域名（如 `https://ous-cos.kujiale.com`）上，见本规范「Asset」标签中的 `ousCos*` 操作。\n\n**推荐流程**：获取 token → 按文件大小选择单文件或分片上传 → 轮询上传状态取得可访问 `url` → 将 URL 用于后续业务接口（如创建 3D 世界任务）。\n\n**认证**：在请求头设置 `Authorization`（API key，无需 Bearer 前缀），详见全局安全方案。\n\n**响应**：凭证接口成功时 HTTP 200 且 body 为 `ousToken`、`globalDomain`、`blockSize`；失败时 HTTP 4xx 且 body 为统一错误结构（含业务码）。OUS 侧接口响应为 `c` / `m` / `d` 封装。",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.aholo3d.cn",
+      "description": "Aholo 开放平台 HTTPS 入口（获取上传凭证）"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Asset",
+      "description": "获取 OUS token 后，在同一标签下对 globalDomain（COS）发起 ousCos* 直传步骤，再将可访问 URL 用于业务接口。",
+      "x-displayName": "资产"
+    }
+  ],
+  "paths": {
+    "/asset/v1/token": {
+      "get": {
+        "tags": [
+          "Asset"
+        ],
+        "summary": "获取 OUS 上传凭证",
+        "description": "本接口仅返回上传前置凭证；**真实直传发生在 OUS 的 `globalDomain` 上**（与开放平台网关域名不同），与同标签 **「Upload」** 中的 `ousCosSingleUpload`、`ousCosBlockUploadInit`、`ousCosBlockUploadPart`、`ousCosUploadStatus` 衔接。\n\n**推荐流程：**\n1. 调用本接口，取得 `ousToken`、`globalDomain`（示例：`https://ous-cos.kujiale.com`）、`blockSize`。\n2. 若文件大小 **≤ `blockSize`**：调用 `ousCosSingleUpload`；若 **> `blockSize`**：依次调用 `ousCosBlockUploadInit` 与多次 `ousCosBlockUploadPart`。\n3. 轮询 `ousCosUploadStatus`，直到任务成功并取得 `url`。\n4. 将得到的可访问 URL 填入 其他业务接口，比如「创建 3DGS 世界重建任务」的 `resources[].url`。\n",
+        "operationId": "getUploadToken",
+        "responses": {
+          "200": {
+            "description": "成功时响应体为 OUS 上传凭证（`ousToken`、`globalDomain`、`blockSize`），用于在返回的 COS 域名上继续直传或分片上传。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadTokenOuterOpen"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "获取凭证成功",
+                    "description": "success",
+                    "value": {
+                      "ousToken": "<token>",
+                      "globalDomain": "https://ous-cos.kujiale.com",
+                      "blockSize": 1048576
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数/业务校验失败（ApiError，`details.metaData.bizCode` 为原业务码）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "参数校验失败",
+                    "description": "业务码 10001（PARAMS_INVALID）",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败（ApiError）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "未登录或鉴权失败",
+                    "description": "业务码 10004（NOT_LOGGED_IN）",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 5,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createAssetClient } from '@manycore/aholo-sdk-asset';\n\n// SDK 封装 token / 分片 / 轮询，无需手写本接口\nconst asset = createAssetClient({ region: 'cn' });\nconst result = await asset.uploadFile('./video.mp4');\nconsole.log(result.url);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.asset.AssetClient;\nimport com.manycoreapis.sdk.asset.UploadResult;\nimport com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\n\nAssetClient asset = AssetClient.create(AholoClientConfig.ofRegion(\"cn\"));\nUploadResult result = asset.uploadFile(Paths.get(\"video.mp4\"));\nSystem.out.println(result.url());"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_asset import create_asset_client\n\n# SDK 封装 token / 分片 / 轮询，无需手写本接口\nasset = create_asset_client(region='cn')\nresult = asset.upload_file('./video.mp4')\nprint(result.url)"
+          }
+        ]
+      }
+    },
+    "/ous/api/v2/single/upload": {
+      "post": {
+        "tags": [
+          "Asset"
+        ],
+        "summary": "OUS 单文件上传（≤ blockSize）",
+        "description": "当文件字节数 **≤** token 接口返回的 `blockSize` 时使用；详情见 `requestBody` 与 `components.schemas.OusCosSingleUploadForm`。",
+        "operationId": "ousCosSingleUpload",
+        "requestBody": {
+          "description": "单文件上传请求体。",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/OusCosSingleUploadForm"
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/octet-stream"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "成功时 `c` 为 `0`，`d` 含 `taskId`；随后轮询 `GET /ous/api/v2/upload/status`。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OusV2SingleUploadApiResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OusTokenV2": []
+          }
+        ],
+        "servers": [
+          {
+            "url": "https://ous-cos.kujiale.com",
+            "description": "OUS 返回的 `globalDomain`；生产环境常见为该 COS 域名（以 token 接口实际返回为准）。"
+          }
+        ],
+        "x-scalar-order": 6
+      }
+    },
+    "/ous/api/v2/block/upload/init": {
+      "post": {
+        "tags": [
+          "Asset"
+        ],
+        "summary": "OUS 分片上传 — 初始化",
+        "description": "当文件字节数 **>** `blockSize` 时使用。**常用调用**：`POST`，必填参数放在 **URL Query**（无 request body，无需 `Content-Type: application/json`），例如 `…/ous/api/v2/block/upload/init?md5=…&blocks=…&size=…&name=…`。",
+        "operationId": "ousCosBlockUploadInit",
+        "parameters": [
+          {
+            "name": "md5",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "文件 MD5，十六进制小写",
+              "example": "e99a18c428cb38d5f260853678922e03"
+            }
+          },
+          {
+            "name": "blocks",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "总分片数",
+              "format": "int64",
+              "example": 11
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "文件总字节数",
+              "format": "int64",
+              "example": 5942880
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "原始文件名",
+              "example": "photo.jpg"
+            }
+          },
+          {
+            "name": "metadata",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "元数据（可选）"
+            }
+          },
+          {
+            "name": "customPrefix",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "自定义存储前缀（可选）"
+            }
+          },
+          {
+            "name": "customFilename",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "自定义文件名（可选）"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功时 `c` 为 `0`，`d` 含 `taskId`、`lackBlocks`、`progress`、`deduplicated`。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OusV2BlockInitApiResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OusTokenV2": []
+          }
+        ],
+        "servers": [
+          {
+            "url": "https://ous-cos.kujiale.com",
+            "description": "OUS 返回的 `globalDomain`；生产环境常见为该 COS 域名（以 token 接口实际返回为准）。"
+          }
+        ],
+        "x-scalar-order": 7
+      }
+    },
+    "/ous/api/v2/block/upload/part": {
+      "post": {
+        "tags": [
+          "Asset"
+        ],
+        "summary": "OUS 分片上传 — 上传单个分片",
+        "description": "每个分片调用一次；见 `OusCosBlockUploadPartForm`。",
+        "operationId": "ousCosBlockUploadPart",
+        "requestBody": {
+          "description": "单个分片上传请求体。",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/OusCosBlockUploadPartForm"
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/octet-stream"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "成功时 `c` 为 `0`，`d` 为 `null`。同文件分片并发建议不超过 2。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OusV2BlockPartApiResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OusTokenV2": []
+          }
+        ],
+        "servers": [
+          {
+            "url": "https://ous-cos.kujiale.com",
+            "description": "OUS 返回的 `globalDomain`；生产环境常见为该 COS 域名（以 token 接口实际返回为准）。"
+          }
+        ],
+        "x-scalar-order": 8
+      }
+    },
+    "/ous/api/v2/upload/status": {
+      "get": {
+        "tags": [
+          "Asset"
+        ],
+        "summary": "OUS — 查询上传状态（轮询）",
+        "description": "轮询当前上传任务；`d` 在单文件与分片任务下结构不同（见 response schema 中 `d` 的 oneOf）。请求仅携带 `ous-token-v2`，无 body。建议轮询间隔 ≥200ms、总时长约 5s 量级。",
+        "operationId": "ousCosUploadStatus",
+        "responses": {
+          "200": {
+            "description": "成功时 `c` 为 `0`；`d` 为单文件或分片任务状态/结果（`status=5` 为成功终态，详见内嵌字段说明与文档状态表）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OusV2UploadStatusApiResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OusTokenV2": []
+          }
+        ],
+        "servers": [
+          {
+            "url": "https://ous-cos.kujiale.com",
+            "description": "OUS 返回的 `globalDomain`；生产环境常见为该 COS 域名（以 token 接口实际返回为准）。"
+          }
+        ],
+        "x-scalar-order": 9
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UploadTokenOuterOpen": {
+        "type": "object",
+        "properties": {
+          "ousToken": {
+            "type": "string",
+            "description": "上传 token。后续对 OUS 域名的上传/分片等请求需在 HTTP Header 中携带：`ous-token-v2: <token>`",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "globalDomain": {
+            "type": "string",
+            "description": "OUS 全局域名（不含路径）。后续上传、分片等 HTTP 请求发往该主机",
+            "example": "https://ous-cos.kujiale.com"
+          },
+          "blockSize": {
+            "type": "integer",
+            "description": "分片阈值（字节）。文件大于该值时需按文档进行分片上传",
+            "format": "int64",
+            "example": 1048576
+          }
+        },
+        "description": "OUS 上传凭证：获取后用于在 `globalDomain`（如 `https://ous-cos.kujiale.com`）上直传，请求头携带 `ous-token-v2`；完整步骤见同一份 OpenAPI 中「Upload」标签下的 `ousCos*` 操作。"
+      },
+      "ApiError": {
+        "required": [
+          "code",
+          "details",
+          "message",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "HTTP状态码",
+            "format": "int32",
+            "example": 403
+          },
+          "message": {
+            "type": "string",
+            "description": "面向开发者的错误消息（英文），用户可见的本地化消息请使用localizedMessage字段",
+            "example": "Permission denied to access this resource"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Code"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ErrorDetails"
+          },
+          "localizedMessage": {
+            "$ref": "#/components/schemas/LocalizedMessage"
+          },
+          "help": {
+            "$ref": "#/components/schemas/Help"
+          }
+        },
+        "description": "API错误响应对象，包含完整的错误信息、状态码和帮助信息"
+      },
+      "Code": {
+        "type": "string",
+        "description": "REST API标准状态码，符合Google API设计规范，用于统一的错误码表示",
+        "example": "PERMISSION_DENIED",
+        "enum": [
+          "OK",
+          "CANCELLED",
+          "UNKNOWN",
+          "INVALID_ARGUMENT",
+          "DEADLINE_EXCEEDED",
+          "NOT_FOUND",
+          "ALREADY_EXISTS",
+          "PERMISSION_DENIED",
+          "UNAUTHENTICATED",
+          "RESOURCE_EXHAUSTED",
+          "FAILED_PRECONDITION",
+          "ABORTED",
+          "OUT_OF_RANGE",
+          "UNIMPLEMENTED",
+          "INTERNAL",
+          "UNAVAILABLE",
+          "DATA_LOSS",
+          "PARTIAL_ELEMENT_UPDATE_FAILED"
+        ]
+      },
+      "ErrorDetails": {
+        "required": [
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
+            "maxLength": 63,
+            "pattern": "[A-Z][A-Z0-9_]+[A-Z0-9]",
+            "type": "string",
+            "description": "错误原因标识符，使用大写蛇形命名法（UPPER_SNAKE_CASE），最多63个字符",
+            "example": "RESOURCE_NOT_FOUND"
+          },
+          "message": {
+            "type": "string",
+            "description": "针对此错误的人类可读说明，提供具体的错误上下文",
+            "nullable": true,
+            "example": "The requested design with ID 12345 does not exist"
+          },
+          "domain": {
+            "type": "string",
+            "description": "错误域，通常是生成错误的服务名称",
+            "nullable": true,
+            "example": "restapi.qunhe.com"
+          },
+          "metaData": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "description": "错误的附加元数据，键值对格式，键最多64个字符，符合模式 /[a-zA-Z0-9-_]/",
+              "nullable": true,
+              "example": "{\"instanceLimitPerRequest\":\"100\",\"currentInstanceCount\":\"150\"}"
+            },
+            "description": "错误的附加元数据，键值对格式，键最多64个字符，符合模式 /[a-zA-Z0-9-_]/",
+            "nullable": true,
+            "example": {
+              "instanceLimitPerRequest": "100",
+              "currentInstanceCount": "150"
+            }
+          }
+        },
+        "description": "错误详情对象，提供错误的详细上下文信息，包括原因、域和元数据"
+      },
+      "Help": {
+        "required": [
+          "desc",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "desc": {
+            "type": "string",
+            "description": "链接内容的描述，说明此帮助文档的用途",
+            "example": "如何解决权限拒绝错误"
+          },
+          "url": {
+            "type": "string",
+            "description": "帮助文档的URL链接",
+            "example": "https://docs.example.com/errors/permission-denied"
+          }
+        },
+        "description": "帮助信息对象，提供解决错误的文档链接和说明",
+        "nullable": true
+      },
+      "LocalizedMessage": {
+        "required": [
+          "locale",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "description": "消息的语言环境标识",
+            "example": "zh_CN"
+          },
+          "message": {
+            "type": "string",
+            "description": "本地化后的错误消息文本，面向最终用户",
+            "example": "您没有访问此资源的权限"
+          }
+        },
+        "description": "本地化消息对象，提供特定语言环境的错误消息",
+        "nullable": true
+      },
+      "OusCosSingleUploadForm": {
+        "required": [
+          "file",
+          "md5"
+        ],
+        "type": "object",
+        "properties": {
+          "md5": {
+            "type": "string",
+            "description": "文件内容的 MD5，十六进制小写",
+            "example": "d41d8cd98f00b204e9800998ecf8427e"
+          },
+          "file": {
+            "type": "string",
+            "description": "待上传的完整文件正文",
+            "format": "binary"
+          }
+        },
+        "description": "`multipart/form-data` 表单字段（boundary 由客户端生成）"
+      },
+      "OusCosBlockUploadInitRequest": {
+        "required": [
+          "blocks",
+          "md5",
+          "name",
+          "size"
+        ],
+        "type": "object",
+        "properties": {
+          "md5": {
+            "type": "string",
+            "description": "整文件 MD5，十六进制小写",
+            "example": "e99a18c428cb38d5f260853678922e03"
+          },
+          "blocks": {
+            "minimum": 1,
+            "type": "integer",
+            "description": "分片总数，一般取 ceil(fileSize / blockSize)，blockSize 来自 token 接口",
+            "format": "int64",
+            "example": 11
+          },
+          "size": {
+            "minimum": 1,
+            "type": "integer",
+            "description": "文件总字节数",
+            "format": "int64",
+            "example": 10616832
+          },
+          "name": {
+            "type": "string",
+            "description": "原始文件名",
+            "example": "photo.jpg"
+          },
+          "metadata": {
+            "type": "string",
+            "description": "元数据（可选）"
+          },
+          "customPrefix": {
+            "type": "string",
+            "description": "自定义存储前缀（可选）"
+          },
+          "customFilename": {
+            "type": "string",
+            "description": "自定义文件名（可选）"
+          }
+        },
+        "description": "分片任务初始化参数语义说明（与 `POST …/block/upload/init` 的 **query** 一致；非 JSON body）。"
+      },
+      "OusCosBlockUploadPartForm": {
+        "required": [
+          "block",
+          "file"
+        ],
+        "type": "object",
+        "properties": {
+          "block": {
+            "minimum": 1,
+            "type": "integer",
+            "description": "当前分片序号，从 1 开始，不超过 init 时传入的 blocks",
+            "format": "int32",
+            "example": 1
+          },
+          "file": {
+            "type": "string",
+            "description": "本分片的二进制内容",
+            "format": "binary"
+          }
+        },
+        "description": "`multipart/form-data`：字段 `block` + `file`"
+      },
+      "OusV2UploadTaskStatus": {
+        "type": "integer",
+        "description": "OUS 轮询 `GET /ous/api/v2/upload/status` 时从 `d.status` 读取（或分片子任务中同类字段）。\n\n**判定建议**：`5` 为上传成功终态，可安全使用 `url`；`6` 与 `8` 为失败/中止终态，应结束轮询；其余为非终态，需按间隔继续轮询。\n\n| 值 | 含义 | 终态 |\n|---|---|---|\n| 0 | 草稿 | 否 |\n| 1 | 基础检测完成 | 否 |\n| 2 | 内容检测完成 | 否 |\n| 3 | 排队上传 | 否 |\n| 4 | 上传中 | 否 |\n| 5 | 上传成功 | **是** |\n| 6 | 上传失败 | **是** |\n| 7 | 审核中 | 否 |\n| 8 | 手动中止 | **是** |",
+        "format": "int32",
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "OusV2BusinessErrorCode": {
+        "type": "integer",
+        "description": "当接口返回非成功或 `d` 中携带子码时，可据此做重试/提示/埋点。具体字段名以各接口响应体为准（如分片态中的 `errorCode`）。\n\n| errorCode | 含义 | 处理建议/提示 |\n|---|---|---|\n| 1 | 配置错误 | 配置不存在或未开启，检查上传配置/业务侧引导 |\n| 2 | 文件大小异常 | 提示检查文件大小与分片/阈值设置 |\n| 3 | 文件格式异常 | 提示更换格式或重试 |\n| 4 | 文件内容异常 | 提示更换文件内容 |\n| 5 | 内容安全检测未通过 | 图片/音频安全校验失败，提示用户更换素材 |\n| 6 | 上传限制 | 同时上传任务数量超限/并发过高，退避后重试 |\n| 7 | 文件上传中 | 请稍后重试或继续轮询 |\n| 8 | 分片操作失败 | 分片初始化/传输失败，可重试分片或重新发起任务 |\n| 9 | 服务器上传限制 | 服务端忙，退避后重试 |\n| 10 | 线程池满 | 退避后重试 |\n| 11 | 元数据超限 | 元信息过大，请精简后重试 |\n| 12 | Token 异常 | Token 已使用或未绑定任务，需重新走获取 token/初始化流程 |\n| 13 | 任务异常 | 任务不存在或已结束，需新建任务重试 |",
+        "format": "int32",
+        "enum": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13
+        ]
+      },
+      "OusV2BlockInitData": {
+        "required": [
+          "taskId"
+        ],
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "integer",
+            "description": "任务 id；后续轮询 status 与 token 已绑定。",
+            "format": "int64",
+            "example": 123456789
+          },
+          "lackBlocks": {
+            "type": "array",
+            "description": "缺失分片序号（从 1 起；连续区间写作 `a-b`）；非续传场景为 `null`。",
+            "nullable": true,
+            "items": {
+              "type": "string",
+              "example": "1-3"
+            }
+          },
+          "progress": {
+            "type": "number",
+            "description": "上传进度 [0.0, 1.0]；非续传场景为 `null`。",
+            "format": "double",
+            "nullable": true,
+            "example": 0.6
+          },
+          "deduplicated": {
+            "type": "boolean",
+            "description": "是否命中去重：为 `true` 时文件已存在，无需再传分片，直接轮询 `status`。",
+            "nullable": true,
+            "example": false
+          }
+        },
+        "description": "分片上传初始化结果（V2）。"
+      },
+      "OusV2BlockInitApiResponse": {
+        "required": [
+          "c",
+          "d"
+        ],
+        "type": "object",
+        "properties": {
+          "c": {
+            "type": "string",
+            "description": "业务状态码，成功为 `0`。",
+            "example": "0"
+          },
+          "m": {
+            "type": "string",
+            "description": "提示信息；可为空字符串。",
+            "example": ""
+          },
+          "d": {
+            "$ref": "#/components/schemas/OusV2BlockInitData"
+          }
+        },
+        "description": "分片初始化接口 200 响应体（`c` 为 `0` 时 `d` 为分片任务信息）。"
+      },
+      "OusV2SingleUploadData": {
+        "required": [
+          "taskId"
+        ],
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "上传任务 id；后续轮询 `status` 与 token 已绑定。",
+            "example": "task_id"
+          }
+        },
+        "description": "单文件上传成功时返回。"
+      },
+      "OusV2SingleUploadApiResponse": {
+        "required": [
+          "c",
+          "d"
+        ],
+        "type": "object",
+        "properties": {
+          "c": {
+            "type": "string",
+            "description": "业务状态码，成功为 `0`。",
+            "example": "0"
+          },
+          "m": {
+            "type": "string",
+            "description": "提示信息；可为空字符串。",
+            "example": ""
+          },
+          "d": {
+            "$ref": "#/components/schemas/OusV2SingleUploadData"
+          }
+        },
+        "description": "单文件上传 200 响应体（`c` 为 `0` 时 `d` 含 taskId）。"
+      },
+      "OusV2BlockPartApiResponse": {
+        "required": [
+          "c",
+          "d"
+        ],
+        "type": "object",
+        "properties": {
+          "c": {
+            "type": "string",
+            "description": "业务状态码，成功为 `0`。",
+            "example": "0"
+          },
+          "m": {
+            "type": "string",
+            "description": "提示信息；可为空字符串。"
+          },
+          "d": {
+            "description": "成功时 `d` 为 `null`。",
+            "nullable": true
+          }
+        },
+        "description": "分片上传 part 成功响应；`c` 为 0 时 `d` 为 null。并发过高等失败见 `OusV2BusinessErrorCode`（如 6）。"
+      },
+      "OusV2StatusPollDataSingle": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/OusV2UploadTaskStatus"
+          },
+          "uploadKey": {
+            "type": "string",
+            "description": "对象键路径。",
+            "example": "heihei/2026/02/03/NGA5S6IKBIDN3RSQAAAAAAA8.jpg"
+          },
+          "url": {
+            "type": "string",
+            "description": "资源可访问 URL。",
+            "format": "uri"
+          },
+          "md5": {
+            "type": "string",
+            "description": "文件 MD5，十六进制小写。"
+          },
+          "obsTaskId": {
+            "type": "string",
+            "description": "OUS 侧任务/对象标识。",
+            "example": "3FO4K029K4A3"
+          }
+        },
+        "description": "**单文件上传**任务轮询 `status` 时 `d` 的常见形态。`status` 含义见 `OusV2UploadTaskStatus`。"
+      },
+      "OusV2StatusBlockProgress": {
+        "type": "object",
+        "properties": {
+          "obsId": {
+            "type": "string",
+            "description": "分片子任务 id。"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OusV2UploadTaskStatus"
+          },
+          "progressPercent": {
+            "type": "integer",
+            "description": "进度百分比。",
+            "format": "int32",
+            "example": 100
+          },
+          "lackBlocks": {
+            "type": "array",
+            "description": "仍缺的分片（编码规则同 init）。",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "分片上传聚合进度（嵌套在 d.blockUpload 中）。`status` 含义见 `OusV2UploadTaskStatus`。"
+      },
+      "OusV2StatusPollDataBlock": {
+        "type": "object",
+        "properties": {
+          "obsTaskId": {
+            "type": "string",
+            "description": "任务 id。"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OusV2UploadTaskStatus"
+          },
+          "uploadKey": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "md5": {
+            "type": "string"
+          },
+          "errorCode": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OusV2BusinessErrorCode"
+              }
+            ]
+          },
+          "errorMsg": {
+            "type": "string",
+            "nullable": true
+          },
+          "blockUpload": {
+            "$ref": "#/components/schemas/OusV2StatusBlockProgress"
+          },
+          "errorInfo": {
+            "type": "string",
+            "description": "错误详情扩展；可为 null。",
+            "nullable": true
+          }
+        },
+        "description": "**分片上传**任务轮询 `status` 时 `d` 的常见形态。`status` / `errorCode` 含义见 `OusV2UploadTaskStatus`、`OusV2BusinessErrorCode`。"
+      },
+      "OusV2UploadStatusApiResponse": {
+        "required": [
+          "c",
+          "d"
+        ],
+        "type": "object",
+        "properties": {
+          "c": {
+            "type": "string",
+            "description": "业务状态码，成功为 `0`。",
+            "example": "0"
+          },
+          "m": {
+            "type": "string",
+            "description": "提示信息；可为空字符串。"
+          },
+          "d": {
+            "description": "与单文件/分片任务形态二选一，见 `oneOf`。",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OusV2StatusPollDataSingle"
+              },
+              {
+                "$ref": "#/components/schemas/OusV2StatusPollDataBlock"
+              }
+            ]
+          }
+        },
+        "description": "查询上传状态（轮询）响应；`d` 为单文件或分片结果结构之一。`d.status` 见 `OusV2UploadTaskStatus`。"
+      }
+    },
+    "securitySchemes": {
+      "AuthorizationHeader": {
+        "type": "apiKey",
+        "description": "开放平台访问凭证。API key 鉴权,在 Header 中增加 Authorization，值为平台申请的 API key，无需 Bearer 前缀。",
+        "name": "Authorization",
+        "in": "header"
+      },
+      "OusTokenV2": {
+        "type": "apiKey",
+        "description": "由「获取 OUS 上传凭证」返回的 `ousToken`；仅用于请求 `globalDomain` 上的 OUS 接口（与开放平台 `Authorization` 无关）。",
+        "name": "ous-token-v2",
+        "in": "header"
+      }
+    }
+  }
+}

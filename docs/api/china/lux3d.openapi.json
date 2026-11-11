@@ -1,0 +1,2375 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Lux3D Open API",
+    "description": "Lux3D 图像与 3D 生成服务开放接口，支持多模态单图生成、多模态四视图、图生 3D、文生 3D、模型材质重绘、部件拆分、模型关节化与动画、数字人绑骨与动画重定向和多格式导出等异步任务。\n认证方式：在请求头中设置 Authorization，值为平台申请的 ApiKey，无需 Bearer 前缀。\nAPI 密钥申请：国内 https://labs.aholo3d.cn/api-keys，国际 https://labs.aholo.ai/api-keys。\nURL 输入建议：当请求字段要求提供图片或模型 URL 且文件位于本地时，推荐先使用 [Asset 文件上传能力](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset) 上传文件，再将返回的 URL 填入对应字段；请确保该 URL 可由服务端访问。\n",
+    "version": "2.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.aholo3d.cn",
+      "description": "国内环境"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Lux3D",
+      "description": "异步图像生成、3D 生成、模型处理、格式导出和任务查询接口。",
+      "x-displayName": "Lux3D 3D生成"
+    }
+  ],
+  "paths": {
+    "/lux3d/v1/generate/multimodal-to-image/task/create": {
+      "post": {
+        "tags": [
+          "Lux3D"
+        ],
+        "summary": "创建多模态单图生成任务",
+        "description": "根据图片、文字提示词或图文组合创建异步单图生成任务，img 和 prompt 至少提供一个。请求成功后返回任务 ID（taskid），可通过任务查询接口获取状态和结果图片 URL。\n",
+        "operationId": "createMultimodalToImageTask",
+        "requestBody": {
+          "description": "多模态单图生成请求体，img 和 prompt 至少提供一个。",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MultimodalToImageRequest"
+              },
+              "examples": {
+                "promptOnly": {
+                  "summary": "纯文字生成单图",
+                  "value": {
+                    "prompt": "一把现代简约浅色原木餐椅，纯白背景"
+                  }
+                },
+                "imageOnly": {
+                  "summary": "使用参考图生成单图",
+                  "value": {
+                    "img": "https://qhstaticssl.kujiale.com/image/jpeg/1784775590613/image_to_3d_model.jpg"
+                  }
+                },
+                "imageAndPrompt": {
+                  "summary": "按提示词修改参考图",
+                  "value": {
+                    "img": "https://qhstaticssl.kujiale.com/image/jpeg/1784775590613/image_to_3d_model.jpg",
+                    "prompt": "把椅子改成浅色原木材质，保持造型和视角"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功时返回任务 ID。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "任务创建成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": 1256174
+                    }
+                  },
+                  "invalidInput": {
+                    "summary": "img 和 prompt 均未提供",
+                    "value": {
+                      "f": null,
+                      "c": "-1",
+                      "m": "img or prompt is required",
+                      "d": null
+                    }
+                  },
+                  "concurrencyLimit": {
+                    "summary": "生成任务并发已达上限",
+                    "value": {
+                      "f": null,
+                      "c": "GENERATION_CONCURRENCY_LIMIT_EXCEEDED",
+                      "m": "当前已有进行中的生成任务，请等待完成后再试",
+                      "d": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 1,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createLux3dClient } from '@manycore/aholo-sdk-lux3d';\n\nconst lux3d = createLux3dClient({ region: 'cn' });\nconst taskId = await lux3d.multimodalToImage.create({\n  prompt: '木椅产品图，白色背景',\n  img: 'https://example.com/object.jpg',\n});\nconst result = await lux3d.tasks.waitFor(taskId);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.lux3d.Lux3dClient;\nimport com.manycoreapis.sdk.lux3d.model.ImageToFourViewCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultimodalToImageCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ImgTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TextTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MaterialTransferCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ArticulationAnimationCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAnimationRetargetCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAutoRigCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultiFormatExportCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.PartSplitCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskListParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskPagedList;\nimport com.manycoreapis.sdk.lux3d.model.TaskResult;\n\nLux3dClient lux3d = Lux3dClient.create(AholoClientConfig.ofRegion(\"cn\"));\nlong taskId = lux3d.multimodalToImage().create(\n    MultimodalToImageCreateParams.builder()\n        .prompt(\"木椅产品图，白色背景\")\n        .img(\"https://example.com/object.jpg\")\n        .build());\nTaskResult result = lux3d.tasks().waitFor(taskId);"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_lux3d import create_lux3d_client\n\nlux3d = create_lux3d_client(region='cn')\ntask_id = lux3d.multimodal_to_image.create(\n    prompt='木椅产品图，白色背景',\n    img='https://example.com/object.jpg',\n)\nresult = lux3d.tasks.wait_for(task_id)"
+          }
+        ]
+      }
+    },
+    "/lux3d/v1/generate/image-to-four-view/task/create": {
+      "post": {
+        "tags": [
+          "Lux3D"
+        ],
+        "summary": "创建多模态四视图任务",
+        "description": "根据图片、文字提示词或图文组合生成物体的四个视角，img 和 prompt 至少提供一个。请求成功后返回任务 ID（taskid），可通过任务查询接口获取状态和结果。成功结果包含四张图片 URL，顺序为 FRONT_THREE_QUARTER、OPPOSITE_THREE_QUARTER、SIDE、BACK。\n",
+        "operationId": "createImageToFourViewTask",
+        "requestBody": {
+          "description": "多模态四视图任务请求体。",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageToFourViewRequest"
+              },
+              "examples": {
+                "promptOnly": {
+                  "summary": "纯文字生成四视图",
+                  "value": {
+                    "prompt": "一把现代简约浅色原木餐椅"
+                  }
+                },
+                "imageOnly": {
+                  "summary": "使用单图生成四视图",
+                  "value": {
+                    "img": "https://qhstaticssl.kujiale.com/image/jpeg/1784775590613/image_to_3d_model.jpg"
+                  }
+                },
+                "imageAndPrompt": {
+                  "summary": "使用参考图和提示词生成四视图",
+                  "value": {
+                    "img": "https://qhstaticssl.kujiale.com/image/jpeg/1784775590613/image_to_3d_model.jpg",
+                    "prompt": "把椅子改成浅色原木材质，保持造型和视角"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功时返回任务 ID。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "任务创建成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": 1256173
+                    }
+                  },
+                  "invalidInput": {
+                    "summary": "img 和 prompt 均未提供",
+                    "value": {
+                      "f": null,
+                      "c": "-1",
+                      "m": "img or prompt is required",
+                      "d": null
+                    }
+                  },
+                  "concurrencyLimit": {
+                    "summary": "生成任务并发已达上限",
+                    "value": {
+                      "f": null,
+                      "c": "GENERATION_CONCURRENCY_LIMIT_EXCEEDED",
+                      "m": "当前已有进行中的生成任务，请等待完成后再试",
+                      "d": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 2,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createLux3dClient } from '@manycore/aholo-sdk-lux3d';\n\nconst lux3d = createLux3dClient({ region: 'cn' });\nconst taskId = await lux3d.imageToFourView.create({\n  img: 'https://example.com/object.jpg',\n  prompt: '产品四视图，白色背景',\n});\nconst result = await lux3d.tasks.waitFor(taskId);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.lux3d.Lux3dClient;\nimport com.manycoreapis.sdk.lux3d.model.ImageToFourViewCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultimodalToImageCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ImgTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TextTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MaterialTransferCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ArticulationAnimationCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAnimationRetargetCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAutoRigCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultiFormatExportCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.PartSplitCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskListParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskPagedList;\nimport com.manycoreapis.sdk.lux3d.model.TaskResult;\n\nLux3dClient lux3d = Lux3dClient.create(AholoClientConfig.ofRegion(\"cn\"));\nlong taskId = lux3d.imageToFourView().create(\n    ImageToFourViewCreateParams.builder()\n        .img(\"https://example.com/object.jpg\")\n        .prompt(\"产品四视图，白色背景\")\n        .build());\nTaskResult result = lux3d.tasks().waitFor(taskId);"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_lux3d import create_lux3d_client\n\nlux3d = create_lux3d_client(region='cn')\ntask_id = lux3d.image_to_four_view.create(\n    img='https://example.com/object.jpg',\n    prompt='产品四视图，白色背景',\n)\nresult = lux3d.tasks.wait_for(task_id)"
+          }
+        ]
+      }
+    },
+    "/lux3d/v1/generate/img-to-3d/task/create": {
+      "post": {
+        "tags": [
+          "Lux3D"
+        ],
+        "summary": "创建图生 3D 任务",
+        "description": "根据一张或多张图片创建异步 3D 生成任务，可选择 G1 或 G1-Turbo。省略 version 时使用默认版本。请求成功后返回任务 ID（taskid），可通过任务查询接口获取状态和结果。\n",
+        "operationId": "createImgTo3dTask",
+        "requestBody": {
+          "description": "图生 3D 任务请求体。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImgTo3dRequest"
+              },
+              "examples": {
+                "createTaskG1": {
+                  "summary": "创建图生 3D 任务（推荐：G1）",
+                  "value": {
+                    "img": "https://qhstaticssl.kujiale.com/image/jpeg/1784775590613/image_to_3d_model.jpg",
+                    "version": "G1",
+                    "faceCount": 300000,
+                    "outputFormat": [
+                      "zip",
+                      "glb"
+                    ]
+                  }
+                },
+                "createTaskG1TurboMultiImage": {
+                  "summary": "创建多图输入的图生 3D 任务（推荐：G1-Turbo）",
+                  "value": {
+                    "version": "G1-Turbo",
+                    "imgs": [
+                      "https://qhstaticssl.kujiale.com/image/png/1784775590866/multiview_input_1.png",
+                      "https://qhstaticssl.kujiale.com/image/png/1784775591151/multiview_input_2.png"
+                    ],
+                    "outputFormat": [
+                      "glb"
+                    ],
+                    "faceCount": 300000,
+                    "enablePbr": true
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "成功时返回任务ID。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "任务创建成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": 1256173
+                    }
+                  },
+                  "concurrencyLimit": {
+                    "summary": "生成任务并发已达上限",
+                    "value": {
+                      "f": null,
+                      "c": "GENERATION_CONCURRENCY_LIMIT_EXCEEDED",
+                      "m": "当前已有进行中的生成任务，请等待完成后再试",
+                      "d": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 3,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createLux3dClient } from '@manycore/aholo-sdk-lux3d';\n\nconst lux3d = createLux3dClient({ region: 'cn' });\nconst taskId = await lux3d.imgTo3d.create({\n  img: 'https://example.com/object.jpg',\n  version: 'G1',\n});\nconst result = await lux3d.tasks.waitFor(taskId);\nconsole.log(result.outputs[0]?.content);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.lux3d.Lux3dClient;\nimport com.manycoreapis.sdk.lux3d.model.ImageToFourViewCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultimodalToImageCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ImgTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TextTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MaterialTransferCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ArticulationAnimationCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAnimationRetargetCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAutoRigCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultiFormatExportCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.PartSplitCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskListParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskPagedList;\nimport com.manycoreapis.sdk.lux3d.model.TaskResult;\n\nLux3dClient lux3d = Lux3dClient.create(AholoClientConfig.ofRegion(\"cn\"));\nlong taskId = lux3d.imgTo3d().create(\n    ImgTo3dCreateParams.builder()\n        .img(\"https://example.com/object.jpg\")\n        .version(\"G1\")\n        .build());\nTaskResult result = lux3d.tasks().waitFor(taskId);\nresult.outputs().forEach(o -> o.content().ifPresent(System.out::println));"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_lux3d import create_lux3d_client\n\nlux3d = create_lux3d_client(region='cn')\ntask_id = lux3d.img_to_3d.create(img='https://example.com/object.jpg', version='G1')\nresult = lux3d.tasks.wait_for(task_id)\nprint(result['outputs'][0]['content'])"
+          }
+        ]
+      }
+    },
+    "/lux3d/v1/generate/text-to-3d/task/create": {
+      "post": {
+        "tags": [
+          "Lux3D"
+        ],
+        "summary": "创建文生 3D 任务",
+        "description": "根据文本和一张可选参考图片创建异步 3D 生成任务，可选择 G1 或 G1-Turbo。省略 version 时使用默认版本。请求成功后返回任务 ID（taskid），可通过任务查询接口获取状态和结果。\n",
+        "operationId": "createTextTo3dTask",
+        "requestBody": {
+          "description": "文生 3D 任务请求体。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextTo3dRequest"
+              },
+              "examples": {
+                "textOnlyG1": {
+                  "summary": "纯文本生成（推荐：G1）",
+                  "value": {
+                    "prompt": "生成一个高质量的3D木椅模型",
+                    "style": "photorealistic",
+                    "version": "G1",
+                    "faceCount": 300000,
+                    "outputFormat": [
+                      "zip",
+                      "glb"
+                    ]
+                  }
+                },
+                "textWithImage": {
+                  "summary": "文本+参考图生成（推荐：G1）",
+                  "value": {
+                    "prompt": "生成一个高质量的3D木椅模型",
+                    "style": "photorealistic",
+                    "img": "https://qhstaticssl.kujiale.com/image/jpeg/1784775590613/image_to_3d_model.jpg",
+                    "version": "G1"
+                  }
+                },
+                "textG1ZipGlb": {
+                  "summary": "G1 文生 3D（ZIP + GLB）",
+                  "value": {
+                    "prompt": "生成一把现代木质餐椅",
+                    "style": "photorealistic",
+                    "version": "G1",
+                    "outputFormat": [
+                      "zip",
+                      "glb"
+                    ],
+                    "faceCount": 300000
+                  }
+                },
+                "textG1TurboPly": {
+                  "summary": "G1-Turbo 文生 3D（仅 PLY）",
+                  "value": {
+                    "prompt": "生成一把现代木质餐椅",
+                    "style": "photorealistic",
+                    "version": "G1-Turbo",
+                    "outputFormat": [
+                      "ply"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "成功时返回任务ID。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "任务创建成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": 1256173
+                    }
+                  },
+                  "concurrencyLimit": {
+                    "summary": "生成任务并发已达上限",
+                    "value": {
+                      "f": null,
+                      "c": "GENERATION_CONCURRENCY_LIMIT_EXCEEDED",
+                      "m": "当前已有进行中的生成任务，请等待完成后再试",
+                      "d": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 4,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createLux3dClient } from '@manycore/aholo-sdk-lux3d';\n\nconst lux3d = createLux3dClient({ region: 'cn' });\nconst taskId = await lux3d.textTo3d.create({\n  prompt: '带雕花腿的木椅',\n  version: 'G1',\n});\nconst result = await lux3d.tasks.waitFor(taskId);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.lux3d.Lux3dClient;\nimport com.manycoreapis.sdk.lux3d.model.ImageToFourViewCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultimodalToImageCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ImgTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TextTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MaterialTransferCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ArticulationAnimationCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAnimationRetargetCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAutoRigCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultiFormatExportCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.PartSplitCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskListParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskPagedList;\nimport com.manycoreapis.sdk.lux3d.model.TaskResult;\n\nLux3dClient lux3d = Lux3dClient.create(AholoClientConfig.ofRegion(\"cn\"));\nlong taskId = lux3d.textTo3d().create(\n    TextTo3dCreateParams.builder()\n        .prompt(\"带雕花腿的木椅\")\n        .version(\"G1\")\n        .build());\nTaskResult result = lux3d.tasks().waitFor(taskId);"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_lux3d import create_lux3d_client\n\nlux3d = create_lux3d_client(region='cn')\ntask_id = lux3d.text_to_3d.create(prompt='带雕花腿的木椅', version='G1')\nresult = lux3d.tasks.wait_for(task_id)"
+          }
+        ]
+      }
+    },
+    "/lux3d/v1/generate/material-transfer/task/create": {
+      "post": {
+        "tags": [
+          "Lux3D"
+        ],
+        "summary": "创建模型材质重绘任务",
+        "description": "根据材质参考图片和 GLB 模型创建异步材质重绘任务。请求成功后返回任务 ID（taskid），可通过任务查询接口获取状态和结果。\n",
+        "operationId": "createMaterialTransferTask",
+        "requestBody": {
+          "description": "模型材质重绘任务请求体。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaterialTransferRequest"
+              },
+              "examples": {
+                "createTaskDefault": {
+                  "summary": "创建材质重绘任务",
+                  "value": {
+                    "img": "https://qhstaticssl.kujiale.com/image/png/1784776951878/material_transfer_input.png",
+                    "meshUrl": "https://qhstaticssl.kujiale.com/application/octetstream/1784776896628/material_transfer_model.glb",
+                    "version": "v3.0-standard"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "成功时返回任务ID。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "任务创建成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": 1256173
+                    }
+                  },
+                  "concurrencyLimit": {
+                    "summary": "生成任务并发已达上限",
+                    "value": {
+                      "f": null,
+                      "c": "GENERATION_CONCURRENCY_LIMIT_EXCEEDED",
+                      "m": "当前已有进行中的生成任务，请等待完成后再试",
+                      "d": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 5,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createLux3dClient } from '@manycore/aholo-sdk-lux3d';\n\nconst lux3d = createLux3dClient({ region: 'cn' });\nconst taskId = await lux3d.materialTransfer.create({\n  img: 'https://example.com/material.jpg',\n  meshUrl: 'https://example.com/model.glb',\n  version: 'v3.0-standard',\n});\nconst result = await lux3d.tasks.waitFor(taskId);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.lux3d.Lux3dClient;\nimport com.manycoreapis.sdk.lux3d.model.ImageToFourViewCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultimodalToImageCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ImgTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TextTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MaterialTransferCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ArticulationAnimationCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAnimationRetargetCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAutoRigCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultiFormatExportCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.PartSplitCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskListParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskPagedList;\nimport com.manycoreapis.sdk.lux3d.model.TaskResult;\n\nLux3dClient lux3d = Lux3dClient.create(AholoClientConfig.ofRegion(\"cn\"));\nlong taskId = lux3d.materialTransfer().create(\n    MaterialTransferCreateParams.builder()\n        .img(\"https://example.com/material.jpg\")\n        .meshUrl(\"https://example.com/model.glb\")\n        .version(\"v3.0-standard\")\n        .build());\nTaskResult result = lux3d.tasks().waitFor(taskId);"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_lux3d import create_lux3d_client\n\nlux3d = create_lux3d_client(region='cn')\ntask_id = lux3d.material_transfer.create(\n    img='https://example.com/material.jpg',\n    mesh_url='https://example.com/model.glb',\n    version='v3.0-standard',\n)\nresult = lux3d.tasks.wait_for(task_id)"
+          }
+        ]
+      }
+    },
+    "/lux3d/v1/part-split/task/create": {
+      "post": {
+        "tags": [
+          "Lux3D"
+        ],
+        "summary": "创建部件拆分任务",
+        "description": "根据一个可由服务端访问的 GLB 模型 URL 创建异步部件拆分任务。请求成功后返回任务 ID（taskid），可通过任务查询接口获取状态和包含拆分结果的 GLB 文件 URL。\n若当前账号已有同类任务进行中，本次请求不会创建任务，请稍后重试。\n",
+        "operationId": "createPartSplitTask",
+        "requestBody": {
+          "description": "部件拆分任务请求体。",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartSplitRequest"
+              },
+              "examples": {
+                "createTask": {
+                  "summary": "创建部件拆分任务",
+                  "value": {
+                    "glbUrl": "https://qhstaticssl.kujiale.com/model/gltfbinary/1790144390549/14B82261CD6DF53FA6B406240E20CB2C.glb"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功时返回任务 ID。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "任务创建成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": 1256174
+                    }
+                  },
+                  "temporarilyUnavailable": {
+                    "summary": "暂时无法创建任务",
+                    "value": {
+                      "f": null,
+                      "c": "GENERATION_CONCURRENCY_LIMIT_EXCEEDED",
+                      "m": "服务繁忙，请稍候再试",
+                      "d": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 6,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createLux3dClient } from '@manycore/aholo-sdk-lux3d';\n\nconst lux3d = createLux3dClient({ region: 'cn' });\nconst taskId = await lux3d.partSplit.create({\n  glbUrl: 'https://example.com/model.glb',\n});\nconst result = await lux3d.tasks.waitFor(taskId);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.lux3d.Lux3dClient;\nimport com.manycoreapis.sdk.lux3d.model.ImageToFourViewCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultimodalToImageCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ImgTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TextTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MaterialTransferCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ArticulationAnimationCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAnimationRetargetCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAutoRigCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultiFormatExportCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.PartSplitCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskListParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskPagedList;\nimport com.manycoreapis.sdk.lux3d.model.TaskResult;\n\nLux3dClient lux3d = Lux3dClient.create(AholoClientConfig.ofRegion(\"cn\"));\nlong taskId = lux3d.partSplit().create(\n    PartSplitCreateParams.builder()\n        .glbUrl(\"https://example.com/model.glb\")\n        .build());\nTaskResult result = lux3d.tasks().waitFor(taskId);"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_lux3d import create_lux3d_client\n\nlux3d = create_lux3d_client(region='cn')\ntask_id = lux3d.part_split.create(glb_url='https://example.com/model.glb')\nresult = lux3d.tasks.wait_for(task_id)"
+          }
+        ]
+      }
+    },
+    "/lux3d/v1/multi-format-export/task/create": {
+      "post": {
+        "tags": [
+          "Lux3D"
+        ],
+        "summary": "创建多格式导出任务",
+        "description": "根据 ZIP 或 GLB 模型 URL 创建异步格式导出任务，可选择一个或多个支持的目标格式。请求成功后返回任务 ID（taskid），可通过任务查询接口获取状态和结果。\n",
+        "operationId": "createMultiFormatExportTask",
+        "requestBody": {
+          "description": "多格式导出任务请求体。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MultiFormatExportRequest"
+              },
+              "examples": {
+                "createTaskDefault": {
+                  "summary": "创建多格式导出任务（glb 输入，导出 usdz）",
+                  "value": {
+                    "modelUrl": "https://qhstaticssl.kujiale.com/application/octetstream/1784776896628/model.glb",
+                    "outputFormat": [
+                      "usdz"
+                    ]
+                  }
+                },
+                "createTaskWithPrintFormats": {
+                  "summary": "创建多格式导出任务（glb 输入，导出 STL 和 3MF）",
+                  "value": {
+                    "modelUrl": "https://qhstaticssl.kujiale.com/application/octetstream/1784776896628/model.glb",
+                    "outputFormat": [
+                      "stl",
+                      "3mf"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "成功时返回任务ID。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "任务创建成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": 1256173
+                    }
+                  },
+                  "glbNoFormat": {
+                    "summary": "glb 输入未选择任何导出格式",
+                    "value": {
+                      "f": null,
+                      "c": "-1",
+                      "m": "glb input requires at least one export format in outputFormat (usdz/obj_zip/fbx_zip/stl/3mf)",
+                      "d": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 7,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createLux3dClient } from '@manycore/aholo-sdk-lux3d';\n\nconst lux3d = createLux3dClient({ region: 'cn' });\nconst taskId = await lux3d.multiFormatExport.create({\n  modelUrl: 'https://example.com/model.glb',\n  outputFormat: ['usdz', 'obj_zip', 'stl'],\n});\nconst result = await lux3d.tasks.waitFor(taskId);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.lux3d.Lux3dClient;\nimport com.manycoreapis.sdk.lux3d.model.ImageToFourViewCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultimodalToImageCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ImgTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TextTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MaterialTransferCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ArticulationAnimationCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAnimationRetargetCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAutoRigCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultiFormatExportCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.PartSplitCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskListParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskPagedList;\nimport com.manycoreapis.sdk.lux3d.model.TaskResult;\n\nLux3dClient lux3d = Lux3dClient.create(AholoClientConfig.ofRegion(\"cn\"));\nlong taskId = lux3d.multiFormatExport().create(\n    MultiFormatExportCreateParams.builder()\n        .modelUrl(\"https://example.com/model.glb\")\n        .outputFormat(java.util.Arrays.asList(\"usdz\", \"obj_zip\", \"stl\"))\n        .build());\nTaskResult result = lux3d.tasks().waitFor(taskId);"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_lux3d import create_lux3d_client\n\nlux3d = create_lux3d_client(region='cn')\ntask_id = lux3d.multi_format_export.create(\n    model_url='https://example.com/model.glb',\n    output_format=['usdz', 'obj_zip', 'stl'],\n)\nresult = lux3d.tasks.wait_for(task_id)"
+          }
+        ]
+      }
+    },
+    "/lux3d/v1/articulation-animation/task/create": {
+      "post": {
+        "tags": [
+          "Lux3D"
+        ],
+        "summary": "创建模型关节化与动画任务",
+        "description": "根据 GLB 模型 URL 和运动提示词创建异步关节化与动画任务。请求成功后返回任务 ID（taskid），可通过任务查询接口获取状态和结果文件 URL。\n",
+        "operationId": "createArticulationAnimationTask",
+        "requestBody": {
+          "description": "模型关节化与动画请求。glbUrl 和 prompt 均必填，不接受其他字段。",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticulationAnimationRequest"
+              },
+              "examples": {
+                "glbAndPrompt": {
+                  "summary": "GLB 模型与运动提示词",
+                  "value": {
+                    "glbUrl": "https://assets.aholo3d.cn/examples/cubely/joint-motion/target-model.glb",
+                    "prompt": "保持底座固定，为盖子添加旋转关节，让盖子缓慢打开和闭合。"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功时返回任务 ID。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "任务创建成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": 3725821
+                    }
+                  },
+                  "invalidInput": {
+                    "summary": "GLB 地址无效或提示词为空",
+                    "value": {
+                      "f": null,
+                      "c": "-1",
+                      "m": "glbUrl must be an HTTP(S) URL and prompt is required",
+                      "d": null
+                    }
+                  },
+                  "concurrencyLimit": {
+                    "summary": "生成任务并发已达上限",
+                    "value": {
+                      "f": null,
+                      "c": "GENERATION_CONCURRENCY_LIMIT_EXCEEDED",
+                      "m": "当前已有进行中的生成任务，请等待完成后再试",
+                      "d": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON 格式错误或包含不支持的请求字段。"
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 8,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createLux3dClient } from '@manycore/aholo-sdk-lux3d';\n\nconst lux3d = createLux3dClient({ region: 'cn' });\nconst taskId = await lux3d.articulationAnimation.create({\n  glbUrl: 'https://example.com/model.glb',\n  prompt: '保持底座固定，让盖子缓慢打开和闭合',\n});\nconst result = await lux3d.tasks.waitFor(taskId);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.lux3d.Lux3dClient;\nimport com.manycoreapis.sdk.lux3d.model.ImageToFourViewCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultimodalToImageCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ImgTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TextTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MaterialTransferCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ArticulationAnimationCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAnimationRetargetCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAutoRigCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultiFormatExportCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.PartSplitCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskListParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskPagedList;\nimport com.manycoreapis.sdk.lux3d.model.TaskResult;\n\nLux3dClient lux3d = Lux3dClient.create(AholoClientConfig.ofRegion(\"cn\"));\nlong taskId = lux3d.articulationAnimation().create(\n    ArticulationAnimationCreateParams.builder()\n        .glbUrl(\"https://example.com/model.glb\")\n        .prompt(\"保持底座固定，让盖子缓慢打开和闭合\")\n        .build());\nTaskResult result = lux3d.tasks().waitFor(taskId);"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_lux3d import create_lux3d_client\n\nlux3d = create_lux3d_client(region='cn')\ntask_id = lux3d.articulation_animation.create(\n    glb_url='https://example.com/model.glb',\n    prompt='保持底座固定，让盖子缓慢打开和闭合',\n)\nresult = lux3d.tasks.wait_for(task_id)"
+          }
+        ]
+      }
+    },
+    "/lux3d/v1/animations/rig/task/create": {
+      "post": {
+        "tags": [
+          "Lux3D"
+        ],
+        "summary": "创建数字人自动绑骨任务",
+        "description": "根据数字人 GLB 模型创建异步自动绑骨任务。请求成功后返回任务 ID（taskid），可通过任务查询接口获取状态和已绑骨 GLB 文件 URL。\n",
+        "operationId": "createHumanoidAutoRigTask",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HumanoidAutoRigRequest"
+              },
+              "example": {
+                "modelUrl": "https://example.com/model.glb"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "请求成功（c=\"0\"）后，d 返回任务 ID。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                },
+                "example": {
+                  "f": null,
+                  "c": "0",
+                  "m": "",
+                  "d": 3742500
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 9,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createLux3dClient } from '@manycore/aholo-sdk-lux3d';\n\nconst lux3d = createLux3dClient({ region: 'cn' });\nconst taskId = await lux3d.humanoidAutoRig.create({\n  modelUrl: 'https://example.com/human.glb',\n});\nconst result = await lux3d.tasks.waitFor(taskId);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.lux3d.Lux3dClient;\nimport com.manycoreapis.sdk.lux3d.model.ImageToFourViewCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultimodalToImageCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ImgTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TextTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MaterialTransferCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ArticulationAnimationCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAnimationRetargetCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAutoRigCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultiFormatExportCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.PartSplitCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskListParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskPagedList;\nimport com.manycoreapis.sdk.lux3d.model.TaskResult;\n\nLux3dClient lux3d = Lux3dClient.create(AholoClientConfig.ofRegion(\"cn\"));\nlong taskId = lux3d.humanoidAutoRig().create(\n    HumanoidAutoRigCreateParams.builder()\n        .modelUrl(\"https://example.com/human.glb\")\n        .build());\nTaskResult result = lux3d.tasks().waitFor(taskId);"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_lux3d import create_lux3d_client\n\nlux3d = create_lux3d_client(region='cn')\ntask_id = lux3d.humanoid_auto_rig.create(model_url='https://example.com/human.glb')\nresult = lux3d.tasks.wait_for(task_id)"
+          }
+        ]
+      }
+    },
+    "/lux3d/v1/animations/retarget/task/create": {
+      "post": {
+        "tags": [
+          "Lux3D"
+        ],
+        "summary": "创建数字人动画重定向任务",
+        "description": "根据已绑骨模型和所选动作创建异步动画重定向任务，支持逐动作输出或合并输出，可选择 GLB 或 FBX 格式。请求成功后返回任务 ID（taskid），可通过任务查询接口获取状态和动作结果。\n",
+        "operationId": "createHumanoidAnimationRetargetTask",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HumanoidAnimationRetargetRequest"
+              },
+              "example": {
+                "rigModelUrl": "https://qhstaticssl.kujiale.com/application/octetstream/1790240555913/rigModel.glb",
+                "animationIds": [
+                  "Dance_Loop",
+                  "Swim_Fwd_Loop"
+                ],
+                "animationOutputMode": "separate",
+                "outFormat": "glb",
+                "animateInPlace": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "请求成功（c=\"0\"）后，d 返回任务 ID。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCreateResponse"
+                },
+                "example": {
+                  "f": null,
+                  "c": "0",
+                  "m": "",
+                  "d": 3742500
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 10,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createLux3dClient } from '@manycore/aholo-sdk-lux3d';\n\nconst lux3d = createLux3dClient({ region: 'cn' });\nconst taskId = await lux3d.humanoidAnimationRetarget.create({\n  rigModelUrl: 'https://example.com/rig.glb',\n  animationIds: ['Idle_Loop', 'Walk_Loop'],\n  outFormat: 'glb',\n});\nconst result = await lux3d.tasks.waitFor(taskId);"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.lux3d.Lux3dClient;\nimport com.manycoreapis.sdk.lux3d.model.ImageToFourViewCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultimodalToImageCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ImgTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TextTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MaterialTransferCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ArticulationAnimationCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAnimationRetargetCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAutoRigCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultiFormatExportCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.PartSplitCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskListParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskPagedList;\nimport com.manycoreapis.sdk.lux3d.model.TaskResult;\n\nLux3dClient lux3d = Lux3dClient.create(AholoClientConfig.ofRegion(\"cn\"));\nlong taskId = lux3d.humanoidAnimationRetarget().create(\n    HumanoidAnimationRetargetCreateParams.builder()\n        .rigModelUrl(\"https://example.com/rig.glb\")\n        .animationIds(java.util.Arrays.asList(\"Idle_Loop\", \"Walk_Loop\"))\n        .outFormat(\"glb\")\n        .build());\nTaskResult result = lux3d.tasks().waitFor(taskId);"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_lux3d import create_lux3d_client\n\nlux3d = create_lux3d_client(region='cn')\ntask_id = lux3d.humanoid_animation_retarget.create(\n    rig_model_url='https://example.com/rig.glb',\n    animation_ids=['Idle_Loop', 'Walk_Loop'],\n    out_format='glb',\n)\nresult = lux3d.tasks.wait_for(task_id)"
+          }
+        ]
+      }
+    },
+    "/lux3d/v1/generate/task/get": {
+      "get": {
+        "tags": [
+          "Lux3D"
+        ],
+        "summary": "查询生成任务",
+        "description": "根据任务 ID 查询任务状态和结果，仅支持查询当前认证账号创建的任务。结果 URL 有效期为 2 小时。\n\n`c=\"0\"` 表示查询成功，任务是否完成由 `d.status` 判断：0-初始化，1-运行中，3-成功，4-失败，6-已取消。状态为 0 或 1 时继续查询，任务完成后从 `d.outputs` 读取结果；运行中的任务也可能返回部分已生成结果。\n\n不同任务的结果格式如下。表中的 URL 或 JSON 字符串均位于输出项的 `content` 字段。\n\n| 任务类型 | 结果格式 |\n| --- | --- |\n| 多模态单图生成 | 一个结果图片 URL。 |\n| 多模态四视图 | 包含四张图片 URL 的 JSON 数组字符串，顺序为 FRONT_THREE_QUARTER、OPPOSITE_THREE_QUARTER、SIDE、BACK。 |\n| G1 图生 / 文生 3D | 按 ZIP、GLB 顺序返回文件 URL；请求 PLY 时额外返回 PLY。 |\n| G1-Turbo 图生 / 文生 3D | 返回指定格式的文件 URL；未指定格式或传空数组时返回 ZIP。 |\n| 模型材质重绘 | 按 ZIP、GLB、USDZ、OBJ ZIP、FBX ZIP 顺序返回文件 URL。 |\n| 多格式导出 | 按 ZIP、GLB、USDZ、OBJ ZIP、FBX ZIP、STL、3MF 顺序返回文件 URL。 |\n| 部件拆分 | 一个包含拆分结果的 GLB 文件 URL。 |\n| 模型关节化与动画 | `d.outputs[0].content` 为结果文件 URL，文件格式以实际结果为准，不固定为 ZIP。 |\n| 数字人自动绑骨 | 已绑骨 GLB 文件 URL；失败时可能返回包含 `error` 的 JSON 字符串。 |\n| 数字人动画重定向 | 包含 `actions` 的 JSON 字符串，列出各动作的结果 URL 或错误信息。 |\n\n未请求的可选格式可能返回 `NOT_REQUESTED`，该值不是文件 URL。对于 JSON 字符串结果，需要解析 `content` 后再读取其中的字段。\n",
+        "operationId": "getTask",
+        "parameters": [
+          {
+            "name": "taskid",
+            "in": "query",
+            "description": "任务ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1389513
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功时返回任务状态和结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskQueryResponse"
+                },
+                "examples": {
+                  "humanoidRigSuccess": {
+                    "summary": "数字人绑骨成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 3742500,
+                        "status": 3,
+                        "outputs": [
+                          {
+                            "content": "https://example.com/rig.glb"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "humanoidRigFailure": {
+                    "summary": "模型不适合自动绑骨",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 3742500,
+                        "status": 4,
+                        "outputs": [
+                          {
+                            "content": "{\"error\": {\"code\": \"MODEL_NOT_RIGGABLE\", \"message\": \"Model does not meet rigging requirements\"}}"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "humanoidRetargetGlbSuccess": {
+                    "summary": "GLB 动作生成成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 3742500,
+                        "status": 3,
+                        "outputs": [
+                          {
+                            "content": "{\"actions\":[{\"animation_id\":\"Dance_Loop\",\"status\":\"success\",\"animationGlbUrl\":\"https://example.com/dance.glb\"}]}"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "humanoidRetargetAllFailed": {
+                    "summary": "所有动作失败",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 3742500,
+                        "status": 4,
+                        "outputs": [
+                          {
+                            "content": "{\"actions\":[{\"animation_id\":\"Swim_Fwd_Loop\",\"status\":\"failed\",\"error\":{\"code\":\"ANIMATION_RETARGET_FAILED\",\"message\":\"Action delivery failed: animation retarget failed\"}}]}"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "humanoidRetargetFbxSuccess": {
+                    "summary": "FBX 动作交付成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 3742500,
+                        "status": 3,
+                        "outputs": [
+                          {
+                            "content": "{\"actions\":[{\"animation_id\":\"Dance_Loop\",\"status\":\"success\",\"fbxUrl\":\"https://example.com/dance.fbx\"}]}"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "running": {
+                    "summary": "任务进行中",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 1389513,
+                        "status": 1
+                      }
+                    }
+                  },
+                  "successMaterialTransferAllFormats": {
+                    "summary": "材质重绘成功（全部格式）",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 1389513,
+                        "outputs": [
+                          {
+                            "content": "https://cdn.example.com/output/result.zip"
+                          },
+                          {
+                            "content": "https://cdn.example.com/output/textured.glb"
+                          },
+                          {
+                            "content": "https://cdn.example.com/output/RealityKitPreview.usdz"
+                          },
+                          {
+                            "content": "https://cos.example.com/lux3d/xxx/model_obj.zip"
+                          },
+                          {
+                            "content": "https://cos.example.com/lux3d/xxx/model_fbx.zip"
+                          }
+                        ],
+                        "status": 3
+                      }
+                    }
+                  },
+                  "successMaterialTransferPartialFormats": {
+                    "summary": "材质重绘成功（ZIP、GLB、USDZ）",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 1389514,
+                        "outputs": [
+                          {
+                            "content": "https://cdn.example.com/output/result.zip"
+                          },
+                          {
+                            "content": "https://cdn.example.com/output/textured.glb"
+                          },
+                          {
+                            "content": "https://cdn.example.com/output/RealityKitPreview.usdz"
+                          },
+                          {
+                            "content": "NOT_REQUESTED"
+                          },
+                          {
+                            "content": "NOT_REQUESTED"
+                          }
+                        ],
+                        "status": 3
+                      }
+                    }
+                  },
+                  "successMultiFormatExport": {
+                    "summary": "多格式导出成功（全部格式）",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 1389518,
+                        "outputs": [
+                          {
+                            "content": "https://cdn.example.com/input/source.zip"
+                          },
+                          {
+                            "content": "https://cdn.example.com/output/model.glb"
+                          },
+                          {
+                            "content": "https://cdn.example.com/output/RealityKitPreview.usdz"
+                          },
+                          {
+                            "content": "https://cos.example.com/lux3d/xxx/model_obj.zip"
+                          },
+                          {
+                            "content": "https://cos.example.com/lux3d/xxx/model_fbx.zip"
+                          },
+                          {
+                            "content": "https://cdn.example.com/output/model.stl"
+                          },
+                          {
+                            "content": "https://cdn.example.com/output/model.3mf"
+                          }
+                        ],
+                        "status": 3
+                      }
+                    }
+                  },
+                  "successG1Base": {
+                    "summary": "G1 成功（ZIP、GLB）",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 1389515,
+                        "outputs": [
+                          {
+                            "content": "https://cdn.example.com/output/results.zip"
+                          },
+                          {
+                            "content": "https://cdn.example.com/output/result.glb"
+                          }
+                        ],
+                        "status": 3
+                      }
+                    }
+                  },
+                  "successG1WithPly": {
+                    "summary": "G1 成功（ZIP、GLB、PLY）",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 1389516,
+                        "outputs": [
+                          {
+                            "content": "https://cdn.example.com/output/results.zip"
+                          },
+                          {
+                            "content": "https://cdn.example.com/output/result.glb"
+                          },
+                          {
+                            "content": "https://cdn.example.com/output/result.ply"
+                          }
+                        ],
+                        "status": 3
+                      }
+                    }
+                  },
+                  "successG1TurboPly": {
+                    "summary": "G1-Turbo 成功（仅 PLY）",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 1389517,
+                        "outputs": [
+                          {
+                            "content": "https://cdn.example.com/output/result.ply"
+                          }
+                        ],
+                        "status": 3
+                      }
+                    }
+                  },
+                  "successMultimodalToImage": {
+                    "summary": "多模态单图生成成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 2696732,
+                        "outputs": [
+                          {
+                            "content": "https://cdn.example.com/multimodal-to-image/result.png"
+                          }
+                        ],
+                        "status": 3
+                      }
+                    }
+                  },
+                  "successArticulationAnimationZIP": {
+                    "summary": "关节化与动画成功（ZIP 示例）",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 3725821,
+                        "outputs": [
+                          {
+                            "content": "https://cdn.example.com/articulation-animation/result.zip"
+                          }
+                        ],
+                        "status": 3
+                      }
+                    }
+                  },
+                  "successArticulationAnimationGLB": {
+                    "summary": "关节化与动画成功（GLB 示例）",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 3725821,
+                        "outputs": [
+                          {
+                            "content": "https://cdn.example.com/articulation-animation/result.glb"
+                          }
+                        ],
+                        "status": 3
+                      }
+                    }
+                  },
+                  "successImageToFourView": {
+                    "summary": "多模态四视图生成成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 2696733,
+                        "outputs": [
+                          {
+                            "content": "[\"https://cdn.example.com/four-view/front-three-quarter.png\",\"https://cdn.example.com/four-view/opposite-three-quarter.png\",\"https://cdn.example.com/four-view/side.png\",\"https://cdn.example.com/four-view/back.png\"]"
+                          }
+                        ],
+                        "status": 3
+                      }
+                    }
+                  },
+                  "successPartSplit": {
+                    "summary": "部件拆分成功",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 2696734,
+                        "outputs": [
+                          {
+                            "content": "https://qhsmodel.kujiale.com/glbPartsReconstructResult/NKZXG2IKTIHXGAABAAAAABQ8.glb"
+                          }
+                        ],
+                        "status": 3
+                      }
+                    }
+                  },
+                  "failed": {
+                    "summary": "任务失败",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "taskId": 1389513,
+                        "status": 4
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskQueryResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskQueryResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 11,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createLux3dClient } from '@manycore/aholo-sdk-lux3d';\n\nconst lux3d = createLux3dClient({ region: 'cn' });\nconst result = await lux3d.tasks.retrieve(taskId);\nconsole.log(result.status, result.outputs);\n// 或 await lux3d.tasks.waitFor(taskId) 轮询至成功"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.lux3d.Lux3dClient;\nimport com.manycoreapis.sdk.lux3d.model.ImageToFourViewCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultimodalToImageCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ImgTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TextTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MaterialTransferCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ArticulationAnimationCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAnimationRetargetCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAutoRigCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultiFormatExportCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.PartSplitCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskListParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskPagedList;\nimport com.manycoreapis.sdk.lux3d.model.TaskResult;\n\nLux3dClient lux3d = Lux3dClient.create(AholoClientConfig.ofRegion(\"cn\"));\nTaskResult result = lux3d.tasks().retrieve(taskId);\nSystem.out.println(result.status());\n// or lux3d.tasks().waitFor(taskId) 轮询至成功"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_lux3d import create_lux3d_client\n\nlux3d = create_lux3d_client(region='cn')\nresult = lux3d.tasks.retrieve(task_id)\nprint(result.get('status'), result.get('outputs'))\n# 或 lux3d.tasks.wait_for(task_id) 轮询至成功"
+          }
+        ]
+      }
+    },
+    "/lux3d/v1/generate/task/list": {
+      "get": {
+        "tags": [
+          "Lux3D"
+        ],
+        "summary": "分页查询生成记录",
+        "description": "分页查询当前认证账号创建的任务，可按状态和创建时间筛选。\n",
+        "operationId": "listTasks",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "页码，从 1 开始",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pagesize",
+            "in": "query",
+            "description": "每页数量，范围 1-100",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "用于筛选的任务状态：0-初始化，1-运行中，3-成功，4-失败。省略时查询全部状态，结果中仍可能出现已取消状态 6。",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                3,
+                4
+              ]
+            }
+          },
+          {
+            "name": "starttime",
+            "in": "query",
+            "description": "创建时间起点，包含边界；Unix 毫秒时间戳",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "endtime",
+            "in": "query",
+            "description": "创建时间终点，不包含边界；Unix 毫秒时间戳",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "返回生成记录分页数据。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskListResponse"
+                },
+                "examples": {
+                  "withData": {
+                    "summary": "有数据",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "items": [
+                          {
+                            "taskId": 2667998,
+                            "status": 3,
+                            "created": 1786591762000,
+                            "lastModified": 1786592088000
+                          }
+                        ],
+                        "total": 1,
+                        "page": 1,
+                        "pageSize": 20
+                      }
+                    }
+                  },
+                  "noData": {
+                    "summary": "无数据",
+                    "value": {
+                      "f": null,
+                      "c": "0",
+                      "m": "",
+                      "d": {
+                        "items": [],
+                        "total": 0,
+                        "page": 1,
+                        "pageSize": 20
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization，鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskListResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 12,
+        "x-codeSamples": [
+          {
+            "lang": "TypeScript",
+            "label": "Aholo SDK（TypeScript）",
+            "source": "import { createLux3dClient } from '@manycore/aholo-sdk-lux3d';\n\nconst lux3d = createLux3dClient({ region: 'cn' });\nconst page = await lux3d.tasks.list({ page: 1, pageSize: 20, status: 3 });\npage.items.forEach((task) => console.log(task.taskId, task.status));"
+          },
+          {
+            "lang": "Java",
+            "label": "Aholo SDK（Java）",
+            "source": "import com.manycoreapis.sdk.core.AholoClientConfig;\nimport java.nio.file.Paths;\nimport com.manycoreapis.sdk.lux3d.Lux3dClient;\nimport com.manycoreapis.sdk.lux3d.model.ImageToFourViewCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultimodalToImageCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ImgTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TextTo3dCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MaterialTransferCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.ArticulationAnimationCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAnimationRetargetCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.HumanoidAutoRigCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.MultiFormatExportCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.PartSplitCreateParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskListParams;\nimport com.manycoreapis.sdk.lux3d.model.TaskPagedList;\nimport com.manycoreapis.sdk.lux3d.model.TaskResult;\n\nLux3dClient lux3d = Lux3dClient.create(AholoClientConfig.ofRegion(\"cn\"));\nTaskPagedList page = lux3d.tasks().list(\n    TaskListParams.builder().page(1).pageSize(20).status(3).build());\npage.items().forEach(task ->\n    System.out.println(task.taskId() + \" \" + task.status()));"
+          },
+          {
+            "lang": "Python",
+            "label": "Aholo SDK（Python）",
+            "source": "from manycore.aholo_sdk_lux3d import create_lux3d_client\n\nlux3d = create_lux3d_client(region='cn')\npage = lux3d.tasks.list(page=1, page_size=20, status=3)\nfor task in page['items']:\n    print(task['taskId'], task['status'])"
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HumanoidAutoRigRequest": {
+        "type": "object",
+        "required": [
+          "modelUrl"
+        ],
+        "properties": {
+          "modelUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "GLB 模型的公网 HTTPS URL。如需上传本地文件，请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段。"
+          }
+        }
+      },
+      "HumanoidAnimationRetargetRequest": {
+        "type": "object",
+        "required": [
+          "rigModelUrl",
+          "animationIds"
+        ],
+        "properties": {
+          "rigModelUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "已绑骨 GLB 模型的公网 HTTPS URL。如需上传本地文件，请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段。",
+            "example": "https://qhstaticssl.kujiale.com/application/octetstream/1790240555913/rigModel.glb"
+          },
+          "animationIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "enum": [
+                "A_TPose",
+                "Dance_Loop",
+                "Idle_Rail_Call",
+                "Idle_TalkingPhone_Loop",
+                "Idle_Talking_Loop",
+                "Yes",
+                "Crouch_Idle_Loop",
+                "Idle_FoldArms_Loop",
+                "Idle_Lantern_Loop",
+                "Idle_Loop",
+                "Idle_No_Loop",
+                "Idle_Rail_Loop",
+                "Idle_Torch_Loop",
+                "ClimbUp_1m",
+                "Crouch_Fwd_Loop",
+                "Jog_Fwd_Loop",
+                "Sprint_Loop",
+                "Swim_Fwd_Loop",
+                "Swim_Idle_Loop",
+                "Walk_Formal_Loop",
+                "Walk_Loop",
+                "Jump_Land",
+                "Jump_Loop",
+                "Jump_Start",
+                "NinjaJump_Idle_Loop",
+                "NinjaJump_Land",
+                "NinjaJump_Start",
+                "Roll",
+                "Slide_Exit",
+                "Slide_Loop",
+                "Slide_Start",
+                "Sword_Attack",
+                "Sword_Block",
+                "Sword_Dash",
+                "Sword_Heavy_Combo",
+                "Sword_Idle",
+                "Sword_Regular_A",
+                "Sword_Regular_A_Rec",
+                "Sword_Regular_B",
+                "Sword_Regular_B_Rec",
+                "Sword_Regular_C",
+                "Sword_Regular_Combo",
+                "Idle_Shield_Break",
+                "Idle_Shield_Loop",
+                "Shield_Dash",
+                "Shield_OneShot",
+                "Melee_Hook",
+                "Melee_Hook_Rec",
+                "Punch_Cross",
+                "Punch_Jab",
+                "Pistol_Aim_Down",
+                "Pistol_Aim_Neutral",
+                "Pistol_Aim_Up",
+                "Pistol_Idle_Loop",
+                "Pistol_Reload",
+                "Pistol_Shoot",
+                "Spell_Simple_Enter",
+                "Spell_Simple_Exit",
+                "Spell_Simple_Idle_Loop",
+                "Spell_Simple_Shoot",
+                "Chest_Open",
+                "Consume",
+                "Driving_Loop",
+                "Farm_Harvest",
+                "Farm_PlantSeed",
+                "Farm_Watering",
+                "Fixing_Kneeling",
+                "Interact",
+                "OverhandThrow",
+                "PickUp_Table",
+                "Push_Loop",
+                "TreeChopping_Loop",
+                "Walk_Carry_Loop",
+                "LayToIdle",
+                "Sitting_Enter",
+                "Sitting_Exit",
+                "Sitting_Idle_Loop",
+                "Sitting_Talking_Loop",
+                "Death01",
+                "Hit_Chest",
+                "Hit_Head",
+                "Hit_Knockback",
+                "Zombie_Idle_Loop",
+                "Zombie_Scratch",
+                "Zombie_Walk_Fwd_Loop"
+              ]
+            },
+            "description": "动作 ID 列表，从以下 85 个可选值中选择 1–10 个，不可重复，区分大小写。"
+          },
+          "animationOutputMode": {
+            "type": "string",
+            "enum": [
+              "separate",
+              "combined"
+            ],
+            "default": "separate",
+            "description": "separate 为每个动作生成一个完整文件；combined 将所选动作合并到一个文件，每个动作保留为独立动画片段。"
+          },
+          "outFormat": {
+            "type": "string",
+            "enum": [
+              "glb",
+              "fbx"
+            ],
+            "default": "glb",
+            "description": "输出文件格式。"
+          },
+          "animateInPlace": {
+            "type": "boolean",
+            "default": false,
+            "description": "是否生成原地动画。"
+          }
+        }
+      },
+      "MultimodalToImageRequest": {
+        "type": "object",
+        "properties": {
+          "img": {
+            "minLength": 1,
+            "pattern": ".*\\S.*",
+            "type": "string",
+            "description": "单张参考图片 URL，可单独使用或与 prompt 组合。img 和 prompt 至少提供一个，传入的值不能为空白。如需上传本地文件，请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段。",
+            "example": "https://qhstaticssl.kujiale.com/image/jpeg/1784775590613/image_to_3d_model.jpg"
+          },
+          "prompt": {
+            "minLength": 1,
+            "pattern": ".*\\S.*",
+            "type": "string",
+            "description": "图片生成提示词，可单独使用或与 img 组合。img 和 prompt 至少提供一个，传入的值不能为空白。",
+            "example": "把椅子改成浅色原木材质，保持造型和视角"
+          }
+        },
+        "description": "多模态单图生成请求体，img 和 prompt 至少提供一个，支持纯图片、纯文字或图文组合输入。"
+      },
+      "ImageToFourViewRequest": {
+        "type": "object",
+        "properties": {
+          "img": {
+            "minLength": 1,
+            "pattern": ".*\\S.*",
+            "type": "string",
+            "description": "单张图片 URL。img 和 prompt 至少提供一个，传入的值不能为空白。如需上传本地文件，请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段。",
+            "example": "https://qhstaticssl.kujiale.com/image/jpeg/1784775590613/image_to_3d_model.jpg"
+          },
+          "prompt": {
+            "minLength": 1,
+            "pattern": ".*\\S.*",
+            "type": "string",
+            "description": "文字提示词，可单独用于纯文字生成四视图，也可与 img 组合使用。img 和 prompt 至少提供一个，传入的值不能为空白。",
+            "example": "一把现代简约浅色原木餐椅，纯白背景"
+          }
+        },
+        "description": "多模态四视图请求体，img 和 prompt 至少提供一个，支持纯图片、纯文字或图文组合输入。"
+      },
+      "ImgTo3dRequest": {
+        "type": "object",
+        "properties": {
+          "img": {
+            "minLength": 1,
+            "pattern": ".*\\S.*",
+            "type": "string",
+            "description": "单张图片 URL，G1 和 G1-Turbo 均支持。img 与 imgs 必须且只能提供一个，图片 URL 不能为空白。如需上传本地文件，请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段。",
+            "example": "https://qhstaticssl.kujiale.com/image/jpeg/1784775590613/image_to_3d_model.jpg"
+          },
+          "imgs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": ".*\\S.*"
+            },
+            "description": "G1 / G1-Turbo 的 1-32 张图片 URL。保留输入顺序，第一张图作为主要参考；与 img 互斥。使用 imgs 时必须显式传入 version=G1 或 version=G1-Turbo。如需上传本地文件，请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段。",
+            "example": [
+              "https://qhstaticssl.kujiale.com/image/png/1784775590866/multiview_input_1.png",
+              "https://qhstaticssl.kujiale.com/image/png/1784775591151/multiview_input_2.png"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "description": "生成版本，支持 G1 和 G1-Turbo。省略时使用默认版本；建议显式传入。",
+            "enum": [
+              "G1",
+              "G1-Turbo"
+            ],
+            "example": "G1"
+          },
+          "faceCount": {
+            "type": "integer",
+            "description": "目标 Mesh 面数，取值范围为 10000-300000，默认 300000；PLY 输出不受此参数影响。",
+            "minimum": 10000,
+            "maximum": 300000,
+            "example": 300000
+          },
+          "outputFormat": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "zip",
+                "glb",
+                "ply"
+              ]
+            },
+            "description": "请求的输出格式。G1 固定返回 ZIP 和 GLB，请求包含 ply 时额外返回 PLY；G1-Turbo 返回指定格式，省略或传空数组时返回 ZIP。",
+            "example": [
+              "zip",
+              "glb"
+            ]
+          },
+          "enablePbr": {
+            "type": "boolean",
+            "description": "仅对 G1-Turbo 包含 Mesh 的请求生效：true 或省略时生成 PBR Mesh，false 生成白模；不决定输出格式。G1 及仅请求 PLY 时忽略。",
+            "default": true
+          },
+          "aiPredictSize": {
+            "type": "boolean",
+            "description": "省略或 true 会启用 AI 尺寸预测与缩放，false 关闭。"
+          }
+        },
+        "description": "图生 3D 请求体，支持 G1 和 G1-Turbo，可使用 img 单图或 imgs 多图；img 与 imgs 必须且只能提供一个。使用 imgs 时必须显式传入 version=G1 或 version=G1-Turbo。"
+      },
+      "TextTo3dRequest": {
+        "required": [
+          "prompt"
+        ],
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "minLength": 1,
+            "pattern": ".*\\S.*",
+            "type": "string",
+            "description": "文本提示词",
+            "example": "生成一个高质量的3D木椅模型"
+          },
+          "style": {
+            "type": "string",
+            "description": "生成风格，默认 photorealistic。",
+            "enum": [
+              "photorealistic",
+              "cartoon",
+              "anime",
+              "hand_painted",
+              "cyberpunk",
+              "fantasy",
+              "glass"
+            ],
+            "default": "photorealistic",
+            "example": "photorealistic"
+          },
+          "img": {
+            "type": "string",
+            "description": "可选的参考图片 URL。如需上传本地文件，请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段。",
+            "example": "https://qhstaticssl.kujiale.com/image/jpeg/1784775590613/image_to_3d_model.jpg"
+          },
+          "version": {
+            "type": "string",
+            "description": "生成版本，支持 G1 和 G1-Turbo。省略时使用默认版本；建议显式传入。",
+            "enum": [
+              "G1",
+              "G1-Turbo"
+            ],
+            "example": "G1"
+          },
+          "faceCount": {
+            "type": "integer",
+            "description": "目标 Mesh 面数，取值范围为 10000-300000，默认 300000；PLY 输出不受此参数影响。",
+            "minimum": 10000,
+            "maximum": 300000,
+            "example": 300000
+          },
+          "outputFormat": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "zip",
+                "glb",
+                "ply"
+              ]
+            },
+            "description": "请求的输出格式。G1 固定返回 ZIP 和 GLB，请求包含 ply 时额外返回 PLY；G1-Turbo 返回指定格式，省略或传空数组时返回 ZIP。",
+            "example": [
+              "zip",
+              "glb"
+            ]
+          },
+          "enablePbr": {
+            "type": "boolean",
+            "description": "仅对 G1-Turbo 包含 Mesh 的请求生效：true 或省略时生成 PBR Mesh，false 生成白模；不决定输出格式。G1 及仅请求 PLY 时忽略。",
+            "default": true
+          },
+          "aiPredictSize": {
+            "type": "boolean",
+            "description": "省略或 true 会启用 AI 尺寸预测与缩放，false 关闭。"
+          }
+        },
+        "description": "文生 3D 请求体，支持 G1 和 G1-Turbo，可选提供一张 img 参考图。"
+      },
+      "MaterialTransferRequest": {
+        "required": [
+          "img",
+          "meshUrl",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "img": {
+            "minLength": 1,
+            "pattern": ".*\\S.*",
+            "type": "string",
+            "description": "材质参考图片 URL。如需上传本地文件，请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段。",
+            "example": "https://qhstaticssl.kujiale.com/image/png/1784776951878/material_transfer_input.png"
+          },
+          "meshUrl": {
+            "minLength": 1,
+            "pattern": ".*\\S.*",
+            "type": "string",
+            "description": "模型 GLB 文件 URL。如需上传本地文件，请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段。",
+            "example": "https://qhstaticssl.kujiale.com/application/octetstream/1784776896628/material_transfer_model.glb"
+          },
+          "version": {
+            "type": "string",
+            "description": "必填，当前固定传 v3.0-standard。",
+            "enum": [
+              "v3.0-standard"
+            ],
+            "example": "v3.0-standard"
+          },
+          "outputFormat": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "zip",
+                "glb",
+                "usdz",
+                "obj_zip",
+                "fbx_zip"
+              ]
+            },
+            "description": "请求的输出格式：zip、glb、usdz、obj_zip 或 fbx_zip。",
+            "example": [
+              "zip",
+              "glb"
+            ]
+          },
+          "aiPredictSize": {
+            "type": "boolean",
+            "description": "是否预测模型尺寸；为 true 时忽略 customSize。"
+          },
+          "customSize": {
+            "type": "number",
+            "format": "float",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "description": "aiPredictSize 为 false 或未传时使用的目标高度（mm）；省略时保持原始尺寸。"
+          }
+        },
+        "description": "材质重绘请求体，version 当前固定为 v3.0-standard。"
+      },
+      "PartSplitRequest": {
+        "required": [
+          "glbUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "glbUrl": {
+            "minLength": 1,
+            "pattern": ".*\\S.*",
+            "type": "string",
+            "description": "待拆分的 GLB 模型公网 URL，必须可由服务端访问。如需上传本地文件，请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段；也可使用仍在有效期内的 Lux3D GLB 任务产物 URL。",
+            "example": "https://qhstaticssl.kujiale.com/model/gltfbinary/1790144390549/14B82261CD6DF53FA6B406240E20CB2C.glb"
+          }
+        },
+        "description": "部件拆分任务请求体。"
+      },
+      "MultiFormatExportRequest": {
+        "required": [
+          "modelUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "modelUrl": {
+            "minLength": 1,
+            "type": "string",
+            "description": "模型公网 URL，支持 .zip 或 .glb。ZIP 输入必须来自 Lux3D 生成任务；GLB 输入时 outputFormat 不能为空。如需上传本地文件，请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段；其中 ZIP 仍必须是 Lux3D 生成任务产物。",
+            "example": "https://qhstaticssl.kujiale.com/application/octetstream/1784776896628/model.glb"
+          },
+          "outputFormat": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "usdz",
+                "obj_zip",
+                "fbx_zip",
+                "stl",
+                "3mf"
+              ]
+            },
+            "description": "可选导出格式，支持单项或组合：usdz、obj_zip、fbx_zip、stl、3mf。outputFormat 不接受 glb。\n- usdz：Apple 生态常用的 AR 模型格式，适用于 iOS、iPadOS 和 Quick Look 等 AR 预览场景。\n- obj_zip：包含 OBJ、MTL 和贴图文件的压缩包，兼容常见 3D 软件和 DCC 工具。\n- fbx_zip：包含 FBX 模型及贴图资源的压缩包，适用于 Maya、3ds Max、Blender 等主流 DCC 工作流。\n- stl：面向 3D 打印和几何交换的网格格式，不包含材质和贴图信息。\n- 3mf：面向 3D 打印的 3D Manufacturing Format，适合需要制造/打印格式交付的场景。\nZIP 输入时可以省略或传空数组；GLB 输入时至少需要一个值。\n",
+            "example": [
+              "usdz",
+              "obj_zip",
+              "stl",
+              "3mf"
+            ]
+          }
+        },
+        "description": "多格式导出任务请求体。"
+      },
+      "ArticulationAnimationRequest": {
+        "type": "object",
+        "required": [
+          "glbUrl",
+          "prompt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "glbUrl": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1,
+            "description": "输入 GLB 模型的公网 HTTP(S) URL，必须可由服务端访问。如需上传本地文件，请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段。",
+            "example": "https://assets.aholo3d.cn/examples/cubely/joint-motion/target-model.glb"
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": ".*\\S.*",
+            "description": "描述需要运动的部件及期望的关节运动方式，不能仅包含空白字符。",
+            "example": "保持底座固定，为盖子添加旋转关节，让盖子缓慢打开和闭合。"
+          }
+        },
+        "description": "模型关节化与动画请求。glbUrl 和 prompt 均必填，不接受其他字段。"
+      },
+      "TaskCreateResponse": {
+        "type": "object",
+        "properties": {
+          "f": {
+            "type": "object",
+            "description": "失败信息；成功时为 null。",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "d": {
+            "type": "integer",
+            "description": "返回 taskid",
+            "format": "int64",
+            "example": 1256173,
+            "nullable": true
+          },
+          "m": {
+            "type": "string",
+            "description": "提示信息；成功时为空字符串 \"\"。",
+            "nullable": true
+          },
+          "c": {
+            "type": "string",
+            "description": "状态码；成功时为 \"0\"，普通参数错误时为 \"-1\"，部分业务错误使用专用错误码。",
+            "nullable": true
+          }
+        },
+        "description": "任务创建响应体。"
+      },
+      "TaskOutput": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "结果文件 URL、JSON 字符串或未请求格式的标记 NOT_REQUESTED。具体格式见“查询生成任务”接口说明。",
+            "nullable": true,
+            "example": "https://cos.example.com/lux3d/xxx/result.zip"
+          }
+        },
+        "description": "任务输出项。"
+      },
+      "TaskQueryData": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "integer",
+            "description": "任务ID",
+            "format": "int64",
+            "example": 1389513
+          },
+          "outputs": {
+            "type": "array",
+            "description": "任务结果列表，具体格式和顺序见“查询生成任务”接口说明。运行中的任务可能返回部分结果。",
+            "items": {
+              "$ref": "#/components/schemas/TaskOutput"
+            }
+          },
+          "status": {
+            "type": "integer",
+            "description": "任务状态：0-初始化，1-运行中，3-成功，4-失败，6-已取消。",
+            "format": "int32",
+            "enum": [
+              0,
+              1,
+              3,
+              4,
+              6
+            ],
+            "example": 3
+          }
+        },
+        "description": "任务查询数据。"
+      },
+      "TaskQueryResponse": {
+        "type": "object",
+        "properties": {
+          "f": {
+            "type": "object",
+            "description": "失败信息；成功时为 null。",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "d": {
+            "$ref": "#/components/schemas/TaskQueryData"
+          },
+          "m": {
+            "type": "string",
+            "description": "提示信息；成功时为空字符串 \"\"。",
+            "nullable": true
+          },
+          "c": {
+            "type": "string",
+            "description": "状态码；成功时为 \"0\"，普通参数错误时为 \"-1\"。",
+            "nullable": true
+          }
+        },
+        "description": "任务查询响应体。"
+      },
+      "TaskListItem": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "任务 ID"
+          },
+          "status": {
+            "type": "integer",
+            "description": "任务状态：0-初始化，1-运行中，3-成功，4-失败，6-已取消。",
+            "enum": [
+              0,
+              1,
+              3,
+              4,
+              6
+            ]
+          },
+          "created": {
+            "type": "integer",
+            "format": "int64",
+            "description": "任务创建时间，Unix 毫秒时间戳"
+          },
+          "lastModified": {
+            "type": "integer",
+            "format": "int64",
+            "description": "任务最后修改时间，Unix 毫秒时间戳"
+          }
+        }
+      },
+      "TaskListData": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskListItem"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "符合条件的任务总数"
+          },
+          "page": {
+            "type": "integer",
+            "description": "当前页码"
+          },
+          "pageSize": {
+            "type": "integer",
+            "description": "每页数量"
+          }
+        }
+      },
+      "TaskListResponse": {
+        "type": "object",
+        "properties": {
+          "f": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "description": "失败信息；成功时为 null。"
+          },
+          "d": {
+            "$ref": "#/components/schemas/TaskListData"
+          },
+          "m": {
+            "type": "string",
+            "nullable": true,
+            "description": "提示信息。成功时为空字符串 \"\"。"
+          },
+          "c": {
+            "type": "string",
+            "nullable": true,
+            "description": "状态码。成功时为 \"0\"，失败时为错误码字符串。"
+          }
+        },
+        "description": "生成记录分页响应体。\n列表接口与创建、查询接口的成功响应一致：f 为 null、c 为 \"0\"、m 为 \"\"（空字符串）。请按 c === \"0\" 判断成功。\n"
+      }
+    },
+    "securitySchemes": {
+      "AuthorizationHeader": {
+        "type": "apiKey",
+        "description": "API Key 鉴权。在 Header 中增加 Authorization，值为平台申请的 ApiKey，无需 Bearer 前缀。",
+        "name": "Authorization",
+        "in": "header"
+      }
+    }
+  }
+}

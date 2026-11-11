@@ -1,0 +1,40 @@
+{
+  "capturedUtcDate": "2026-11-11",
+  "sources": [
+    {
+      "file": "world.openapi.json",
+      "url": "https://labs.aholo3d.cn/api-docs/specifications/services/world/openapi.json",
+      "sha256": "6e2c178447187282b0d6b68a04944ecdce0ba7f55ba1f0d64584b365b1e625aa"
+    },
+    {
+      "file": "lux3d.openapi.json",
+      "url": "https://labs.aholo3d.cn/api-docs/specifications/services/lux3d/openapi.json",
+      "sha256": "e5ec86d623e02cc6cddf161743af1100ce1a9c4e2ac26e33cba59d1ecd2e9293"
+    },
+    {
+      "file": "spatialunderstanding.openapi.json",
+      "url": "https://labs.aholo3d.cn/api-docs/specifications/services/spatialunderstanding/openapi.json",
+      "sha256": "4a561677946682a079cbcfb8ef92e1986dbb688d6861dde719060c74bf90486c"
+    },
+    {
+      "file": "rendercloud.openapi.json",
+      "url": "https://labs.aholo3d.cn/api-docs/specifications/services/rendercloud/openapi.json",
+      "sha256": "75b419f858f123cc25d523c01aef446555ba36348ffecef8e837698a643542c4"
+    },
+    {
+      "file": "asset.openapi.json",
+      "url": "https://labs.aholo3d.cn/api-docs/specifications/services/asset/openapi.json",
+      "sha256": "63a53c7370d858cde7d24194c783382d965c19b3c705179d8aa61ab2bfbd7eb8"
+    },
+    {
+      "file": "oauth-resource.json",
+      "url": "https://api.aholo3d.cn/.well-known/oauth-protected-resource",
+      "sha256": "5a0c6ed80ca6d67fe3cd5d07aab78689b3647b9eb899230918177ddf0bb890ce"
+    },
+    {
+      "file": "oauth-authorization-server.json",
+      "url": "https://www.aholo3d.cn/.well-known/oauth-authorization-server",
+      "sha256": "340a36edc0c89c5d456a33ce0be8091d1437dca3bdbebe7a9bafe5c97521edc0"
+    }
+  ]
+}

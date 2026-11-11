@@ -1,0 +1,889 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "SpatialUnderstanding Open API",
+    "description": "对外开放的**空间理解**接口：提交点云文件创建异步任务，查询任务详情与列表。\n\n**推荐流程**：先通过 Asset 上传接口得到 `.ply` 文件 URL → `POST /spatial-understanding/v1/tasks` 创建任务 → 使用返回的 `taskId` 调用「查询任务详情」轮询，直至成功、失败或超时。\n\n**路径前缀**（相对网关根路径）：`/spatial-understanding/v1`。\n\n**输入**：`inputFileUrl` 只接受 Asset 上传得到的室内 `.ply`；可选 `transformationMatrix`（4×4，列优先，平移在第 4 列）。坐标系：米、右手系、Z-up（ScanNet）。受理成功即扣减积分。\n\n**异步任务**：创建接口返回 `taskId`。成功时 `result.resultSslUrl` 为 UTF-8 文本（DSL），含 Wall / Door / Window / Bbox，需自行下载解析。\n\n**时间与分页**：详情/列表中 `createTime`、`updateTime` 为 **Unix 毫秒**；列表使用 `pageNum`、`pageSize`（`pageNum` 从 1 起，`0` 视为第一页）。\n\n**认证**：在请求头设置 `Authorization`（API key，无需 Bearer 前缀），详见全局安全方案。\n\n**响应**：成功时 HTTP 200 且 body 为业务对象；失败时 HTTP 4xx 且 body 为统一错误结构（含业务码）。",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.aholo3d.cn",
+      "description": "Aholo 开放平台 HTTPS 入口"
+    }
+  ],
+  "tags": [
+    {
+      "name": "SpatialUnderstanding",
+      "description": "空间理解：用室内点云（.ply）创建异步任务，轮询详情获取 Wall / Door / Window / Bbox 文本结果，或分页查询任务列表。",
+      "x-displayName": "空间理解"
+    }
+  ],
+  "paths": {
+    "/spatial-understanding/v1/tasks": {
+      "post": {
+        "tags": [
+          "SpatialUnderstanding"
+        ],
+        "summary": "创建空间理解任务",
+        "description": "异步创建一条空间理解任务：从室内点云中识别墙、门、窗与物体 3D bbox。`inputFileUrl` 须为 Asset 上传得到的 `.ply` 文件 URL。点云坐标系为米、右手系、Z-up；未对齐时请传 `transformationMatrix`（列优先，平移在第 4 列）。受理成功即扣减积分，并返回 `taskId`（与「查询任务详情」路径参数一致）。成功后详情中的 `result.resultSslUrl` 为 DSL 文本，需自行下载解析。",
+        "operationId": "createSpatialUnderstandingTask",
+        "requestBody": {
+          "description": "创建任务请求体。`inputFileUrl` 必填，须为 Asset 上传得到的室内 `.ply` URL；`transformationMatrix` 可选，用于将点云对齐到米制、右手系、Z-up。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSpatialUnderstandingTaskRequest"
+              },
+              "examples": {
+                "createWithoutMatrix": {
+                  "summary": "仅传点云文件，不做坐标变换",
+                  "description": "createWithoutMatrix",
+                  "value": {
+                    "inputFileUrl": "https://holo-cos.aholo3d.cn/resource/openapi/xxx.ply"
+                  }
+                },
+                "createWithMatrix": {
+                  "summary": "附带 4×4 变换矩阵（列优先，含旋转与平移）",
+                  "description": "createWithMatrix",
+                  "value": {
+                    "inputFileUrl": "https://holo-cos.aholo3d.cn/resource/openapi/xxx.ply",
+                    "transformationMatrix": [
+                      [
+                        0.9337461173020494,
+                        0.3579360116324523,
+                        0,
+                        1.871216953359744
+                      ],
+                      [
+                        -0.3579360116324523,
+                        0.9337461173020494,
+                        0,
+                        -0.2091883674268249
+                      ],
+                      [
+                        0,
+                        0,
+                        0.9999999999999999,
+                        1.2121098756790158
+                      ],
+                      [
+                        0,
+                        0,
+                        0,
+                        1
+                      ]
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "受理成功：返回 `taskId`，用于查询任务详情。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpatialUnderstandingTaskAsyncOperation"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "创建受理成功",
+                    "description": "success",
+                    "value": {
+                      "taskId": "A1b2C3d4E5"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数校验失败、点云文件 URL 无效、变换矩阵格式非法、或积分不足（`details.metaData.bizCode` 为业务码）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "请求体校验失败（如 inputFileUrl 为空）",
+                    "description": "业务码 10001",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  },
+                  "invalidInputUrl": {
+                    "summary": "inputFileUrl 无效或不是 .ply",
+                    "description": "业务码 13001，须改用 Asset 上传接口返回的 `.ply` URL",
+                    "value": {
+                      "code": 400,
+                      "message": "invalid file url, please upload a .ply file via the Asset module APIs",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_13001",
+                        "domain": "api.aholo3d.cn",
+                        "message": "invalid file url, please upload a .ply file via the Asset module APIs",
+                        "metaData": {
+                          "bizCode": "13001"
+                        }
+                      }
+                    }
+                  },
+                  "invalidTransformationMatrix": {
+                    "summary": "变换矩阵格式非法",
+                    "description": "业务码 13002，须为 4 行 4 列合法数字",
+                    "value": {
+                      "code": 400,
+                      "message": "invalid transformation matrix, expect a 4x4 numeric array",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_13002",
+                        "domain": "api.aholo3d.cn",
+                        "message": "invalid transformation matrix, expect a 4x4 numeric array",
+                        "metaData": {
+                          "bizCode": "13002"
+                        }
+                      }
+                    }
+                  },
+                  "insufficientCredits": {
+                    "summary": "积分不足以完成任务",
+                    "description": "业务码 24002，积分不足",
+                    "value": {
+                      "code": 400,
+                      "message": "insufficient credits",
+                      "status": "FAILED_PRECONDITION",
+                      "details": {
+                        "reason": "BIZ_24002",
+                        "domain": "api.aholo3d.cn",
+                        "message": "insufficient credits",
+                        "metaData": {
+                          "bizCode": "24002"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "未登录或鉴权失败",
+                    "description": "业务码 10004",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 10
+      }
+    },
+    "/spatial-understanding/v1/tasks/{taskId}": {
+      "get": {
+        "tags": [
+          "SpatialUnderstanding"
+        ],
+        "summary": "查询空间理解任务详情",
+        "description": "根据任务 id 查询当前账号下的任务详情。`PENDING` / `RUNNING` 表示尚未完成，请继续轮询。`SUCCEEDED` 时响应包含 `result.resultSslUrl`（DSL 文本，含 Wall / Door / Window / Bbox，需自行下载解析）。`FAILED` / `TIMEOUT` 时响应包含 `errorCode`、`errorMessage`。",
+        "operationId": "getSpatialUnderstandingTaskDetail",
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "description": "任务 id（与创建接口成功响应 `taskId` 一致）",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "example": "A1b2C3d4E5"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "任务详情。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpatialUnderstandingTask"
+                },
+                "examples": {
+                  "pending": {
+                    "summary": "排队中，尚未产出结果",
+                    "description": "pending",
+                    "value": {
+                      "taskId": "A1b2C3d4E5",
+                      "status": "PENDING",
+                      "modelVersion": "spatiallm-pointcloud-1.2-20260910",
+                      "createTime": 1699339916000,
+                      "updateTime": 1699339916000
+                    }
+                  },
+                  "succeeded": {
+                    "summary": "已完成，含结果地址",
+                    "description": "succeeded",
+                    "value": {
+                      "taskId": "A1b2C3d4E5",
+                      "status": "SUCCEEDED",
+                      "modelVersion": "spatiallm-pointcloud-1.2-20260910",
+                      "result": {
+                        "resultSslUrl": "https://holo-cos.aholo3d.cn/resource/openapi/xxx-result.txt"
+                      },
+                      "createTime": 1699339916000,
+                      "updateTime": 1699340120000
+                    }
+                  },
+                  "failed": {
+                    "summary": "失败，含错误码与详情",
+                    "description": "failed",
+                    "value": {
+                      "taskId": "A1b2C3d4E5",
+                      "status": "FAILED",
+                      "modelVersion": "spatiallm-pointcloud-1.2-20260910",
+                      "errorCode": "MODEL_TASK_FAILED",
+                      "errorMessage": "task failed",
+                      "createTime": 1699339916000,
+                      "updateTime": 1699340120000
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "未登录或鉴权失败",
+                    "description": "业务码 10004",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "任务不存在，或无权访问该任务",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "taskNotFound": {
+                    "summary": "任务不存在",
+                    "description": "业务码 13003",
+                    "value": {
+                      "code": 404,
+                      "message": "spatial understanding task not found",
+                      "status": "NOT_FOUND",
+                      "details": {
+                        "reason": "BIZ_13003",
+                        "domain": "api.aholo3d.cn",
+                        "message": "spatial understanding task not found",
+                        "metaData": {
+                          "bizCode": "13003"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 20
+      }
+    },
+    "/spatial-understanding/v1/tasks/list": {
+      "post": {
+        "tags": [
+          "SpatialUnderstanding"
+        ],
+        "summary": "分页查询我的空间理解任务列表",
+        "description": "分页查询当前账号下的空间理解任务，支持按状态过滤。`pageNum` 从 1 起（`0` 与 `1` 均视为第一页）；`pageSize` 未传或为 0 时按 20 条计，最大 100。",
+        "operationId": "getMySpatialUnderstandingTaskList",
+        "requestBody": {
+          "description": "分页与筛选条件。",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpatialUnderstandingTaskListQueryRequest"
+              },
+              "examples": {
+                "listTaskRequest": {
+                  "description": "示例：第一页、每页 20、按运行中与成功筛选",
+                  "value": {
+                    "pageNum": 1,
+                    "pageSize": 20,
+                    "statusList": [
+                      "RUNNING",
+                      "SUCCEEDED"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "分页列表，含 `pageNum`、`pageSize` 与当前页任务。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpatialUnderstandingTaskPagedList"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "查询成功",
+                    "description": "success",
+                    "value": {
+                      "pageNum": 1,
+                      "pageSize": 20,
+                      "count": 2,
+                      "totalCount": 2,
+                      "hasMore": false,
+                      "result": [
+                        {
+                          "taskId": "A1b2C3d4E5",
+                          "status": "RUNNING",
+                          "modelVersion": "spatiallm-pointcloud-1.2-20260910",
+                          "createTime": 1699339916000,
+                          "updateTime": 1699339916000
+                        },
+                        {
+                          "taskId": "B2c3D4e5F6",
+                          "status": "SUCCEEDED",
+                          "modelVersion": "spatiallm-pointcloud-1.2-20260910",
+                          "result": {
+                            "resultSslUrl": "https://holo-cos.aholo3d.cn/resource/openapi/xxx-result.txt"
+                          },
+                          "createTime": 1699339800000,
+                          "updateTime": 1699340120000
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "分页参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "paramsInvalid": {
+                    "summary": "请求体/分页参数校验失败",
+                    "description": "业务码 10001，如 pageSize 超出 [0, 100]",
+                    "value": {
+                      "code": 400,
+                      "message": "Invalid request parameters",
+                      "status": "INVALID_ARGUMENT",
+                      "details": {
+                        "reason": "BIZ_10001",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Invalid request parameters",
+                        "metaData": {
+                          "bizCode": "10001"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未携带或无效的 Authorization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "notLoggedIn": {
+                    "summary": "未登录或鉴权失败",
+                    "description": "业务码 10004",
+                    "value": {
+                      "code": 401,
+                      "message": "Not logged in",
+                      "status": "UNAUTHENTICATED",
+                      "details": {
+                        "reason": "BIZ_10004",
+                        "domain": "api.aholo3d.cn",
+                        "message": "Not logged in",
+                        "metaData": {
+                          "bizCode": "10004"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthorizationHeader": []
+          }
+        ],
+        "x-scalar-order": 30
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateSpatialUnderstandingTaskRequest": {
+        "required": [
+          "inputFileUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "inputFileUrl": {
+            "minLength": 1,
+            "type": "string",
+            "description": "点云文件 URL，仅支持 `.ply`，面向室内场景。点云应使用米为单位的右手坐标系，并完成空间对齐（[ScanNet Alignment](https://github.com/ScanNet/ScanNet/tree/master/Alignment)）：使 Z 轴朝上、地面与 X-Y 平面平行，同时尽量使主要墙体在水平面上的走向与 X 轴或 Y 轴平行。若输入点云未满足上述要求，请传入 `transformationMatrix`。本地文件请先调用 [Asset 文件上传接口](https://labs.aholo3d.cn/api-docs/api-reference#tag/asset)，再将返回的 URL 填入此字段。不支持外部 URL。",
+            "example": "https://holo-cos.aholo3d.cn/resource/openapi/xxx.ply"
+          },
+          "transformationMatrix": {
+            "type": "array",
+            "description": "可选。用于将输入点云转换至上述对齐坐标系的 4×4 齐次变换矩阵（4 行 4 列数字），使 Z 轴朝上、地面与 X-Y 平面平行，并尽量使主要墙体在水平面上的走向与 X 轴或 Y 轴平行。不传表示输入点云已完成对齐，不做变换。约定：列向量乘法 `p' = T p`；平移在第 4 列；右手系；Z-up（[ScanNet Alignment](https://github.com/ScanNet/ScanNet/tree/master/Alignment)）；单位米。\n\n分块示意：左上 `R` 为 3×3 旋转，右侧 `t` 为平移，底行固定为 `[0, 0, 0, 1]`。\n\n```\nT = [ R(3×3)  t(3×1) ]\n    [ 0(1×3)  1      ]\n```\n\n对应请求体下标：\n\n```\n[\n  [ r00, r01, r02, tx ],\n  [ r10, r11, r12, ty ],\n  [ r20, r21, r22, tz ],\n  [   0,   0,   0,  1 ]\n]\n```",
+            "example": [
+              [
+                0.9337461173020494,
+                0.3579360116324523,
+                0,
+                1.871216953359744
+              ],
+              [
+                -0.3579360116324523,
+                0.9337461173020494,
+                0,
+                -0.2091883674268249
+              ],
+              [
+                0,
+                0,
+                0.9999999999999999,
+                1.2121098756790158
+              ],
+              [
+                0,
+                0,
+                0,
+                1
+              ]
+            ],
+            "items": {
+              "type": "array",
+              "description": "可选。用于将输入点云转换至上述对齐坐标系的 4×4 齐次变换矩阵（4 行 4 列数字），使 Z 轴朝上、地面与 X-Y 平面平行，并尽量使主要墙体在水平面上的走向与 X 轴或 Y 轴平行。不传表示输入点云已完成对齐，不做变换。约定：列向量乘法 `p' = T p`；平移在第 4 列；右手系；Z-up（[ScanNet Alignment](https://github.com/ScanNet/ScanNet/tree/master/Alignment)）；单位米。\n\n分块示意：左上 `R` 为 3×3 旋转，右侧 `t` 为平移，底行固定为 `[0, 0, 0, 1]`。\n\n```\nT = [ R(3×3)  t(3×1) ]\n    [ 0(1×3)  1      ]\n```\n\n对应请求体下标：\n\n```\n[\n  [ r00, r01, r02, tx ],\n  [ r10, r11, r12, ty ],\n  [ r20, r21, r22, tz ],\n  [   0,   0,   0,  1 ]\n]\n```",
+              "example": [
+                [
+                  0.9337461173020494,
+                  0.3579360116324523,
+                  0,
+                  1.871216953359744
+                ],
+                [
+                  -0.3579360116324523,
+                  0.9337461173020494,
+                  0,
+                  -0.2091883674268249
+                ],
+                [
+                  0,
+                  0,
+                  0.9999999999999999,
+                  1.2121098756790158
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  1
+                ]
+              ],
+              "items": {
+                "type": "number",
+                "description": "可选。用于将输入点云转换至上述对齐坐标系的 4×4 齐次变换矩阵（4 行 4 列数字），使 Z 轴朝上、地面与 X-Y 平面平行，并尽量使主要墙体在水平面上的走向与 X 轴或 Y 轴平行。不传表示输入点云已完成对齐，不做变换。约定：列向量乘法 `p' = T p`；平移在第 4 列；右手系；Z-up（[ScanNet Alignment](https://github.com/ScanNet/ScanNet/tree/master/Alignment)）；单位米。\n\n分块示意：左上 `R` 为 3×3 旋转，右侧 `t` 为平移，底行固定为 `[0, 0, 0, 1]`。\n\n```\nT = [ R(3×3)  t(3×1) ]\n    [ 0(1×3)  1      ]\n```\n\n对应请求体下标：\n\n```\n[\n  [ r00, r01, r02, tx ],\n  [ r10, r11, r12, ty ],\n  [ r20, r21, r22, tz ],\n  [   0,   0,   0,  1 ]\n]\n```",
+                "format": "double"
+              }
+            }
+          }
+        },
+        "description": "创建空间理解任务请求体。面向室内点云；坐标系为米、右手系、Z-up。"
+      },
+      "SpatialUnderstandingTaskAsyncOperation": {
+        "required": [
+          "taskId"
+        ],
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "任务 id。填入 `GET /spatial-understanding/v1/tasks/{taskId}` 即可轮询状态与结果。",
+            "example": "A1b2C3d4E5"
+          }
+        },
+        "description": "创建任务受理结果，含 `taskId`。用该 id 查询详情直至任务完成。"
+      },
+      "ApiError": {
+        "required": [
+          "code",
+          "details",
+          "message",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "HTTP状态码",
+            "format": "int32",
+            "example": 403
+          },
+          "message": {
+            "type": "string",
+            "description": "面向开发者的错误消息（英文），用户可见的本地化消息请使用localizedMessage字段",
+            "example": "Permission denied to access this resource"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Code"
+          },
+          "details": {
+            "$ref": "#/components/schemas/ErrorDetails"
+          },
+          "localizedMessage": {
+            "$ref": "#/components/schemas/LocalizedMessage"
+          },
+          "help": {
+            "$ref": "#/components/schemas/Help"
+          }
+        },
+        "description": "API错误响应对象，包含完整的错误信息、状态码和帮助信息"
+      },
+      "Code": {
+        "type": "string",
+        "description": "REST API标准状态码，符合Google API设计规范，用于统一的错误码表示",
+        "example": "PERMISSION_DENIED",
+        "enum": [
+          "OK",
+          "CANCELLED",
+          "UNKNOWN",
+          "INVALID_ARGUMENT",
+          "DEADLINE_EXCEEDED",
+          "NOT_FOUND",
+          "ALREADY_EXISTS",
+          "PERMISSION_DENIED",
+          "UNAUTHENTICATED",
+          "RESOURCE_EXHAUSTED",
+          "FAILED_PRECONDITION",
+          "ABORTED",
+          "OUT_OF_RANGE",
+          "UNIMPLEMENTED",
+          "INTERNAL",
+          "UNAVAILABLE",
+          "DATA_LOSS",
+          "PARTIAL_ELEMENT_UPDATE_FAILED"
+        ]
+      },
+      "ErrorDetails": {
+        "required": [
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
+            "maxLength": 63,
+            "pattern": "[A-Z][A-Z0-9_]+[A-Z0-9]",
+            "type": "string",
+            "description": "错误原因标识符，使用大写蛇形命名法（UPPER_SNAKE_CASE），最多63个字符",
+            "example": "RESOURCE_NOT_FOUND"
+          },
+          "message": {
+            "type": "string",
+            "description": "针对此错误的人类可读说明，提供具体的错误上下文",
+            "nullable": true,
+            "example": "The requested design with ID 12345 does not exist"
+          },
+          "domain": {
+            "type": "string",
+            "description": "错误域，通常是生成错误的服务名称",
+            "nullable": true,
+            "example": "restapi.qunhe.com"
+          },
+          "metaData": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "description": "错误的附加元数据，键值对格式，键最多64个字符，符合模式 /[a-zA-Z0-9-_]/",
+              "nullable": true,
+              "example": "{\"instanceLimitPerRequest\":\"100\",\"currentInstanceCount\":\"150\"}"
+            },
+            "description": "错误的附加元数据，键值对格式，键最多64个字符，符合模式 /[a-zA-Z0-9-_]/",
+            "nullable": true,
+            "example": {
+              "instanceLimitPerRequest": "100",
+              "currentInstanceCount": "150"
+            }
+          }
+        },
+        "description": "错误详情对象，提供错误的详细上下文信息，包括原因、域和元数据"
+      },
+      "Help": {
+        "required": [
+          "desc",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "desc": {
+            "type": "string",
+            "description": "链接内容的描述，说明此帮助文档的用途",
+            "example": "如何解决权限拒绝错误"
+          },
+          "url": {
+            "type": "string",
+            "description": "帮助文档的URL链接",
+            "example": "https://docs.example.com/errors/permission-denied"
+          }
+        },
+        "description": "帮助信息对象，提供解决错误的文档链接和说明",
+        "nullable": true
+      },
+      "LocalizedMessage": {
+        "required": [
+          "locale",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string",
+            "description": "消息的语言环境标识",
+            "example": "zh_CN"
+          },
+          "message": {
+            "type": "string",
+            "description": "本地化后的错误消息文本，面向最终用户",
+            "example": "您没有访问此资源的权限"
+          }
+        },
+        "description": "本地化消息对象，提供特定语言环境的错误消息",
+        "nullable": true
+      },
+      "SpatialUnderstandingTaskListQueryRequest": {
+        "type": "object",
+        "properties": {
+          "pageNum": {
+            "minimum": 0,
+            "type": "integer",
+            "description": "页码，从 1 起；`0` 与 `1` 均视为第一页。",
+            "format": "int32",
+            "example": 1
+          },
+          "pageSize": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer",
+            "description": "每页条数，最大 100；为 0 或未传时按 20 条计。",
+            "format": "int32",
+            "example": 20
+          },
+          "statusList": {
+            "type": "array",
+            "description": "按任务状态过滤（大写字符串）；为空表示不按状态过滤。",
+            "items": {
+              "$ref": "#/components/schemas/SpatialUnderstandingTaskStatus"
+            }
+          }
+        },
+        "description": "分页查询空间理解任务列表的请求体：`pageNum` 从 1 起（`0` 与 `1` 均视为第一页）；`pageSize` 为每页条数（1-100，缺省或 0 时按 20 条计）。仅查询当前账号下的任务数据。"
+      },
+      "SpatialUnderstandingTaskStatus": {
+        "type": "string",
+        "description": "空间理解任务状态。**进行中**：`PENDING` 排队中；`RUNNING` 执行中。**终态**：`SUCCEEDED` 成功；`FAILED` 失败；`TIMEOUT` 超时。",
+        "example": "SUCCEEDED",
+        "enum": [
+          "PENDING",
+          "RUNNING",
+          "SUCCEEDED",
+          "FAILED",
+          "TIMEOUT"
+        ]
+      },
+      "SpatialUnderstandingTask": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "任务 id，与创建接口返回值一致。",
+            "example": "A1b2C3d4E5"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SpatialUnderstandingTaskStatus"
+          },
+          "modelVersion": {
+            "type": "string",
+            "description": "本次任务实际使用的模型版本。创建时不可指定，由服务端使用当前默认版本。",
+            "example": "spatiallm-pointcloud-1.2-20260910"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SpatialUnderstandingTaskResult"
+          },
+          "errorCode": {
+            "type": "string",
+            "description": "失败分类码；仅 `FAILED` 或 `TIMEOUT` 时返回。`MODEL_SUBMIT_FAILED`：任务提交失败；`MODEL_TASK_FAILED`：任务执行失败；`RESULT_TRANSFER_FAILED`：结果写入失败；`TIMEOUT`：超时。",
+            "example": "MODEL_TASK_FAILED"
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "失败详情；仅 `FAILED` 或 `TIMEOUT` 时返回。",
+            "example": "task failed"
+          },
+          "createTime": {
+            "type": "integer",
+            "description": "创建时间，Unix 毫秒。",
+            "format": "int64"
+          },
+          "updateTime": {
+            "type": "integer",
+            "description": "最后更新时间，Unix 毫秒。",
+            "format": "int64"
+          }
+        },
+        "description": "空间理解任务详情。成功时含 `result`，失败或超时时含 `errorCode`、`errorMessage`。"
+      },
+      "SpatialUnderstandingTaskPagedList": {
+        "type": "object",
+        "properties": {
+          "pageNum": {
+            "type": "integer",
+            "description": "本次请求使用的页码（从 1 起；请求传 `0` 时原样回写 `0`）。",
+            "format": "int32",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "description": "本次请求使用的每页条数。",
+            "format": "int32",
+            "example": 20
+          },
+          "count": {
+            "type": "integer",
+            "description": "当前页记录条数。",
+            "format": "int32",
+            "example": 20
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "符合筛选条件的总记录数。",
+            "format": "int32",
+            "example": 128
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "是否还有下一页。",
+            "example": false
+          },
+          "result": {
+            "type": "array",
+            "description": "当前页的任务记录列表。",
+            "items": {
+              "$ref": "#/components/schemas/SpatialUnderstandingTask"
+            }
+          }
+        },
+        "description": "空间理解任务列表分页结果：含本次请求的 `pageNum` / `pageSize`，以及当前页数据与总计。"
+      },
+      "SpatialUnderstandingTaskResult": {
+        "type": "object",
+        "properties": {
+          "resultSslUrl": {
+            "type": "string",
+            "description": "空间理解结果文件的访问地址。UTF-8 纯文本，一行一个实体；服务端不提供解析后的 JSON，请自行下载并解析。\n\n坐标系：单位米，右手系，Z-up（[ScanNet Alignment](https://github.com/ScanNet/ScanNet/tree/master/Alignment)）。\n\n行格式：`{id}={Type}(arg1,arg2,...)`。未知 `Type` 请跳过该行，不要整文件失败。\n\n| Type | 行格式 |\n| --- | --- |\n| Wall | `wall_{n}=Wall(ax,ay,az,bx,by,bz,height,thickness)` |\n| Door | `door_{n}=Door(wall_id,position_x,position_y,position_z,width,height)` |\n| Window | `window_{n}=Window(wall_id,position_x,position_y,position_z,width,height)` |\n| Bbox | `bbox_{n}=Bbox(class,position_x,position_y,position_z,angle_z,scale_x,scale_y,scale_z)` |\n\n| 类型 | 字段 | 数据类型 | 说明 |\n| --- | --- | --- | --- |\n| Wall | `ax, ay, az` | number | 墙体底部基准线起点 A 的三维坐标。 |\n| Wall | `bx, by, bz` | number | 墙体底部基准线终点 B 的三维坐标。 |\n| Wall | `height` | number | 墙体高度。 |\n| Wall | `thickness` | number | 墙体厚度；当前输出为 `0.0`，因为识别的是房间内轮廓的边。 |\n| Door | `wall_id` | string | 门所属墙体的标识符，例如 `wall_0`，应引用当前文件中已有的墙体。 |\n| Door | `position_x, position_y, position_z` | number | 门洞中心点的三维坐标。 |\n| Door | `width` | number | 门洞沿所属墙体方向的宽度。 |\n| Door | `height` | number | 门洞的垂直高度。 |\n| Window | `wall_id` | string | 窗所属墙体的标识符，例如 `wall_4`，应引用当前文件中已有的墙体。 |\n| Window | `position_x, position_y, position_z` | number | 窗洞中心点的三维坐标。 |\n| Window | `width` | number | 窗洞沿所属墙体方向的宽度。 |\n| Window | `height` | number | 窗洞的垂直高度。 |\n| Bbox | `class` | string | 物体类别，例如 `chair`、`sofa`、`carpet`、`coffee_table`。 |\n| Bbox | `position_x, position_y, position_z` | number | 三维包围盒中心点坐标。 |\n| Bbox | `angle_z` | number | 包围盒绕 Z 轴的旋转角，即水平方向朝向。 |\n| Bbox | `scale_x` | number | 包围盒局部 X 轴方向的完整尺寸，非半尺寸。 |\n| Bbox | `scale_y` | number | 包围盒局部 Y 轴方向的完整尺寸，非半尺寸。 |\n| Bbox | `scale_z` | number | 包围盒局部 Z 轴方向的完整尺寸，即高度。 |\n\n解析建议：按行读取。`class` 可能含空格（如 `dining chair`），不要按第一个逗号切分；应从右侧取 7 个数字，左侧整段作为 `class`。`class` 一般无引号。数字为浮点。\n\n格式示意：\n\n```\nwall_0=Wall(1.6857,-4.4625,0.0,4.6798,-4.4474,0.0,2.73,0.0)\ndoor_0=Door(wall_0,3.1734,-4.4550,1.05,1.3852,2.1)\nwindow_0=Window(wall_4,5.6622,-1.0338,1.65,0.6883,1.5)\nbbox_0=Bbox(carpet,-3.009,4.371,-1.401,-1.5708,5.718,6.734,0.109)\n```\n\n**常见 class**\n\n| class | 中文 |\n| --- | --- |\n| curtain | 窗帘 |\n| painting | 装饰画 |\n| nightstand | 床头柜 |\n| chandelier | 吊灯 |\n| wardrobe | 衣柜 |\n| bed | 床 |\n| carpet | 地毯 |\n| sofa | 沙发 |\n| dining chair | 餐椅 |\n| bathroom cabinet | 浴室柜 |\n| television | 电视 |\n| toilet | 坐便器 |\n| dining table combination | 餐桌组合 |\n| chair | 椅子 |\n| shower | 花洒 |\n| plants | 绿植 |\n| tv cabinet | 电视柜 |\n| coffee table | 茶几/茶座 |\n| illumination | 照明 |\n| shoe cabinet | 鞋柜 |\n| refrigerator | 冰箱 |\n| shower room | 淋浴房 |\n| wall decoration | 墙饰/挂件 |\n| cupboard | 橱柜 |\n| side table | 边几 |\n| stool | 凳子 |\n| wine cabinet | 酒柜 |\n| bookcase | 书柜 |\n| combination sofa | 组合沙发 |\n| air conditioner | 空调 |\n| washing cabinet | 洗衣机柜 |\n| pillow | 抱枕/靠垫 |\n| stove | 灶台 |\n| dressing table | 梳妆台 |\n| desk | 书桌 |\n| cushion | 坐垫 |\n| floor-standing lamp | 落地灯 |\n| dining table | 餐桌 |\n| washing machine | 洗衣机 |\n| hand sink | 洗手台 |\n| clothes rack | 晾衣架 |\n| mirror | 镜子 |\n| sideboard | 餐边柜 |\n| computer | 电脑 |\n| potted bonsai | 盆栽盆景 |\n| range hood | 抽油烟机 |\n| entrance cabinet | 玄关柜 |\n| cupboard | 斗柜 |\n| gas stove | 燃气灶 |\n| multifunctional combination bed | 多功能组合床 |\n| leisure table and chair combination | 休闲桌椅组合 |\n| bar chair | 吧台椅 |\n| screen | 屏风 |\n| sink | 水槽 |\n| bar | 吧台 |\n| tub | 浴缸 |\n| decorative cabinet | 装饰柜 |\n| wall cabinet | 壁柜 |\n| integrated stove | 集成灶 |\n| micro-wave oven | 微波炉 |",
+            "example": "https://holo-cos.aholo3d.cn/resource/openapi/xxx-result.txt"
+          }
+        },
+        "description": "空间理解任务产物。仅任务成功时返回。`resultSslUrl` 指向 UTF-8 文本（DSL），含 Wall / Door / Window / Bbox，需自行下载解析。"
+      }
+    },
+    "securitySchemes": {
+      "AuthorizationHeader": {
+        "type": "apiKey",
+        "description": "开放平台访问凭证。API key 鉴权,在 Header 中增加 Authorization，值为平台申请的 API key，无需 Bearer 前缀。",
+        "name": "Authorization",
+        "in": "header"
+      }
+    }
+  }
+}
