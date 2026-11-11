@@ -344,3 +344,10 @@ Two local read-only reviews strengthened direction/face association and original
 ### Candidate checkpoint — alpha.16
 
 Packages the USD flat-normal and planar concave-quad correction from `469625c`, retaining authored normals, source corners and native warped quads. The bundled shading sample supports visual hard-edge/smooth-edge comparison. Source verification includes 1190 passing offline .NET tests, 48 independent geometry checks and actual four-format mesh/mixed-scene reader checks. Stable plugin GUID, assembly identity and Yak slug remain unchanged. Native/platform/service gates remain pending; candidate packaging does not install or publish.
+
+
+## Effective and per-face materials after alpha.16
+
+Separated effective native material binding from scalar/bitmap snapshot decoding. Top-level ByParent now uses layer semantics; nested instances retain their actual parent base, including face-channel lookup. Brep overrides use explicit original faces; extrusion components map only against the unsplit Brep form. Unsupported or missing bindings fail before export/upload instead of flattening to one appearance. All owned geometry copies are cleaned on failure. Ordinary mesh objects retain object-level material support.
+
+Cloud and local export now share native quad triangulation on double-precision copies, with checks against silent corner collapse. Two read-only reviewers identified unassigned-parent, renderer-reference and default-material cases; these were corrected, together with a triangle-count integrity check. Native host appearance and the component behavior are still unaccepted; surface textures and general shader graphs remain separate gaps. Remote allowance remained insufficient; no new third-party call was made.

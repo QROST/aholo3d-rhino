@@ -244,3 +244,10 @@ These are local file/math/protocol checks, not native Rhino rendering or Windows
 ### Alpha.16 source checkpoint
 
 Candidate `0.2.0-alpha.16` packages the verified USD correction `469625c` and its self-contained shading sample. Version metadata changes preserve assembly version `0.2.0.0`, plugin identity and package slug. Local archive receipts bind the final source commit and platform-specific bytes; both archives are produced on Mac and do not establish Windows execution. Host appearance, Undo/persistence and live-service acceptance remain open.
+
+
+## Native material capture integration (2026-11-11 UTC)
+
+Release build passed with zero warnings/errors. **1201 offline .NET tests passed**, zero failed/skipped. Eleven new cases cover source-face ordering, distinct instance bases, empty/default channels, shared material IDs, missing material failure, cancellation including the last/empty plan, and production GLB geometry-to-material association with opacity. These validate the portable binding plan and writer; they do not invoke Rhino's material table or mesher.
+
+Fixed RhinoCommon 8.32 API compilation and official component/channel contracts support the native adapter implementation. Independent read-only reviews checked effective-parent context, renderer material references, original-face ownership, extrusion correspondence and private-resource cleanup. Native quad source inspection identified corner-collapse behavior; the capture path now verifies complete triangle count as well as vertex count. After the final host-only adjustments, the native adapter rebuilt with zero warnings/errors. Manual Mac/Windows cases are in the integrated checklist; neither those checks nor real render ingestion was executed here. No Rhino automation, authenticated API call, installation, push or publication occurred.

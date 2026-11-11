@@ -158,25 +158,21 @@ internal static partial class AholoHost
         if (objects.Length == 0) throw new InvalidOperationException(UiText.Get("Select meshes, surfaces, extrusions or ordinary blocks first."));
         if(objects.Any(o=>o.Attributes.Space==ActiveSpace.PageSpace))throw new InvalidOperationException(UiText.Get("Select model-space geometry. Page-space objects use different units and cannot enter this mesh workflow."));
         var meshes = new List<MeshData>();var lights=new List<RenderLight>();var textures=new Dictionary<int,MeshTextureSource>();var origins=new List<GaussianVector>();var names=new List<string>();
-        foreach (var (obj,transform,appearance,parentMapping) in RenderObjects(objects,doc,includeLights,includeTextures,gaussianParts))
+        foreach (var (obj,transform,binding,parentMapping) in RenderObjects(objects,doc,includeLights,gaussianParts))
         {
             if(obj.Geometry is Light light)
             {
                 if(light.IsEnabled)lights.Add(CaptureLight(light,transform,mm,pointRadiusMillimetres,lightIntensityMultiplier,doc));
                 continue;
             }
-            Mesh[] generated = obj.Geometry switch
-            {
-                Mesh mesh => new[] { mesh.DuplicateMesh() },
-                Brep brep => Mesh.CreateFromBrep(brep, MeshingParameters.Default) ?? Array.Empty<Mesh>(),
-                Extrusion extrusion => MeshExtrusion(extrusion),
-                _ => Array.Empty<Mesh>()
-            };
+            var generated = CaptureMeshParts(obj,binding,doc);
             try
             {
                 if (generated.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("A selected object cannot be converted to a mesh. Nothing has been uploaded."));
-                foreach (Mesh mesh in generated)
+                foreach (var part in generated)
                 {
+                    Mesh mesh=part.Mesh;
+                    var appearance=CaptureMaterial(part.Binding,doc,includeTextures);
                     float[]? uv = appearance.Texture is { } bitmap ? CaptureTextureCoordinates(obj, mesh, bitmap, parentMapping) : null;
                     if (appearance.Texture is not null) textures.Add(meshes.Count, appearance.Texture.Source);
                     // Preserve custom/welded normals before Rhino transforms its private mesh copy.
@@ -189,14 +185,17 @@ internal static partial class AholoHost
                         var n = mesh.Normals[i]; sourceNormals[i * 3] = n.X; sourceNormals[i * 3 + 1] = n.Y; sourceNormals[i * 3 + 2] = n.Z;
                     }
                     var normals = MeshAttributes.TransformNormals(sourceNormals, new(transform.M00, transform.M01, transform.M02, transform.M10, transform.M11, transform.M12, transform.M20, transform.M21, transform.M22));
-                    // Rebase only after transforming a double-precision copy; float block translation would already lose local detail.
-                    if(rebase)mesh.Vertices.UseDoublePrecisionVertices=true;
+                    // Both routes transform and triangulate a double-precision copy before final transport conversion.
+                    mesh.Vertices.UseDoublePrecisionVertices=true;
                     if (!mesh.Transform(transform)) throw new InvalidOperationException(UiText.Get("A block transform could not be applied."));
                     if(transform.Determinant < 0) mesh.Flip(true,true,true);
                     if (mesh.Vertices.Count == 0 || mesh.Faces.Count == 0 || !mesh.IsValid) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The selection contains empty or invalid meshes. Repair them in Rhino first."));
                     Point3d anchor=rebase?mesh.Vertices.Point3dAt(0):Point3d.Origin;
                     origins.Add(new(anchor.X*mm,anchor.Y*mm,anchor.Z*mm));names.Add(obj.Name??"");
-                    if(rebase)mesh.Faces.ConvertQuadsToTriangles();
+                    int vertexCount=mesh.Vertices.Count;
+                    long triangles=(long)mesh.Faces.TriangleCount+2L*mesh.Faces.QuadCount;
+                    mesh.Faces.ConvertQuadsToTriangles();
+                    if(mesh.Faces.QuadCount!=0||mesh.Vertices.Count!=vertexCount||mesh.Faces.Count!=triangles)throw new InvalidOperationException(UiText.Get("The mesh could not be triangulated. Repair it before export."));
                     var positions = new float[checked(mesh.Vertices.Count * 3)];
                     for (int i = 0; i < mesh.Vertices.Count; i++)
                     {
@@ -207,21 +206,20 @@ internal static partial class AholoHost
                     foreach (MeshFace face in mesh.Faces)
                     {
                         indices.Add(face.A); indices.Add(face.B); indices.Add(face.C);
-                        if (face.IsQuad) { indices.Add(face.A); indices.Add(face.C); indices.Add(face.D); }
                     }
                     meshes.Add(new MeshData(positions, indices.ToArray(), appearance.Color.R, appearance.Color.G, appearance.Color.B) { Material = appearance.Factors, Normals = normals, TexCoords = uv });
                 }
             }
-            finally { foreach (Mesh mesh in generated) mesh.Dispose(); }
+            finally { foreach (var part in generated) part.Mesh.Dispose(); }
         }
         if(meshes.Count==0 && (gaussianParts is null || gaussianParts.Count==0))throw new InvalidOperationException(UiText.Get("Select at least one supported mesh or surface together with the lights."));
         return new GeometrySnapshot(meshes,lights.ToArray(),textures,origins.ToArray(),names.ToArray());
     }
-    private sealed record MaterialSnapshot(Color Color,MeshMaterial? Factors,bool Assigned=false,TextureSnapshot? Texture=null);
-    private static IEnumerable<(RhinoObject Object,Transform Transform,MaterialSnapshot Appearance,bool ParentMapping)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc,bool includeLights,bool includeTextures,List<GaussianDocument.ExportPart>? gaussianParts=null)
+    private sealed record MaterialSnapshot(Color Color,MeshMaterial? Factors,TextureSnapshot? Texture=null);
+    private static IEnumerable<(RhinoObject Object,Transform Transform,MaterialBinding Binding,bool ParentMapping)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc,bool includeLights,List<GaussianDocument.ExportPart>? gaussianParts=null)
     {
         var ancestry=new HashSet<Guid>();
-        var stack=new Stack<(IEnumerator<RhinoObject> Objects,Transform Transform,Guid? Definition,Lazy<MaterialSnapshot>? ParentMaterial,bool ParentMapping)>();
+        var stack=new Stack<(IEnumerator<RhinoObject> Objects,Transform Transform,Guid? Definition,Lazy<MaterialBinding>? ParentMaterial,bool ParentMapping)>();
         stack.Push((roots.GetEnumerator(),Transform.Identity,null,null,false));
         try
         {
@@ -238,7 +236,7 @@ internal static partial class AholoHost
                     continue;
                 }
                 // Resolve inherited material only when a mesh leaf actually consumes it. GS ignores proxy/parent materials.
-                var appearance = new Lazy<MaterialSnapshot>(()=>CaptureMaterial(obj,doc,frame.ParentMaterial,includeTextures));
+                var appearance = new Lazy<MaterialBinding>(()=>CaptureMaterialBinding(obj,doc,frame.ParentMaterial));
                 if(obj is InstanceObject instance)
                 {
                     var definition=instance.InstanceDefinition??throw new InvalidOperationException(UiText.Get("A selected block definition is missing."));
@@ -261,7 +259,7 @@ internal static partial class AholoHost
         double mm=global::Rhino.RhinoMath.UnitScale(doc.ModelUnitSystem,global::Rhino.UnitSystem.Millimeters);
         var selected=doc.Objects.GetSelectedObjects(false,false).Concat(doc.Lights.Where(l=>!l.IsDeleted&&l.IsSelected(false)!=0).Cast<RhinoObject>()).DistinctBy(o=>o.Id);
         var lights=new List<RenderLight>();
-        foreach(var (obj,transform,_,_) in RenderObjects(selected,doc,true,false))
+        foreach(var (obj,transform,_,_) in RenderObjects(selected,doc,true))
             if(obj.Geometry is Light {IsEnabled:true} light)lights.Add(CaptureLight(light,transform,mm,radius,1,doc));
         if(lights.Count==0)throw new InvalidOperationException(UiText.Get("Select enabled rectangular or point lights, or turn off light capture in scene settings."));
         return lights.ToArray();
@@ -286,22 +284,13 @@ internal static partial class AholoHost
             _=>throw new InvalidOperationException(UiText.Get("Selected lights include an unsupported type. Only world rectangular and point lights are supported."))
         };
     }
-    private static MaterialSnapshot CaptureMaterial(RhinoObject obj,RhinoDoc doc,Lazy<MaterialSnapshot>? parent,bool includeTextures)
+    private static MaterialSnapshot CaptureMaterial(MaterialBinding binding,RhinoDoc doc,bool includeTextures)
     {
-        if(obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromParent&&parent is not null)
-        {
-            var inherited=parent.Value;
-            return inherited.Assigned?inherited:new(obj.Attributes.DrawColor(doc),null);
-        }
-        Color color=obj.Attributes.DrawColor(doc);
-        bool assigned=obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromObject&&obj.Attributes.MaterialIndex>=0
-            ||obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromLayer&&doc.Layers[obj.Attributes.LayerIndex].RenderMaterialIndex>=0;
-        if(!assigned)return new(color,null);
-        var material=obj.GetMaterial(true);
+        Color color=binding.FallbackColor;var material=binding.Material;
         if(material is null)return new(color,null);
         color=material.DiffuseColor;
         var bitmap=includeTextures?CaptureTexture(material,doc):null;
-        if(!material.IsPhysicallyBased)return new(color,null,true,bitmap);
+        if(!material.IsPhysicallyBased)return new(color,null,bitmap);
         var pbr=material.PhysicallyBased;var raw=pbr.BaseColor;
         var factors=new MeshMaterial(raw.R,raw.G,raw.B,pbr.Alpha,pbr.Metallic,pbr.Roughness);
         factors.Validate();
@@ -314,12 +303,7 @@ internal static partial class AholoHost
             var linear=global::Rhino.Display.Color4f.ApplyGamma(raw,gamma);
             factors=factors with{R=linear.R,G=linear.G,B=linear.B};factors.Validate();
         }
-        return new(color,factors,true,bitmap);
-    }
-    private static Mesh[] MeshExtrusion(Extrusion extrusion)
-    {
-        using Brep brep = extrusion.ToBrep();
-        return Mesh.CreateFromBrep(brep, MeshingParameters.Default) ?? Array.Empty<Mesh>();
+        return new(color,factors,bitmap);
     }
     private static float CheckedFloat(double value)
     {

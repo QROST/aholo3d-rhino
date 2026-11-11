@@ -4670,5 +4670,21 @@
   {
     "English": "{0}: material {1}: {2}",
     "Chinese": "{0}：材质 {1}：{2}"
+  },
+  {
+    "English": "A face material channel is invalid. Repair its material assignment before export.",
+    "Chinese": "面材质通道无效。请先修复材质分配，再导出。"
+  },
+  {
+    "English": "A face material is missing. Repair its material assignment before export.",
+    "Chinese": "找不到面材质。请先修复材质分配，再导出。"
+  },
+  {
+    "English": "A sub-object material cannot be resolved. Convert the object to separate material parts before export.",
+    "Chinese": "无法解析子对象材质。请先将对象转换为按材质分开的部分，再导出。"
+  },
+  {
+    "English": "The mesh could not be triangulated. Repair it before export.",
+    "Chinese": "无法将网格三角化。请修复网格后再导出。"
   }
 ]
