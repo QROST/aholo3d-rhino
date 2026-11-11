@@ -163,6 +163,34 @@ public sealed class RealtimePreviewManagerTests
         await Eventually(()=>h.Manager.Get(request.Id,0).Reply.State!.AcknowledgedScene==1);
         var committed=await Send("get",new{id=request.Id,afterFrame=0});Assert.Equal(1,committed.Reply.State!.AcknowledgedScene);
     }
+    [Fact]public async Task ChinaPreviewRecordsRegionAndSwitchCleansUsingOriginalIdentity()
+    {
+        await using var h=await Harness.New("china");var request=await h.StartStreaming();
+        Assert.Equal("china",h.Journal.Read(request.Id).Region);Assert.Equal("china",h.BackendRegion);
+        using(await h.Manager.BeforeCredentialChangeAsync(default))await h.Credentials.SwitchRegionAsync("international");
+        Assert.False(h.Journal.Read(request.Id).NeedsCleanup);Assert.Equal("china",h.BackendRegion);
+        await Assert.ThrowsAsync<ProviderException>(()=>h.Manager.CameraAsync(new(request.Id,1,Camera()),h.Epoch,default));
+    }
+    [Fact]public async Task CleanupCannotUseSameKeyTextFromAnotherRegion()
+    {
+        await using var h=await Harness.New("china");h.Backend.FailFirstClose=true;var request=await h.StartStreaming();
+        await h.Manager.StopAsync(request.Id,h.Epoch,default);
+        var next=await h.Credentials.ConnectAsync(new("fixture-only","international"),false);
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>h.Manager.StopAsync(request.Id,next.Epoch,default));
+        Assert.True(h.Journal.Read(request.Id).NeedsCleanup);Assert.Single(h.Backend.CloseRetries);
+        var original=await h.Credentials.ConnectAsync(new("fixture-only","china"),false);
+        await h.Manager.StopAsync(request.Id,original.Epoch,default);Assert.Equal("china",h.BackendRegion);Assert.False(h.Journal.Read(request.Id).NeedsCleanup);
+    }
+    [Fact]public async Task UnknownCleanupResolutionRequiresOriginalRegion()
+    {
+        await using var h=await Harness.New("china");var request=h.Request();await h.Manager.StartAsync(request,h.Epoch,default);
+        await h.Backend.Created.Task.WaitAsync(Timeout);h.Backend.CreateReply.SetException(new ProviderException("unknown","fixture",true));
+        await Eventually(()=>h.Journal.Read(request.Id).Stage=="SubmissionUnknown");
+        var next=await h.Credentials.ConnectAsync(new("fixture-only","international"),false);
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>h.Manager.ConfirmExternalResolutionAsync(request.Id,next.Epoch,default));
+        var original=await h.Credentials.ConnectAsync(new("fixture-only","china"),false);
+        await h.Manager.ConfirmExternalResolutionAsync(request.Id,original.Epoch,default);Assert.False(h.Journal.Read(request.Id).NeedsCleanup);
+    }
     private sealed class FakeBackend:IRealtimePreviewBackend
     {
         internal readonly TaskCompletionSource Created=new(TaskCreationOptions.RunContinuationsAsynchronously),Connected=new(TaskCreationOptions.RunContinuationsAsynchronously),ExplicitClosing=new(TaskCreationOptions.RunContinuationsAsynchronously),CloseReply=new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -195,8 +223,9 @@ public sealed class RealtimePreviewManagerTests
     {
         private readonly string root=Path.Combine(Path.GetTempPath(),"aholo-realtime-tests-"+Guid.NewGuid());
         internal readonly FakeBackend Backend=new();internal CredentialCoordinator Credentials=null!;internal RealtimeJournal Journal=null!;internal RealtimePreviewManager Manager=null!;internal string Epoch="";
-        internal static async Task<Harness> New(){var h=new Harness();h.Credentials=new(new MemoryStore(),Path.Combine(h.root,"credentials"));h.Epoch=(await h.Credentials.ConnectAsync(new ApiKeyCredential("fixture-only"),false)).Epoch;h.Journal=new(h.root);h.Manager=h.NewManager();return h;}
-        internal RealtimePreviewManager NewManager()=>new(Credentials,Journal,(_,_)=>Backend,TimeSpan.FromMilliseconds(1));
+        internal string? BackendRegion;
+        internal static async Task<Harness> New(string region="international"){var h=new Harness();h.Credentials=new(new MemoryStore(),Path.Combine(h.root,"credentials"));h.Epoch=(await h.Credentials.ConnectAsync(new ApiKeyCredential("fixture-only",region),false)).Epoch;h.Journal=new(h.root);h.Manager=h.NewManager();return h;}
+        internal RealtimePreviewManager NewManager()=>new(Credentials,Journal,(key,_)=>{BackendRegion=key.Region;return Backend;},TimeSpan.FromMilliseconds(1));
         internal RealtimeStartRequest Request()=>new(Guid.NewGuid(),"mesh-fixture",Camera());
         internal async Task<RealtimeStartRequest> StartStreaming()
         {

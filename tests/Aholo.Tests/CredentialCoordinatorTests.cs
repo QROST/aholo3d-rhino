@@ -127,10 +127,10 @@ public sealed class CredentialCoordinatorTests : IDisposable
     }
     private sealed class FakeStore:ICredentialStore
     {
-        private string? value;public bool Fail,SaveBeforeFailure;
-        public Task<string?> GetAsync(string account,CancellationToken ct=default)=>Task.FromResult(value);
+        private readonly Dictionary<string,string> values=new();public bool Fail,SaveBeforeFailure;
+        public Task<string?> GetAsync(string account,CancellationToken ct=default)=>Task.FromResult(values.GetValueOrDefault(account));
         public Task SetAsync(string account,string secret,CancellationToken ct=default)
-        {if(!Fail||SaveBeforeFailure)value=secret;if(Fail)throw new IOException("Fixture store failure");return Task.CompletedTask;}
-        public Task DeleteAsync(string account,CancellationToken ct=default){value=null;return Task.CompletedTask;}
+        {if(!Fail||SaveBeforeFailure)values[account]=secret;if(Fail)throw new IOException("Fixture store failure");return Task.CompletedTask;}
+        public Task DeleteAsync(string account,CancellationToken ct=default){values.Remove(account);return Task.CompletedTask;}
     }
 }

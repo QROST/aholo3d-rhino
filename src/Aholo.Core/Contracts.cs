@@ -8,8 +8,8 @@ public static class AholoJson
     public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
     public static JsonElement Element<T>(T value) => JsonSerializer.SerializeToElement(value, Options);
 }
-public sealed record ConnectionState(bool Connected, string? ConnectionId, bool Remembered, string? CredentialEpoch = null);
-public sealed record ConnectRequest(string ApiKey, bool Remember, string ValidationService = "world");
+public sealed record ConnectionState(bool Connected, string? ConnectionId, bool Remembered, string? CredentialEpoch = null, string Region = AholoRegions.International);
+public sealed record ConnectRequest(string ApiKey, bool Remember, string ValidationService = "world", string Region = AholoRegions.International);
 public sealed record GenerateWorldRequest(string Name, string Prompt, string? ImagePath = null);
 // Row-vector pose, translation in row 4, distances in millimetres; camera looks along local -Z.
 public sealed record RenderCamera(double[] Transform, double FocalLength, double HorizontalAperture, double VerticalAperture, double Near, double Far);

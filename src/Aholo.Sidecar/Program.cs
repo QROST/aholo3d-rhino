@@ -25,13 +25,14 @@ string? pipeName=Environment.GetEnvironmentVariable("AHOLO_REALTIME_PIPE");
 string? pipeNonce=Environment.GetEnvironmentVariable("AHOLO_REALTIME_NONCE");
 Environment.SetEnvironmentVariable("AHOLO_REALTIME_NONCE",null);
 Environment.SetEnvironmentVariable("AHOLO_REALTIME_PIPE",null);
-if(pipeName is not null&&pipeNonce is not null){control=new(pipeName,pipeNonce,realtime);control.Start();}
 CredentialSnapshot? connection = null;
 string? requestEpoch = null;
 using var parentLost=new CancellationTokenSource();
 using var oauthHttp=AholoApiClient.CreateHttpClient();
-using var account=new AccountSessionManager(new ManycoreOAuthService(oauthHttp),uri=>
-{ using var browser=Process.Start(new ProcessStartInfo(uri.AbsoluteUri){UseShellExecute=true}); },parentLost.Token,new OAuthSessionCoordinator(CredentialStoreFactory.CreateDefault()));
+using var accounts=new RegionalAccounts(region=>new AccountSessionManager(new ManycoreOAuthService(oauthHttp,region),uri=>
+{ using var browser=Process.Start(new ProcessStartInfo(uri.AbsoluteUri){UseShellExecute=true}); },parentLost.Token,new OAuthSessionCoordinator(CredentialStoreFactory.CreateDefault(),region:region)));
+if(pipeName is not null&&pipeNonce is not null)
+{control=new(pipeName,pipeNonce,realtime,(region,id,ct)=>accounts.RunAsync(region,"cancel",id,null,ct));control.Start();}
 using var parentLifetime=int.TryParse(Environment.GetEnvironmentVariable("AHOLO_PARENT_PID"),out int parentId)&&parentId>0?new ParentProcessLifetime(parentId,parentLost):null;
 try
 {
@@ -63,20 +64,14 @@ while (true)
                 string action = payload.GetProperty("action").GetString() ?? "";
                 Guid? attemptId = payload.TryGetProperty("attemptId", out var attempt) && attempt.ValueKind == JsonValueKind.String ? attempt.GetGuid() : null;
                 bool? rememberAccount=payload.TryGetProperty("remember",out var savedAccount)&&savedAccount.ValueKind is JsonValueKind.True or JsonValueKind.False?savedAccount.GetBoolean():null;
-                result = action switch
-                {
-                    "status" => await account.StatusAsync(ct),
-                    "begin" => account.Begin(attemptId ?? throw new ArgumentException("Account attempt identifier is missing."),remember:rememberAccount),
-                    "refresh" => account.Begin(attemptId ?? throw new ArgumentException("Account attempt identifier is missing."), true,rememberAccount),
-                    "signOut" => await account.SignOutAsync(ct:ct),
-                    "cancel" => await account.CancelPendingAsync(attemptId ?? throw new ArgumentException("Account attempt identifier is missing."),ct),
-                    _ => throw new ArgumentException("Unknown account operation.")
-                }; break;
+                string accountRegion=payload.TryGetProperty("region",out var selectedAccountRegion)?selectedAccountRegion.GetString()??"":AholoRegions.International;
+                result=await accounts.RunAsync(accountRegion,action,attemptId,rememberAccount,ct);break;
             case "connection":
                 connection = await credentials.ReadAsync(ct); result = State(); break;
             case "connect":
                 var input = payload.Deserialize<ConnectRequest>(AholoJson.Options) ?? throw new ArgumentException("Invalid connection request.");
-                var candidate = new ApiKeyCredential(input.ApiKey);
+                var candidate = new ApiKeyCredential(input.ApiKey,input.Region);
+                string mutationStamp=await credentials.MutationStampAsync(ct);
                 switch(input.ValidationService)
                 {
                     case "world": await api.ValidateKeyAsync(candidate, ct); break;
@@ -84,11 +79,16 @@ while (true)
                     case "spatial": await api.ListSpatialTasksAsync(candidate, pageSize: 1, ct: ct); break;
                     default: throw new ArgumentException("Choose a service to validate.");
                 }
-                using(await realtime.BeforeCredentialChangeAsync(ct))connection = await credentials.ConnectAsync(candidate, input.Remember, ct);
+                using(await realtime.BeforeCredentialChangeAsync(ct))
+                {await accounts.CancelPendingAsync(ct);connection = await credentials.ConnectAsync(candidate, input.Remember, ct,mutationStamp);}
                 result = State(); break;
             case "disconnect":
-                using(await realtime.BeforeCredentialChangeAsync(ct))connection = await credentials.DisconnectAsync(ct);
+                using(await realtime.BeforeCredentialChangeAsync(ct))connection = await credentials.DisconnectAsync(ct,requestEpoch);
                 result = State(); break;
+            case "switchRegion":
+                using(await realtime.BeforeCredentialChangeAsync(ct))
+                {await accounts.CancelPendingAsync(ct);connection=await credentials.SwitchRegionAsync(payload.GetProperty("region").GetString()??"",ct,requestEpoch);}
+                result=State();break;
             case "list": result = store.List(); break;
             case "page": result = store.Page(Read<TaskPageRequest>(payload)); break;
             case "continueRender": result = await workflow.ContinueRenderAsync(await RequireKeyAsync(ct), payload.GetProperty("id").GetGuid(), ct); break;
@@ -132,5 +132,5 @@ using(var cleanup=new CancellationTokenSource(TimeSpan.FromSeconds(12)))
 return;
 
 T Read<T>(JsonElement payload) => payload.Deserialize<T>(AholoJson.Options) ?? throw new ArgumentException("The request is missing parameters.");
-ConnectionState State() => new(connection?.Key is not null, connection?.Key?.ConnectionId, connection?.Remembered == true, connection?.Epoch);
+ConnectionState State() => new(connection?.Key is not null, connection?.Key?.ConnectionId, connection?.Remembered == true, connection?.Epoch,connection?.Region??AholoRegions.International);
 Task<ApiKeyCredential> RequireKeyAsync(CancellationToken ct) => credentials.RequireAsync(requestEpoch, ct);

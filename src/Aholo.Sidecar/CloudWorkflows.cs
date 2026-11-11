@@ -47,8 +47,8 @@ public sealed partial class Workflows
         string remote = world?.WorldId ?? lux?.TaskId ?? spatial?.TaskId ?? render!.OperationId;
         ct.ThrowIfCancellationRequested();
         using var index = store.LockMutation();
-        var previous = store.FindRemote(request.Service, remote, key.ConnectionId, "international");
-        var task = previous ?? new LocalTask { ConnectionId = key.ConnectionId, Name = remote,
+        var previous = store.FindRemote(request.Service, remote, key.ConnectionId, key.Region);
+        var task = previous ?? new LocalTask { Region = key.Region, ConnectionId = key.ConnectionId, Name = remote,
             Kind = request.Service switch { TaskService.World => "world", TaskService.Lux3D => "object", TaskService.SpatialUnderstanding => "spatial", _ => "render" } };
         using var ownership = store.LockTask(task.Id);
         if (previous is not null) task = store.GetForUpdate(task.Id);

@@ -49,14 +49,14 @@ public sealed class RealtimePreviewManager
                 if(entries.Values.Any(e=>!e.Worker.IsCompleted))throw new InvalidOperationException("Stop the active cloud preview before starting another.");
             }
             using var startAdmission=journal.LockAdmission();
-            if(journal.Pending().Any(r=>r.ConnectionId==key.ConnectionId))
+            if(journal.Pending().Any(r=>r.Region==key.Region&&r.ConnectionId==key.ConnectionId))
                 throw new InvalidOperationException("Resolve pending cloud preview cleanup before starting another paid session.");
             using var admission=await credentials.AcquireRequestAsync(epoch,ct).ConfigureAwait(false);
             var lease=journal.Lock(request.Id);
             try
             {
                 if(journal.Exists(request.Id))throw new InvalidOperationException("This preview already has a journal. Inspect or close the original session; it will not be created again.");
-                var record=new RealtimePreviewRecord{Id=request.Id,ConnectionId=key.ConnectionId,Epoch=epoch!,MeshId=request.MeshId};
+                var record=new RealtimePreviewRecord{Id=request.Id,Region=key.Region,ConnectionId=key.ConnectionId,Epoch=epoch!,MeshId=request.MeshId};
                 var entry=new Entry(record,request,backendFactory(key,epoch!),lease);
                 journal.Save(record); // Paid creation must never precede its durable intent.
                 lock(gate){entries.Add(request.Id,entry);entry.Worker=Task.Run(()=>RunAsync(entry,usda));}
@@ -149,7 +149,7 @@ public sealed class RealtimePreviewManager
         if(request.Revision<=0)throw new ArgumentException("An increasing positive edit revision is required.");
         var key=await credentials.RequireAsync(epoch,ct).ConfigureAwait(false);
         Entry entry;lock(gate)entry=entries.GetValueOrDefault(request.Id)??throw new InvalidOperationException("The original preview is not active.");
-        if(entry.Record.Epoch!=epoch||entry.Record.ConnectionId!=key.ConnectionId)throw new InvalidOperationException("The preview belongs to the original connection.");
+        if(entry.Record.Epoch!=epoch||entry.Record.Region!=key.Region||entry.Record.ConnectionId!=key.ConnectionId)throw new InvalidOperationException("The preview belongs to the original connection.");
         string content=RealtimeScene.CameraPatch(entry.Start with{Camera=request.Camera});
         lock(entry.Gate)
         {
@@ -169,7 +169,7 @@ public sealed class RealtimePreviewManager
         if(request.Revision<=0)throw new ArgumentException("An increasing positive edit revision is required.");
         var key=await credentials.RequireAsync(epoch,ct).ConfigureAwait(false);
         Entry entry;lock(gate)entry=entries.GetValueOrDefault(request.Id)??throw new InvalidOperationException("The original preview is not active.");
-        if(entry.Record.Epoch!=epoch||entry.Record.ConnectionId!=key.ConnectionId)throw new InvalidOperationException("The preview belongs to the original connection.");
+        if(entry.Record.Epoch!=epoch||entry.Record.Region!=key.Region||entry.Record.ConnectionId!=key.ConnectionId)throw new InvalidOperationException("The preview belongs to the original connection.");
         string content=RealtimeScene.ScenePatch(entry.Start,request);
         lock(entry.Gate)
         {
@@ -226,7 +226,7 @@ public sealed class RealtimePreviewManager
             if(!journal.Exists(id))
             {
                 var originalKey=await credentials.RequireAsync(epoch,ct).ConfigureAwait(false);
-                var tombstone=new RealtimePreviewRecord{Id=id,ConnectionId=originalKey.ConnectionId,Epoch=epoch!,Stage="NotSubmitted",NeedsCleanup=false,Error="Stopped before preview creation was admitted."};
+                var tombstone=new RealtimePreviewRecord{Id=id,Region=originalKey.Region,ConnectionId=originalKey.ConnectionId,Epoch=epoch!,Stage="NotSubmitted",NeedsCleanup=false,Error="Stopped before preview creation was admitted."};
                 journal.Save(tombstone);return new(new(State:new(tombstone)));
             }
             var record=journal.Read(id);
@@ -234,7 +234,7 @@ public sealed class RealtimePreviewManager
             if(!record.NeedsCleanup)return new(new(State:new(record)));
             if(record.SessionId is null)throw new InvalidOperationException("The create response was lost and the session may exist. Reconcile the original request on the official platform; creation will not be retried.");
             var key=await credentials.RequireAsync(epoch,ct).ConfigureAwait(false);
-            if(key.ConnectionId!=record.ConnectionId)throw new InvalidOperationException("Restore the preview's original account before retrying server cleanup.");
+            if(record.Region!=key.Region||key.ConnectionId!=record.ConnectionId)throw new InvalidOperationException("Restore the preview's original account before retrying server cleanup.");
             try
             {
                 // Fresh explicit cleanup uses the reconnected original identity, never a different account.
@@ -254,7 +254,7 @@ public sealed class RealtimePreviewManager
         {
             var key=await credentials.RequireAsync(epoch,ct).ConfigureAwait(false);
             using var lease=journal.Lock(id);var record=journal.Read(id);
-            if(record.ConnectionId!=key.ConnectionId||record.SessionId is not null||!record.NeedsCleanup)
+            if(record.Region!=key.Region||record.ConnectionId!=key.ConnectionId||record.SessionId is not null||!record.NeedsCleanup)
                 throw new InvalidOperationException("Only an unknown session from the original account can be marked externally resolved.");
             record=record with{NeedsCleanup=false,Stage="ExternallyResolved",Error="The user confirmed resolution on the official platform; no server close was verified by this plugin.",UpdatedAt=DateTimeOffset.UtcNow};
             journal.Save(record);lock(gate)if(entries.TryGetValue(id,out var entry))lock(entry.Gate)entry.Record=record;

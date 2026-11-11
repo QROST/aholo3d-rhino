@@ -17,12 +17,14 @@ public sealed class ApiKeyCredential
 {
     internal string Value { get; }
     public string ConnectionId { get; }
-    public ApiKeyCredential(string key)
+    public string Region { get; }
+    public ApiKeyCredential(string key, string region = Aholo.Core.AholoRegions.International)
     {
         if (string.IsNullOrWhiteSpace(key) || key.Length > 8192 || key.Any(char.IsWhiteSpace) || key.Any(char.IsControl) || key.StartsWith("Bearer", StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("Enter the original international API Key.", nameof(key));
+            throw new ArgumentException("Enter the original API Key for the selected region.", nameof(key));
+        Region = Aholo.Core.AholoRegions.Get(region).Id;
         Value = key;
-        ConnectionId = "international:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key))).ToLowerInvariant();
+        ConnectionId = Region + ":" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key))).ToLowerInvariant();
     }
     public override string ToString() => "Aholo API Key (redacted)";
 }

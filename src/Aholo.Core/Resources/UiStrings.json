@@ -3774,5 +3774,93 @@
   {
     "English": "Sign out of account",
     "Chinese": "退出账号登录"
+  },
+  {
+    "English": "International",
+    "Chinese": "国际区域"
+  },
+  {
+    "English": "China",
+    "Chinese": "中国区"
+  },
+  {
+    "English": "Connected",
+    "Chinese": "已连接"
+  },
+  {
+    "English": "Service region",
+    "Chinese": "服务区域"
+  },
+  {
+    "English": "Apply service region",
+    "Chinese": "应用服务区域"
+  },
+  {
+    "English": "Switching service region",
+    "Chinese": "正在切换服务区域"
+  },
+  {
+    "English": "Apply the selected service region before connecting.",
+    "Chinese": "请先应用所选服务区域，再连接 API Key。"
+  },
+  {
+    "English": "API Key for the active region",
+    "Chinese": "当前区域的 API Key"
+  },
+  {
+    "English": "Regions have separate API Keys and account sessions. Switching stops task polling and live previews; remote tasks and saved credentials in the other region are retained.",
+    "Chinese": "不同区域使用独立的 API Key 和账号会话。切换会停止任务轮询和实时预览；远端任务及另一区域已保存的凭据会保留。"
+  },
+  {
+    "English": "Account login for this region is optional. Generation, history and rendering still require an API Key. Account login does not connect, replace or validate that Key.",
+    "Chinese": "当前区域的账号登录为可选项。生成、云端历史与渲染仍需该区域的 API Key；账号登录不会连接、替换或校验该 Key。"
+  },
+  {
+    "English": "Remembered account tokens use macOS Keychain or Windows user encryption. Otherwise they last only for this process. Sign-in replaces this region's shared account on this device; sign-out removes its saved session across Rhino instances. Neither action revokes server tokens or changes your API Key.",
+    "Chinese": "记住的账号令牌通过 macOS 钥匙串或 Windows 用户加密保存；否则仅在当前进程内有效。登录会替换本机当前区域的共享账号，退出会移除各 Rhino 实例使用的已保存会话。两者都不会撤销服务端令牌或修改 API Key。"
+  },
+  {
+    "English": "Choose International or China as the service region.",
+    "Chinese": "请选择国际区或中国区。"
+  },
+  {
+    "English": "Enter the original API Key for the selected region.",
+    "Chinese": "请输入所选区域的原始 API Key。"
+  },
+  {
+    "English": "Connect an API Key for the selected region first.",
+    "Chinese": "请先连接所选区域的 API Key。"
+  },
+  {
+    "English": "The API Key is invalid or expired for the selected region.",
+    "Chinese": "所选区域的 API Key 无效或已过期。"
+  },
+  {
+    "English": "The upload address is outside the verified upload service for this region.",
+    "Chinese": "上传地址不属于当前区域已核实的上传服务。"
+  },
+  {
+    "English": "The account session belongs to another service region.",
+    "Chinese": "该账号会话属于另一个服务区域。"
+  },
+  {
+    "English": "This task belongs to another region or API Key. Restore its original connection before refreshing or downloading.",
+    "Chinese": "该任务属于另一区域或 API Key。请恢复原始连接后再刷新或下载。"
+  },
+  {
+    "English": "API Key for the selected region",
+    "Chinese": "所选区域的 API Key"
+  },
+  {
+    "English": "The connection change did not complete. The current saved connection was checked; restore it again if disconnected.",
+    "Chinese": "连接变更未完成，已核对当前保存的连接；若仍断开，请再次恢复连接。"
+  },
+  {
+    "English": "This account sign-in attempt was canceled before it started.",
+    "Chinese": "本次账号登录尝试已在开始前取消。"
+  },
+  {
+    "English": "The account cancellation response is missing.",
+    "Chinese": "未收到账号取消确认。"
   }
 ]

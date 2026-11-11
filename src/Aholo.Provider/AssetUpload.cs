@@ -30,9 +30,9 @@ public sealed partial class AholoApiClient
         string ousToken = RequiredString(token, "ousToken");
         if (ousToken.Any(char.IsControl) || ousToken.Any(char.IsWhiteSpace)) throw InvalidResponse();
         var host = new Uri(HttpsUrl(RequiredString(token, "globalDomain")));
-        if (!host.Host.Equals("ous-sg.kujiale.com", StringComparison.OrdinalIgnoreCase) || host.Port != 443 ||
+        if (!host.Host.Equals(AholoRegions.Get(key.Region).UploadHost, StringComparison.OrdinalIgnoreCase) || host.Port != 443 ||
             host.UserInfo.Length != 0 || host.AbsolutePath != "/" || host.Query.Length != 0 || host.Fragment.Length != 0)
-            throw new ProviderException("invalid_upload_origin", "The upload address is outside the verified international upload service.");
+            throw new ProviderException("invalid_upload_origin", "The upload address is outside the verified upload service for this region.");
         if (!token.TryGetProperty("blockSize", out var block) || block.ValueKind != JsonValueKind.Number || !block.TryGetInt64(out var blockSize) || blockSize <= 0) throw InvalidResponse();
         string name = Path.GetFileName(filePath);
         long blocks = 1 + (snapshot.Length - 1) / blockSize;

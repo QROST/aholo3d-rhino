@@ -10,13 +10,14 @@ public sealed class RealtimeControlServer : IAsyncDisposable
     private readonly string pipeName;
     private readonly byte[] nonce;
     private readonly RealtimePreviewManager manager;
+    private readonly Func<string,Guid,CancellationToken,Task<AccountSessionState>>? cancelAccount;
     private readonly CancellationTokenSource lifetime=new();
     private readonly List<NamedPipeServerStream> pipes=new();
     private Task? loop;
-    public RealtimeControlServer(string pipeName,string nonce,RealtimePreviewManager manager)
+    public RealtimeControlServer(string pipeName,string nonce,RealtimePreviewManager manager,Func<string,Guid,CancellationToken,Task<AccountSessionState>>? cancelAccount=null)
     {
         if(!pipeName.StartsWith("aholo-rt-",StringComparison.Ordinal)||pipeName.Any(c=>!char.IsAsciiLetterOrDigit(c)&&c!='-')||nonce.Length!=64||nonce.Any(c=>!Uri.IsHexDigit(c)))throw new ArgumentException("Invalid private realtime endpoint.");
-        this.pipeName=pipeName;this.nonce=Encoding.ASCII.GetBytes(nonce);this.manager=manager;
+        this.pipeName=pipeName;this.nonce=Encoding.ASCII.GetBytes(nonce);this.manager=manager;this.cancelAccount=cancelAccount;
     }
     public void Start()
     {
@@ -59,6 +60,7 @@ public sealed class RealtimeControlServer : IAsyncDisposable
                     var p=request.Payload;
                     response=request.Method switch
                     {
+                        "cancelAccount" when cancelAccount is not null=>new(new(Account:await cancelAccount(p.GetProperty("region").GetString()??"",p.GetProperty("attemptId").GetGuid(),deadline.Token).ConfigureAwait(false))),
                         "start"=>await manager.StartAsync(Read<RealtimeStartRequest>(p),request.Epoch,deadline.Token).ConfigureAwait(false),
                         "get"=>manager.Get(p.GetProperty("id").GetGuid(),p.GetProperty("afterFrame").GetInt64()),
                         "pending"=>manager.Pending(),

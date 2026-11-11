@@ -119,3 +119,12 @@ Use a zero-height quad and a far-translated, physically sized USD. Original-size
 Use the optional account dialog independently of the API Key. With Remember off, restart the background process and verify account sign-out. With Remember on, complete login, restart and open account status: restore without browser/network refresh, showing expiry and refresh availability. Explicitly refresh and confirm the rotated session survives another restart. Confirm the selected checkbox survives status polling and that errors do not reveal tokens.
 
 Open two Rhino instances under the same OS user: explicit sign-out in one must remove the saved account from both on their next status check, including while another login/refresh is in flight. Close a pending login dialog, cancel refresh, deny Keychain access, simulate Windows protected-store failure and retry sign-out. There must be no stale session resurrection or plaintext fallback. API Key connection and task ownership must remain unchanged. Native macOS Keychain prompts, Windows DPAPI behavior, dialog layout, real browser authorization and provider rotation are pending acceptance; synthetic fixture tests do not establish them.
+
+
+## Regional account and cancellation acceptance
+
+- Select China without a Key and verify China/disconnected persists; UI language must remain independent. With Settings open in two panels, a committed region change updates both selectors. Invalid replacement Key validation restores the retained connection and displays failure.
+- Save separate regional Keys and OAuth sessions; switch/restart and verify separation. Forget/sign out one region without removing the other. Repeat in another Rhino instance. Mixed older/newer background versions are unsupported after credential-state migration.
+- Retain tasks with colliding remote IDs in both regions. Refresh/download/continue and realtime cleanup require the original region and Key; interrupted cleanup retains its original record.
+- During another panel's upload, close a pending account login. Its late token must not publish, and the upload must continue. Repeat while the sidecar starts; closing an already completed login preserves it.
+- Verify real regional authorization, Keychain/DPAPI, uploads, service permissions and streaming using explicitly authorized accounts. Offline fixtures do not accept live behavior.

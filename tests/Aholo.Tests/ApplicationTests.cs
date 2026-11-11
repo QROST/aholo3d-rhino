@@ -130,19 +130,51 @@ public sealed class ApplicationTests : IDisposable
         client.ConnectCompletion.SetResult(new(true,"account",false,"old"));await pending;
         Assert.False(session.Connection.Connected);
     }
+    [Fact]public async Task RegionSwitchRevokesQueuedContinuationAndRejectsLateConnect()
+    {
+        var store=Store;var client=new FakeClient(store){WaitBeforeContinue=new(TaskCreationOptions.RunContinuationsAsynchronously)};
+        await using var session=new AholoSession(client,store);await session.ReadConnectionAsync();await session.RenderAsync(Request);
+        var continuation=session.ContinueRenderAsync(client.Task.Id);
+        client.ConnectCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var connect=session.ConnectAsync(new("fixture",false));
+        await session.SwitchRegionAsync("china");
+        client.ConnectCompletion.SetResult(new(true,"account",false,"stale","international"));await connect;
+        client.WaitBeforeContinue.SetResult();await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>continuation);
+        Assert.Equal("china",session.Connection.Region);Assert.False(session.Connection.Connected);Assert.Equal(0,client.Continuations);
+        client.Reset();Assert.Equal("china",session.Connection.Region);
+    }
+    [Theory][InlineData("connect")][InlineData("switch")][InlineData("disconnect")]
+    public async Task FailedConnectionMutationRestoresRetainedStateWithoutPaidContinuation(string action)
+    {
+        var store=Store;var client=new FakeClient(store);await using var session=new AholoSession(client,store);
+        await session.ReadConnectionAsync();await session.RenderAsync(Request);client.FailMutation=true;
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>action switch
+        {"connect"=>session.ConnectAsync(new("fixture",false)),"switch"=>session.SwitchRegionAsync("china"),_=>session.DisconnectAsync()});
+        Assert.True(session.Connection.Connected);Assert.Equal("international",session.Connection.Region);Assert.NotNull(session.LastError);
+        await session.PollOnceAsync();Assert.Equal(0,client.Continuations);
+    }
+    [Fact]public async Task FailedMutationRecoveryCannotOverwriteNewerRegion()
+    {
+        var store=Store;var client=new FakeClient(store);await using var session=new AholoSession(client,store);await session.ReadConnectionAsync();
+        client.FailMutation=true;client.ConnectionReadCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var failed=session.ConnectAsync(new("fixture",false));client.FailMutation=false;await session.SwitchRegionAsync("china");
+        client.ConnectionReadCompletion.SetResult(new(true,"account",false,"old","international"));
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>failed);Assert.Equal("china",session.Connection.Region);Assert.Null(session.LastError);
+    }
     private sealed class FakeClient(TaskStore store) : IAholoServiceClient
     {
         public event Action? TransportReset;
         public void Reset()=>TransportReset?.Invoke();
         public LocalTask Task {get;private set;}=new(){Kind="render",ConnectionId="account",Status="MeshProcessing",MeshTaskId="mesh-task",Render=Request};
         public int Continuations,Queries;
-        public bool FailConnection;public string Epoch="initial";
+        public bool FailConnection,FailMutation;public string Epoch="initial";
         public TaskCompletionSource<LocalTask>? RenderCompletion,ContinueCompletion;
         public TaskCompletionSource? WaitBeforeContinue;
-        public TaskCompletionSource<ConnectionState>? ConnectCompletion;
-        public Task<ConnectionState> GetConnectionAsync(CancellationToken ct=default)=>FailConnection?System.Threading.Tasks.Task.FromException<ConnectionState>(new IOException("Fixture unavailable")):System.Threading.Tasks.Task.FromResult(new ConnectionState(true,"account",false,Epoch));
-        public Task<ConnectionState> ConnectAsync(ConnectRequest request,CancellationToken ct=default)=>ConnectCompletion?.Task??GetConnectionAsync(ct);
-        public Task<ConnectionState> DisconnectAsync(CancellationToken ct=default)=>System.Threading.Tasks.Task.FromResult(new ConnectionState(false,null,false));
+        public TaskCompletionSource<ConnectionState>? ConnectCompletion,ConnectionReadCompletion;
+        public Task<ConnectionState> GetConnectionAsync(CancellationToken ct=default)=>ConnectionReadCompletion?.Task??(FailConnection?System.Threading.Tasks.Task.FromException<ConnectionState>(new IOException("Fixture unavailable")):System.Threading.Tasks.Task.FromResult(new ConnectionState(true,"account",false,Epoch)));
+        public Task<ConnectionState> ConnectAsync(ConnectRequest request,CancellationToken ct=default)=>FailMutation?System.Threading.Tasks.Task.FromException<ConnectionState>(new InvalidOperationException("Fixture rejected")):ConnectCompletion?.Task??GetConnectionAsync(ct);
+        public Task<ConnectionState> SwitchRegionAsync(string region,CancellationToken ct=default)=>FailMutation?System.Threading.Tasks.Task.FromException<ConnectionState>(new InvalidOperationException("Fixture rejected")):System.Threading.Tasks.Task.FromResult(new ConnectionState(false,null,false,Guid.NewGuid().ToString("N"),region));
+        public Task<ConnectionState> DisconnectAsync(CancellationToken ct=default)=>FailMutation?System.Threading.Tasks.Task.FromException<ConnectionState>(new InvalidOperationException("Fixture rejected")):System.Threading.Tasks.Task.FromResult(new ConnectionState(false,null,false));
         public Task<LocalTask> RenderAsync(RenderRequest request,CancellationToken ct=default){store.Save(Task);return RenderCompletion?.Task??System.Threading.Tasks.Task.FromResult(Task);}
         public Task<LocalTask> RefreshAsync(Guid id,CancellationToken ct=default)
         {Queries++;Task=store.Get(id);if(Task.Status=="MeshProcessing")Task=Task with{Status="MeshReady",MeshId="mesh"};store.Save(Task);return System.Threading.Tasks.Task.FromResult(Task);}

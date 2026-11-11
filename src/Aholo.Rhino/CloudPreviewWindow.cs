@@ -41,7 +41,7 @@ internal sealed partial class CloudPreviewWindow : Form
     {
         serial=doc.RuntimeSerialNumber;client=session.Client as IRealtimePreviewClient??throw new InvalidOperationException(T("Cloud preview control is unavailable."));
         Title=T("Aholo3D cloud preview");ClientSize=new Size(820,690);MinimumSize=new Size(560,620);Owner=global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc);
-        if(source?.MeshId is not null&&source.ConnectionId==session.Connection.ConnectionId)meshId.Text=source.MeshId;
+        if(source?.MeshId is not null&&source.Region==session.Connection.Region&&source.ConnectionId==session.Connection.ConnectionId)meshId.Text=source.MeshId;
         meshId.PlaceholderText=T("Existing ingested cloud asset ID");
         Button Action(string label,Func<Task> work){var b=new Button{Text=T(label)};b.Click+=async(_,_)=>{try{await work();}catch(Exception error){Report(error);}};return b;}
         kind.SelectedIndexChanged+=(_,_)=>{if(kind.SelectedIndex==1)coordinates.SelectedIndex=1;};

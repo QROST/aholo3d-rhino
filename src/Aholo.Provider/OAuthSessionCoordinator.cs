@@ -12,16 +12,18 @@ public sealed record OAuthSessionLease(string Epoch,OAuthToken? Previous,bool Re
 public sealed class OAuthSessionCoordinator
 {
     public const string Account="international-oauth-session";
-    private const string Issuer="https://www.aholo.ai",Resource="https://api.aholo.ai";
+    private readonly string account,issuer,resource,region;
     private sealed record State(int SchemaVersion,string Epoch,bool Ready,bool Remembered);
     private sealed record Envelope(int SchemaVersion,string Epoch,string Issuer,string Resource,OAuthToken Token);
     private readonly ICredentialStore store;
     private readonly string statePath;
     private OAuthSessionSnapshot? cached;
-    public OAuthSessionCoordinator(ICredentialStore store,string? root=null)
+    public OAuthSessionCoordinator(ICredentialStore store,string? root=null,string region=AholoRegions.International)
     {
         this.store=store;
-        string scope=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(CredentialStoreFactory.DefaultService+"\0"+Account))).ToLowerInvariant();
+        var config=AholoRegions.Get(region);this.region=config.Id;
+        account=region+"-oauth-session";issuer=config.OAuthIssuer;resource=config.OAuthResource;
+        string scope=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(CredentialStoreFactory.DefaultService+"\0"+account))).ToLowerInvariant();
         statePath=Path.Combine(root??CredentialCoordinator.DefaultRoot,scope+".json");
     }
     public async Task<OAuthSessionSnapshot> ReadAsync(CancellationToken ct=default)
@@ -35,12 +37,12 @@ public sealed class OAuthSessionCoordinator
         if(cached?.Epoch==state.Epoch)return cached;
         cached=null;
         if(!state.Remembered)return new(null,false,state.Epoch);
-        string? json=await store.GetAsync(Account,ct).ConfigureAwait(false);
+        string? json=await store.GetAsync(account,ct).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
-        if(json is null||json.Length>128*1024)throw Changed();
+        if(json is null||json.Length>512*1024)throw Changed();
         Envelope? saved;
         try{saved=JsonSerializer.Deserialize<Envelope>(json);}catch(JsonException){throw Changed();}
-        if(saved is null||saved.SchemaVersion!=1||saved.Epoch!=state.Epoch||saved.Issuer!=Issuer||saved.Resource!=Resource)throw Changed();
+        if(saved is null||saved.SchemaVersion!=1||saved.Epoch!=state.Epoch||saved.Issuer!=issuer||saved.Resource!=resource||saved.Token?.Region!=region)throw Changed();
         Validate(saved.Token);
         return cached=new(saved.Token,true,state.Epoch);
     }
@@ -58,13 +60,13 @@ public sealed class OAuthSessionCoordinator
         state=new(1,Guid.NewGuid().ToString("N"),false,false);WriteState(state);
         // Reserve one refresh/login before network work. A crash or ambiguous rotated refresh
         // must not silently restore the earlier token; explicit sign-in remains available.
-        await store.DeleteAsync(Account,ct).ConfigureAwait(false);
+        await store.DeleteAsync(account,ct).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
         return new(state.Epoch,previous,remember);
     }
     public async Task<OAuthSessionSnapshot> CompleteAsync(OAuthSessionLease lease,OAuthToken token,CancellationToken ct)
     {
-        Validate(token);
+        Validate(token);if(token.Region!=region)throw Changed();
         using var gate=await LockAsync(ct).ConfigureAwait(false);
         State state=ReadState();
         if(state.Epoch!=lease.Epoch||state.Ready)throw Changed();
@@ -73,8 +75,9 @@ public sealed class OAuthSessionCoordinator
         {
             try
             {
-                string json=JsonSerializer.Serialize(new Envelope(1,lease.Epoch,Issuer,Resource,token));
-                await store.SetAsync(Account,json,ct).ConfigureAwait(false);remembered=true;
+                string json=JsonSerializer.Serialize(new Envelope(1,lease.Epoch,issuer,resource,token));
+                if(json.Length>512*1024)throw Changed();
+                await store.SetAsync(account,json,ct).ConfigureAwait(false);remembered=true;
             }
             catch(OperationCanceledException){throw;}
             catch(Exception){warning="Signed in for this process only. The account could not be saved securely.";}
@@ -90,13 +93,13 @@ public sealed class OAuthSessionCoordinator
         State state=onlyEpoch is null?new(1,"",false,false):ReadState();
         if(onlyEpoch is not null&&onlyEpoch!=state.Epoch)return false;
         cached=null;state=new(1,Guid.NewGuid().ToString("N"),false,false);WriteState(state);
-        await store.DeleteAsync(Account,ct).ConfigureAwait(false);
+        await store.DeleteAsync(account,ct).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();WriteState(state with{Ready=true});return true;
     }
     internal static void Validate(OAuthToken? token)
     {
         static bool Opaque(string? value)=>!string.IsNullOrWhiteSpace(value)&&value.Length<=32768&&value.All(c=>c>=0x21&&c<=0x7e);
-        if(token is null||!Opaque(token.AccessToken)||token.RefreshToken is not null&&!Opaque(token.RefreshToken)||
+        if(token is null||token.Region is not (AholoRegions.International or AholoRegions.China)||!Opaque(token.AccessToken)||token.RefreshToken is not null&&!Opaque(token.RefreshToken)||
             string.IsNullOrWhiteSpace(token.ClientId)||token.ClientId.Length>2048||token.ClientId.Any(char.IsControl)||
             !string.Equals(token.TokenType,"Bearer",StringComparison.OrdinalIgnoreCase)||token.Scope!="get_user_info"||
             token.ExpiresAt<=DateTimeOffset.UnixEpoch||token.ExpiresAt>DateTimeOffset.UtcNow.AddDays(366))throw Changed();

@@ -47,7 +47,7 @@ Existing GS modes are checked and reused, initialization waits for UI idle, and 
 | --- | --- |
 | Rhino | Rhino 8.32 or later; host assembly targets .NET 7 |
 | Background runtime | .NET 8 Runtime matching the host architecture |
-| Service | International Aholo API Key with access to each selected service and sufficient credits |
+| Service | Regional Aholo API Key (International or China) with access to each selected service and sufficient credits |
 | macOS | Apple Silicon: user confirmed World generation/import, GS colors/navigation/basic clipping, and passed the beta.5 startup/display retest; detailed matrix remains open |
 | Windows | Cross-platform source and Windows credential storage included; Windows build, installer execution and Rhino host acceptance pending |
 | Intel Mac | Not yet host-tested |
@@ -56,7 +56,9 @@ Installing the package does not require the .NET SDK. USD import/export addition
 
 ## Authentication and cost
 
-The official REST API currently documents **a raw regional API Key in the `Authorization` header**. Manycore OAuth sign-in does not replace this credential for World, Lux3D or RenderCloud. Settings → **Account sign-in (optional)** uses the official international discovery, dynamic registration and PKCE browser flow. **Remember this account on this device** is off by default. When enabled, the complete session is saved in macOS Keychain or Windows current-user DPAPI and restored locally without automatic refresh or browser launch. Otherwise it lasts only in this process. Explicit sign-out removes the shared saved account across Rhino instances; closing the dialog cancels only its unfinished attempt. Refresh is explicit, and an interrupted/ambiguous refresh requires a new sign-in. None of these actions revokes provider tokens or changes the API Key. Generation/history/rendering remain API-Key-only. China-region endpoints are not enabled.
+The official REST API currently documents **a raw regional API Key in the `Authorization` header**. Manycore OAuth sign-in does not replace this credential for World, Lux3D or RenderCloud. Settings → **Account sign-in (optional)** uses the active region’s official discovery, dynamic registration and PKCE browser flow. **Remember this account on this device** is off by default. When enabled, the complete session is saved in macOS Keychain or Windows current-user DPAPI and restored locally without automatic refresh or browser launch. Otherwise it lasts only in this process. Explicit sign-out removes that region’s shared saved account across Rhino instances; closing the dialog cancels only its unfinished attempt. Refresh is explicit, and an interrupted/ambiguous refresh requires a new sign-in. None of these actions revokes provider tokens or changes the API Key. Generation/history/rendering remain API-Key-only. International and China endpoints are implemented with separate credentials and task ownership; actual regional account permissions and live workflows still require acceptance.
+
+Region selection is explicit and independent of language. Switching revokes queued render continuation and stops task polling/live previews, retaining remote tasks and the other region’s saved credentials. An already admitted foreground request may finish against its original region. Legacy unmarked data remains International. Shared API credential state now uses schema 2; older builds cannot restore it. Close older Rhino instances before upgrading and avoid mixing old/new background processes. Account cancellation uses independent private IPC so uploads do not delay it or get terminated by it.
 
 Create/manage the Key in the official Aholo platform, following the [official quickstart](https://labs.aholo.ai/api-docs/en/quickstart). Never paste a Key into an issue or commit it to source control. Settings validates the Key through the selected World, Lux3D or Spatial history service without creating a task. Each service has its own permissions and credits.
 
@@ -66,7 +68,7 @@ Generating a world or starting a render can consume your Aholo service credits. 
 
 This alpha is built locally; it has not been installed or published automatically. The earlier Yak preview is unlisted. Build a local package with the scripts below and install the matching platform archive only after review. Restart Rhino manually after installation.
 
-1. Run `AholoPanel`, open **Settings**, enter an international API Key and choose a service for validation. Local GS import/export and local history work without a Key.
+1. Run `AholoPanel`, open **Settings**, select **International** or **China**, enter that region’s API Key and choose a validation service. **Validate and connect** applies the selected region; **Apply service region** restores its saved Key. Local GS import/export and local history work without a Key.
 2. Choose an operation in **Create**, fill its fields and submit once. **Advanced options** contains optional model/output settings.
 3. In **Library**, follow status, select a result and download it. The exact path appears in feedback; **Open result folder** reveals its directory.
 4. Use **Place in current document** for a supported GLB, mesh PLY/STL/core 3MF, spatial DSL or Gaussian PLY/SPZ. Mesh candidates use the selected CPlane/point, height and rotation; Settings controls GS units/axis. Placement supports Undo and repeated clicks do not duplicate an existing receipt. Optional automatic mesh placement belongs only to the original live generation intent; closing/changing document or connection revokes it. The generation face-count range is a service rule, not an import limit.
@@ -111,7 +113,7 @@ The camera export preserves the viewport's horizontal field of view and uses the
 
 ## Data and credentials
 
-The background process uses private stdin/stdout pipes plus a current-user named pipe with a per-process nonce for realtime preview; it exposes no local HTTP control port. Optional OAuth temporarily binds an OS-selected IPv4 loopback port solely for the browser callback, then closes it. Only the fixed international API receives the API Key. Uploads use a separate short-lived OUS token; downloads use unauthenticated HTTPS with redirects disabled and public-address checks.
+The background process uses private stdin/stdout pipes plus a current-user named pipe with a per-process nonce for realtime preview; it exposes no local HTTP control port. Optional OAuth temporarily binds an OS-selected IPv4 loopback port solely for the browser callback, then closes it. Only the fixed gateway bound to the Key’s selected region receives that Key. Uploads use a separate short-lived OUS token; downloads use unauthenticated HTTPS with redirects disabled and public-address checks.
 
 Prompt/reference images and selected render geometry are sent to Aholo when submitted. Job JSON, input snapshots and downloaded results stay under `Aholo-Rhino` in the OS local application-data folder. The export subfolder can contain intermediate GLB files. GS imports create a SHA-256-named local PLY snapshot. The Rhino document saves the asset hash and local path, not embedded splat data; share the matching PLY/cache with the 3dm. Missing or changed assets keep a visible bounding-box placeholder. The document may therefore contain local filesystem paths. Task records do not contain Keys or signed asset URLs. Disconnect removes the saved Key, while preserving local work. There is no automatic telemetry. Storage protection does not defend against other processes running as the same user or administrators.
 

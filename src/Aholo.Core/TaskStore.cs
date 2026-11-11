@@ -39,7 +39,7 @@ public sealed class TaskStore
     private IEnumerable<LocalTask> All() => Directory.EnumerateFiles(Path.Combine(Root, "tasks"), "*.json")
         .Select(p => Guid.TryParseExact(Path.GetFileNameWithoutExtension(p), "N", out var id) ? TryGet(id) : null)
         .Where(t => t != null).Cast<LocalTask>();
-    public IReadOnlyList<LocalTask> ActiveTasks(string connectionId) => All().Where(t=>t.ConnectionId==connectionId&&(TaskCapabilities.For(t).IsRunning||t.Status=="MeshReady")).ToArray();
+    public IReadOnlyList<LocalTask> ActiveTasks(string connectionId,string region=AholoRegions.International) => All().Where(t=>t.Region==region&&t.ConnectionId==connectionId&&(TaskCapabilities.For(t).IsRunning||t.Status=="MeshReady")).ToArray();
     public IReadOnlyList<LocalTask> List() => Page(new TaskPageRequest(Limit: 100)).Items;
     public TaskPage Page(TaskPageRequest request)
     {

@@ -34,35 +34,37 @@ public sealed class OAuthTests
             : "{\"issuer\":\"https://www.aholo.ai\",\"authorization_endpoint\":\"https://evil.example/authorize\",\"token_endpoint\":\"https://www.aholo.ai/oauth/token\",\"registration_endpoint\":\"https://www.aholo.ai/oauth/register\",\"scopes_supported\":[\"get_user_info\"],\"grant_types_supported\":[\"authorization_code\"],\"code_challenge_methods_supported\":[\"S256\"],\"token_endpoint_auth_methods_supported\":[\"none\"]}")));
         await Assert.ThrowsAsync<ProviderException>(() => new ManycoreOAuthService(new HttpClient(handler)).DiscoverAsync());
     }
-    [Fact]
-    public async Task FullLoginRegistersPkceAndCompletesLoopbackWithoutLeakingApiKey()
+    [Theory][InlineData("international")][InlineData("china")]
+    public async Task FullLoginRegistersPkceAndCompletesLoopbackWithoutLeakingApiKey(string region)
     {
+        HttpResponseMessage Json(string text)=>OAuthHttp.Json(region=="china"?text.Replace("aholo.ai","aholo3d.cn"):text);
         Uri? registeredRedirect = null;
         string? challenge = null;
         Task? callback = null;
         var handler = new OAuthHttp.Stub(async request =>
         {
             Assert.False(request.Headers.Contains("Authorization"));
+            Assert.Contains(request.RequestUri!.Host,region=="china"?new[]{"api.aholo3d.cn","www.aholo3d.cn"}:new[]{"api.aholo.ai","www.aholo.ai"});
             if (request.RequestUri!.AbsolutePath.EndsWith("oauth-protected-resource"))
-                return OAuthHttp.Json("{\"resource\":\"https://api.aholo.ai\",\"authorization_servers\":[\"https://www.aholo.ai\"]}");
+                return Json("{\"resource\":\"https://api.aholo.ai\",\"authorization_servers\":[\"https://www.aholo.ai\"]}");
             if (request.RequestUri.AbsolutePath.EndsWith("oauth-authorization-server"))
-                return OAuthHttp.Json("{\"issuer\":\"https://www.aholo.ai\",\"authorization_endpoint\":\"https://www.aholo.ai/oauth/authorize\",\"token_endpoint\":\"https://www.aholo.ai/oauth/token\",\"registration_endpoint\":\"https://www.aholo.ai/oauth/register\",\"scopes_supported\":[\"get_user_info\"],\"grant_types_supported\":[\"authorization_code\",\"refresh_token\"],\"code_challenge_methods_supported\":[\"S256\"],\"token_endpoint_auth_methods_supported\":[\"none\"]}");
+                return Json("{\"issuer\":\"https://www.aholo.ai\",\"authorization_endpoint\":\"https://www.aholo.ai/oauth/authorize\",\"token_endpoint\":\"https://www.aholo.ai/oauth/token\",\"registration_endpoint\":\"https://www.aholo.ai/oauth/register\",\"scopes_supported\":[\"get_user_info\"],\"grant_types_supported\":[\"authorization_code\",\"refresh_token\"],\"code_challenge_methods_supported\":[\"S256\"],\"token_endpoint_auth_methods_supported\":[\"none\"]}");
             if (request.RequestUri.AbsolutePath.EndsWith("/register"))
             {
                 var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync()).RootElement;
                 registeredRedirect = new Uri(body.GetProperty("redirect_uris")[0].GetString()!);
                 Assert.Equal("127.0.0.1", registeredRedirect.Host);
                 Assert.Equal("none", body.GetProperty("token_endpoint_auth_method").GetString());
-                return OAuthHttp.Json("{\"client_id\":\"public-test-client\",\"token_endpoint_auth_method\":\"none\"}");
+                return Json("{\"client_id\":\"public-test-client\",\"token_endpoint_auth_method\":\"none\"}");
             }
             var fields = Query(await request.Content!.ReadAsStringAsync());
             Assert.Equal("test-code", fields["code"]);
             Assert.Equal(registeredRedirect!.AbsoluteUri, fields["redirect_uri"]);
             Assert.Equal(challenge, Convert.ToBase64String(SHA256.HashData(Encoding.ASCII.GetBytes(fields["code_verifier"]))).TrimEnd('=').Replace('+', '-').Replace('/', '_'));
-            return OAuthHttp.Json("{\"access_token\":\"fake-access\",\"refresh_token\":\"fake-refresh\",\"token_type\":\"Bearer\",\"expires_in\":3600,\"scope\":\"get_user_info\"}");
+            return Json("{\"access_token\":\"fake-access\",\"refresh_token\":\"fake-refresh\",\"token_type\":\"Bearer\",\"expires_in\":3600,\"scope\":\"get_user_info\"}");
         });
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var token = await new ManycoreOAuthService(new HttpClient(handler)).LoginAsync( url =>
+        var token = await new ManycoreOAuthService(new HttpClient(handler),region).LoginAsync( url =>
         {
             var fields = Query(url.Query.TrimStart('?')); challenge = fields["code_challenge"];
             Assert.Equal("S256", fields["code_challenge_method"]);
@@ -76,7 +78,7 @@ public sealed class OAuthTests
             }, timeout.Token);
         }, timeout.Token);
         await callback!;
-        Assert.Equal("fake-access", token.AccessToken); Assert.Equal(4, handler.Count);
+        Assert.Equal(region,token.Region);Assert.Equal("fake-access", token.AccessToken); Assert.Equal(4, handler.Count);
     }
     private static Dictionary<string, string> Query(string text) => text.Split('&').Select(p => p.Split('=', 2)).ToDictionary(p => Uri.UnescapeDataString(p[0]), p => Uri.UnescapeDataString(p[1].Replace('+', ' ')));
 

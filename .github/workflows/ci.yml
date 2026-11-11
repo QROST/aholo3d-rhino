@@ -30,6 +30,10 @@ jobs:
         run: dotnet build Aholo.sln -c Release --no-restore
       - name: Test including hostless plug-in metadata
         run: dotnet test Aholo.sln -c Release --no-build
+      - name: Verify regional contract snapshots
+        run: python scripts/check-region-contracts.py
+      - name: Verify account coordination across processes (synthetic storage)
+        run: python fixtures/oauth-coordinator-verify.py
       - name: Check Gaussian resources
         run: python scripts/create-gs-assets.py --check
       - name: Validate packaged build payload (no Rhino or Yak installation)

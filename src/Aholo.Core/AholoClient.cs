@@ -9,6 +9,7 @@ public interface IAholoServiceClient : IAsyncDisposable
     event Action? TransportReset;
     Task<ConnectionState> GetConnectionAsync(CancellationToken ct=default);
     Task<ConnectionState> ConnectAsync(ConnectRequest request,CancellationToken ct=default);
+    Task<ConnectionState> SwitchRegionAsync(string region,CancellationToken ct=default);
     Task<ConnectionState> DisconnectAsync(CancellationToken ct=default);
     Task<IReadOnlyList<LocalTask>> GetTasksAsync(CancellationToken ct=default);
     Task<TaskPage> GetTaskPageAsync(TaskPageRequest request,CancellationToken ct=default);
@@ -36,6 +37,7 @@ public sealed partial class AholoClient : IAholoServiceClient
 
     public Task<ConnectionState> GetConnectionAsync(CancellationToken ct = default) => Call<ConnectionState>("connection", new { }, ct);
     public Task<ConnectionState> ConnectAsync(ConnectRequest request, CancellationToken ct = default) => Call<ConnectionState>("connect", request, ct);
+    public Task<ConnectionState> SwitchRegionAsync(string region,CancellationToken ct=default)=>Call<ConnectionState>("switchRegion",new{region=AholoRegions.Get(region).Id},ct);
     public Task<ConnectionState> DisconnectAsync(CancellationToken ct = default) => Call<ConnectionState>("disconnect", new { }, ct);
     public async Task<IReadOnlyList<LocalTask>> GetTasksAsync(CancellationToken ct = default) => await Call<LocalTask[]>("list", new { }, ct).ConfigureAwait(false);
     public Task<LocalTask> GenerateWorldAsync(GenerateWorldRequest request, CancellationToken ct = default) => Call<LocalTask>("generate", request, ct);
@@ -50,7 +52,7 @@ public sealed partial class AholoClient : IAholoServiceClient
     public Task<CloudHistoryPage> CloudHistoryAsync(CloudHistoryRequest request,CancellationToken ct=default) => Call<CloudHistoryPage>("cloudHistory",request,ct);
     public Task<LocalTask> RestoreRemoteAsync(RestoreRemoteRequest request,CancellationToken ct=default) => Call<LocalTask>("restoreRemote",request,ct);
 
-    private async Task<T> Call<T>(string method, object payload, CancellationToken ct)
+    private async Task<T> Call<T>(string method, object payload, CancellationToken ct, Action? beforeSend=null)
     {
         string? expectedEpoch = _credentialEpoch;
         await _gate.WaitAsync(ct).ConfigureAwait(false);
@@ -60,7 +62,11 @@ public sealed partial class AholoClient : IAholoServiceClient
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(TimeSpan.FromMinutes(16));
             timeout.Token.ThrowIfCancellationRequested();
+            beforeSend?.Invoke();
             EnsureProcess();
+            // Cancellation may arrive while the child and its control endpoint are starting.
+            // Once published, that endpoint receives cancellation independently of this gate.
+            beforeSend?.Invoke();
             var id = Guid.NewGuid();
             string request = JsonSerializer.Serialize(new RpcRequest(1, id, method, AholoJson.Element(payload), expectedEpoch), AholoJson.Options);
             if (request.Length > 128 * 1024) throw new InvalidOperationException("The request is too long.");

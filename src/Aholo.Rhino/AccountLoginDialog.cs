@@ -6,6 +6,7 @@ namespace Aholo.Rhino;
 internal sealed class AccountLoginDialog : Dialog
 {
     private readonly IAccountSessionClient client;
+    private readonly string region;
     private readonly Label status = new() { Wrap = WrapMode.Word };
     private readonly Button signIn = new() { Text = T("Sign in with Manycore") };
     private readonly Button refresh = new() { Text = T("Refresh account session") };
@@ -15,33 +16,32 @@ internal sealed class AccountLoginDialog : Dialog
     private readonly UITimer timer = new() { Interval = 1 };
     private AccountSessionState state = new();
     private bool closed, busy;
-    private Task lastWork = Task.CompletedTask;
     private Guid? ownedAttempt;
     private static string T(string s) => UiText.Get(s);
-    public AccountLoginDialog(IAccountSessionClient client)
+    public AccountLoginDialog(IAccountSessionClient client,string region)
     {
-        this.client = client; Title = T("Account sign-in (optional)"); ClientSize = new Size(480,430); Resizable = true;
+        this.client = client; this.region=AholoRegions.Get(region).Id; Title = T("Account sign-in (optional)")+" · "+AholoRegions.Label(region); ClientSize = new Size(480,430); Resizable = true;
         var close = new Button { Text = T("Close") }; close.Click += (_,_) => Close();
         Content = new StackLayout { Padding = 14, Spacing = 10, HorizontalContentAlignment = HorizontalAlignment.Stretch, Items = {
-            new Label { Wrap = WrapMode.Word, Text = T("International account login is optional. Generation, history and rendering still require an API Key. Account login does not connect, replace or validate that Key.") },
+            new Label { Wrap = WrapMode.Word, Text = T("Account login for this region is optional. Generation, history and rendering still require an API Key. Account login does not connect, replace or validate that Key.") },
             status, remember, signIn, refresh, signOut,
-            new Label { Wrap = WrapMode.Word, Text = T("Remembered account tokens use macOS Keychain or Windows user encryption. Otherwise they last only for this process. Sign-in replaces the shared account on this device; sign-out removes its saved session across Rhino instances. Neither action revokes server tokens or changes your API Key.") }, close } };
+            new Label { Wrap = WrapMode.Word, Text = T("Remembered account tokens use macOS Keychain or Windows user encryption. Otherwise they last only for this process. Sign-in replaces this region's shared account on this device; sign-out removes its saved session across Rhino instances. Neither action revokes server tokens or changes your API Key.") }, close } };
         remember.CheckedChanged+=(_,_)=>{if(!syncingRemember)rememberEdited=true;};
         signIn.Click += (_,_) => Start("begin"); refresh.Click += (_,_) => Start("refresh");
-        signOut.Click += (_,_) => { if(!busy){rememberEdited=false;lastWork = RunAsync("signOut");} };
-        timer.Elapsed += (_,_) => { if(!busy&&!closed) lastWork = RunAsync("status"); };
-        Shown += (_,_) => { timer.Start(); lastWork = RunAsync("status"); };
-        Closed += (_,_) => { closed = true; timer.Stop(); timer.Dispose(); _ = CancelOwnedAfterWorkAsync(); };
+        signOut.Click += (_,_) => { if(!busy){rememberEdited=false;_ = RunAsync("signOut");} };
+        timer.Elapsed += (_,_) => { if(!busy&&!closed) _ = RunAsync("status"); };
+        Shown += (_,_) => { timer.Start(); _ = RunAsync("status"); };
+        Closed += (_,_) => { closed = true; timer.Stop(); timer.Dispose(); _ = CancelOwnedAsync(); };
         Update();
     }
     private void Start(string action)
-    { if(busy)return; ownedAttempt = Guid.NewGuid();bool save=remember.Checked==true;rememberEdited=true;lastWork = RunAsync(action, ownedAttempt,save); }
+    { if(busy)return; ownedAttempt = Guid.NewGuid();bool save=remember.Checked==true;rememberEdited=true;_ = RunAsync(action, ownedAttempt,save); }
     private async Task RunAsync(string action, Guid? id = null,bool? save=null)
     {
         busy = true; Update();
         try
         {
-            var next=await client.AccountAsync(action,id,save);
+            var next=await client.AccountAsync(action,id,save,region);
             if(!closed)
             {
                 state=next;
@@ -72,9 +72,9 @@ internal sealed class AccountLoginDialog : Dialog
         remember.Enabled=!busy&&!pending;
         signOut.Enabled = !busy&&state.Stage != "SignedOut";
     }
-    private async Task CancelOwnedAfterWorkAsync()
+    private async Task CancelOwnedAsync()
     {
-        try { await lastWork; if(ownedAttempt is{} id) await client.AccountAsync("cancel",id); }
+        try { if(ownedAttempt is{} id) await client.AccountAsync("cancel",id,region:region); }
         catch { /* No token or raw OAuth failure enters host diagnostics; the attempt has its own deadline. */ }
     }
 }

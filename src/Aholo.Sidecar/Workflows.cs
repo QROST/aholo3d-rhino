@@ -8,7 +8,7 @@ public sealed partial class Workflows(AholoApiClient api, TaskStore store, Asset
     public async Task<LocalTask> GenerateAsync(ApiKeyCredential key, GenerateWorldRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Prompt) && string.IsNullOrWhiteSpace(request.ImagePath)) throw new ArgumentException("Enter a world description or choose a reference image.");
-        var task = new LocalTask { Name = Name(request.Name, "Aholo World"), ConnectionId = key.ConnectionId };
+        var task = new LocalTask { Name = Name(request.Name, "Aholo World"), Region = key.Region, ConnectionId = key.ConnectionId };
         using var gate = store.LockTask(task.Id);
         store.Save(task);
         try
@@ -38,7 +38,7 @@ public sealed partial class Workflows(AholoApiClient api, TaskStore store, Asset
             { Transform = light.Transform?.ToArray() ?? throw new ArgumentException("Light transform is missing."), Color = light.Color?.ToArray() ?? throw new ArgumentException("Light color is missing.") }).ToArray()
         };
         _ = UsdaSceneBuilder.Build("validation", request.Camera, request.Width, request.Height, request.EnvironmentIntensity, request.Lights);
-        var task = new LocalTask { Kind = "render", Name = Name(request.Name, "Aholo Render"), ConnectionId = key.ConnectionId };
+        var task = new LocalTask { Kind = "render", Name = Name(request.Name, "Aholo Render"), Region = key.Region, ConnectionId = key.ConnectionId };
         using var gate = store.LockTask(task.Id);
         store.Save(task);
         try
@@ -96,8 +96,8 @@ public sealed partial class Workflows(AholoApiClient api, TaskStore store, Asset
     {
         var world = await api.GetWorldAsync(key, worldId, ct).ConfigureAwait(false);
         using var indexGate = store.LockMutation();
-        var existing = store.FindWorld(world.WorldId, key.ConnectionId);
-        var task = existing ?? new LocalTask { ConnectionId = key.ConnectionId };
+        var existing = store.FindRemote(TaskService.World, world.WorldId, key.ConnectionId, key.Region);
+        var task = existing ?? new LocalTask { Region = key.Region, ConnectionId = key.ConnectionId };
         using var gate = store.LockTask(task.Id);
         if (existing is not null) task = store.GetForUpdate(task.Id);
         return Save(ApplyWorld(task, world));
@@ -139,6 +139,6 @@ public sealed partial class Workflows(AholoApiClient api, TaskStore store, Asset
         return task with { Status = unknown ? "SubmissionUnknown" : "FAILED", Error = unknown ? "The request was sent but its result is unknown. Check Aholo history; automatic resubmission is prohibited." : error is ProviderException or ArgumentException ? error.Message : "Preparation or network operation failed. The original task is retained." };
     }
     private static void CheckConnection(ApiKeyCredential key, LocalTask task)
-    { if (task.ConnectionId != key.ConnectionId) throw new InvalidOperationException("This task belongs to another API Key. Connect the original key before refreshing or downloading."); }
+    { if (task.Region != key.Region || task.ConnectionId != key.ConnectionId) throw new InvalidOperationException("This task belongs to another region or API Key. Restore its original connection before refreshing or downloading."); }
     private static string Name(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 }

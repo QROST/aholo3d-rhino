@@ -9,6 +9,7 @@ public sealed record RealtimePreviewRecord
 {
     public int Version{get;init;}=1;
     public Guid Id{get;init;}
+    public string Region{get;init;}=AholoRegions.International;
     public string ConnectionId{get;init;}="";
     public string Epoch{get;init;}="";
     public string MeshId{get;init;}="";
@@ -19,7 +20,7 @@ public sealed record RealtimePreviewRecord
     public DateTimeOffset UpdatedAt{get;init;}=DateTimeOffset.UtcNow;
 }
 public sealed record RealtimePreviewState(RealtimePreviewRecord Record,long FrameSequence=0,DateTimeOffset? ReceivedAt=null,long AcknowledgedCamera=0,long AcceptedScene=0,long AcknowledgedScene=0);
-public sealed record RealtimePreviewReply(RealtimePreviewState? State=null,RealtimePreviewRecord[]? Records=null,string? Error=null);
+public sealed record RealtimePreviewReply(RealtimePreviewState? State=null,RealtimePreviewRecord[]? Records=null,string? Error=null,AccountSessionState? Account=null);
 public sealed record RealtimePreviewPacket(RealtimePreviewReply Reply,byte[]? Jpeg=null);
 public sealed record RealtimeControlRequest(int Version,Guid RequestId,string Nonce,string Method,JsonElement Payload,string? Epoch)
 {

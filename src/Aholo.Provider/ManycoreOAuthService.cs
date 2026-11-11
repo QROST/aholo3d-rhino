@@ -9,6 +9,7 @@ namespace Aholo.Provider;
 
 public sealed class OAuthToken
 {
+    public string Region { get; init; } = Aholo.Core.AholoRegions.International;
     public string AccessToken { get; init; } = "";
     public string? RefreshToken { get; init; }
     public string ClientId { get; init; } = "";
@@ -24,11 +25,12 @@ public sealed record OAuthServerMetadata(Uri Issuer, Uri AuthorizationEndpoint, 
 public sealed class ManycoreOAuthService : IAccountAuthorization
 {
     private readonly HttpClient _http;
-    public ManycoreOAuthService(HttpClient http) { if(http.DefaultRequestHeaders.Contains("Authorization")) throw new ArgumentException("OAuth requires an independent unauthenticated HTTP client."); _http = http; }
+    private readonly Aholo.Core.AholoRegion region;
+    public ManycoreOAuthService(HttpClient http, string region = Aholo.Core.AholoRegions.International) { this.region=Aholo.Core.AholoRegions.Get(region); if(http.DefaultRequestHeaders.Contains("Authorization")) throw new ArgumentException("OAuth requires an independent unauthenticated HTTP client."); _http = http; }
     public async Task<OAuthServerMetadata> DiscoverAsync(CancellationToken cancellationToken = default)
     {
-        const string api = "https://api.aholo.ai";
-        const string issuer = "https://www.aholo.ai";
+        string api = region.OAuthResource;
+        string issuer = region.OAuthIssuer;
         using var resourceRequest = new HttpRequestMessage(HttpMethod.Get, api + "/.well-known/oauth-protected-resource");
         var resource = await ReadJsonAsync(resourceRequest, cancellationToken).ConfigureAwait(false);
         if (String(resource, "resource") != api || !Contains(resource, "authorization_servers", issuer)) throw Error(global::Aholo.Core.UiText.Get("Official OAuth resource metadata does not match."));
@@ -72,6 +74,7 @@ public sealed class ManycoreOAuthService : IAccountAuthorization
     }
     public async Task<OAuthToken> RefreshAsync(OAuthToken previous, CancellationToken cancellationToken = default)
     {
+        if(previous.Region!=region.Id) throw Error("The account session belongs to another service region.");
         if (string.IsNullOrWhiteSpace(previous.RefreshToken)) throw Error(global::Aholo.Core.UiText.Get("Your sign-in has expired. Sign in again."));
         ValidateOpaque(previous.RefreshToken, "refresh token");
         if (!string.Equals(previous.TokenType, "Bearer", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(previous.ClientId) || previous.ClientId.Length > 2048 || previous.ClientId.Any(char.IsControl)) throw Error(global::Aholo.Core.UiText.Get("Invalid OAuth session format. Sign in again."));
@@ -104,7 +107,7 @@ public sealed class ManycoreOAuthService : IAccountAuthorization
         if (string.IsNullOrWhiteSpace(clientId) || clientId.Length > 2048 || clientId.Any(char.IsControl)) throw Error(global::Aholo.Core.UiText.Get("OAuth registration did not return a valid client_id."));
         return clientId;
     }
-    private static OAuthToken ParseToken(JsonElement value, string clientId, OAuthToken? previous)
+    private OAuthToken ParseToken(JsonElement value, string clientId, OAuthToken? previous)
     {
         string access = String(value, "access_token"), type = String(value, "token_type");
         ValidateOpaque(access, "access token");
@@ -124,7 +127,7 @@ public sealed class ManycoreOAuthService : IAccountAuthorization
             scope = returnedScope.GetString()!;
         }
         ValidateScope(scope);
-        return new OAuthToken { ClientId = clientId, AccessToken = access, TokenType = "Bearer", RefreshToken = refresh, Scope = scope, ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(seconds) };
+        return new OAuthToken { Region = region.Id, ClientId = clientId, AccessToken = access, TokenType = "Bearer", RefreshToken = refresh, Scope = scope, ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(seconds) };
     }
     private static void ValidateOpaque(string? value, string label)
     {

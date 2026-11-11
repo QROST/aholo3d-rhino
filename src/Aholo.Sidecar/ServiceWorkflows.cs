@@ -10,7 +10,7 @@ public sealed partial class Workflows
         var contract=ServiceOperations.Get(request.Operation);
         if(request.Operation=="spatial.understand"&&!(request.Files?.Any(f=>f.Field=="inputFileUrl")==true))throw new ArgumentException("Choose a local indoor PLY so upload provenance can be verified.");
         _=ServiceRequest.Bind(request,ServiceRequest.Placeholder); // Complete validation before upload or paid submission.
-        var task=new LocalTask{Kind=contract.Service switch{TaskService.World=>"world",TaskService.Lux3D=>"object",_=>"spatial"},ServiceOperation=contract.Id,Name=Name(request.Name,contract.Title),ConnectionId=key.ConnectionId};
+        var task=new LocalTask{Kind=contract.Service switch{TaskService.World=>"world",TaskService.Lux3D=>"object",_=>"spatial"},ServiceOperation=contract.Id,Name=Name(request.Name,contract.Title),Region=key.Region,ConnectionId=key.ConnectionId};
         using var gate=store.LockTask(task.Id);store.Save(task);
         try
         {

@@ -42,21 +42,42 @@ public sealed class AholoSession : IAsyncDisposable
         try
         {
             var state=await Client.GetConnectionAsync(ct).ConfigureAwait(false);
-            SetError(null);return SetConnection(state,expected);
+            return SetConnection(state,expected,clearError:true);
         }
         catch { SetError("The saved connection could not be restored. Use Settings to restore or reconnect.");throw; }
     }
     public async Task<ConnectionState> ConnectAsync(ConnectRequest request,CancellationToken ct=default)
     {
-        Invalidate();SetConnection(new(false,null,false));
+        Invalidate();SetConnection(new(false,null,false,Region:Connection.Region));
         long expected;lock(intentGate)expected=generation;
-        var state=await Client.ConnectAsync(request,ct).ConfigureAwait(false);SetError(null);return SetConnection(state,expected);
+        try{var state=await Client.ConnectAsync(request,ct).ConfigureAwait(false);return SetConnection(state,expected,clearError:true);}
+        catch{await ReconcileFailedChangeAsync(expected,ct).ConfigureAwait(false);throw;}
     }
     public async Task<ConnectionState> DisconnectAsync(CancellationToken ct=default)
     {
-        Invalidate();SetConnection(new(false,null,false));Operations.CancelPrefix("task:");
+        Invalidate();SetConnection(new(false,null,false,Region:Connection.Region));Operations.CancelPrefix("task:");
         long expected;lock(intentGate)expected=generation;
-        var state=await Client.DisconnectAsync(ct).ConfigureAwait(false);SetError(null);return SetConnection(state,expected);
+        try{var state=await Client.DisconnectAsync(ct).ConfigureAwait(false);return SetConnection(state,expected,clearError:true);}
+        catch{await ReconcileFailedChangeAsync(expected,ct).ConfigureAwait(false);throw;}
+    }
+    public async Task<ConnectionState> SwitchRegionAsync(string region,CancellationToken ct=default)
+    {
+        region=AholoRegions.Get(region).Id;
+        Invalidate();SetConnection(new(false,null,false,Region:Connection.Region));Operations.CancelPrefix("task:");
+        long expected;lock(intentGate)expected=generation;
+        try{var state=await Client.SwitchRegionAsync(region,ct).ConfigureAwait(false);return SetConnection(state,expected,clearError:true);}
+        catch{await ReconcileFailedChangeAsync(expected,ct).ConfigureAwait(false);throw;}
+    }
+    private async Task ReconcileFailedChangeAsync(long expected,CancellationToken ct)
+    {
+        ConnectionState? retained=null;
+        try{if(!ct.IsCancellationRequested)retained=await Client.GetConnectionAsync(ct).ConfigureAwait(false);}catch{ }
+        lock(intentGate)
+        {
+            if(generation!=expected)return;
+            Volatile.Write(ref lastError,"The connection change did not complete. The current saved connection was checked; restore it again if disconnected.");
+        }
+        if(retained is not null)SetConnection(retained,expected);else Notify();
     }
     public Task<TaskPage> ReadHistoryAsync(TaskPageRequest request,CancellationToken ct=default)=>Task.Run(()=>Store.Page(request),ct);
     public async Task<LocalTask> RenderAsync(RenderRequest request,CancellationToken ct=default)
@@ -97,7 +118,7 @@ public sealed class AholoSession : IAsyncDisposable
         try
         {
             // Reading local history does not wait behind a long pipe request or start a new sidecar.
-            var records=await Task.Run(()=>Store.ActiveTasks(Connection.ConnectionId!).Where(t=>!paused.ContainsKey(t.Id)&&(TaskCapabilities.For(t).IsRunning||renderIntents.ContainsKey(t.Id))).ToArray(),ct).ConfigureAwait(false);
+            var records=await Task.Run(()=>Store.ActiveTasks(Connection.ConnectionId!,Connection.Region).Where(t=>!paused.ContainsKey(t.Id)&&(TaskCapabilities.For(t).IsRunning||renderIntents.ContainsKey(t.Id))).ToArray(),ct).ConfigureAwait(false);
             if(records.Length==0)return;
             var task=records[(int)((uint)Interlocked.Increment(ref cursor)%(uint)records.Length)];
             string scope="task:"+task.Id.ToString("N");
@@ -134,13 +155,14 @@ public sealed class AholoSession : IAsyncDisposable
         }
         catch(OperationCanceledException){ }
     }
-    private ConnectionState SetConnection(ConnectionState state,long? expected=null)
+    private ConnectionState SetConnection(ConnectionState state,long? expected=null,bool clearError=false)
     {
         CancellationTokenSource? previous=null;
         lock(intentGate)
         {
             if(expected.HasValue&&expected!=generation)return Connection;
-            if(Connection.ConnectionId!=state.ConnectionId||Connection.CredentialEpoch!=state.CredentialEpoch)previous=RevokeUnderLock();
+            if(clearError)Volatile.Write(ref lastError,null);
+            if(Connection.Region!=state.Region||Connection.ConnectionId!=state.ConnectionId||Connection.CredentialEpoch!=state.CredentialEpoch)previous=RevokeUnderLock();
             Volatile.Write(ref connection,state);
         }
         CancelAuthority(previous);Notify();return state;
@@ -160,7 +182,7 @@ public sealed class AholoSession : IAsyncDisposable
     private void SetError(string? error){Volatile.Write(ref lastError,error);Notify();}
     private void TransportReset()
     {
-        Invalidate();SetConnection(new(false,null,false));
+        Invalidate();SetConnection(new(false,null,false,Region:Connection.Region));
         SetError("The background connection stopped. Restore it in Settings; paid render continuation requires a new explicit action.");
     }
     public void Observe(LocalTask task)

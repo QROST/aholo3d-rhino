@@ -6,13 +6,13 @@ using Aholo.Core;
 
 namespace Aholo.Provider;
 
-public sealed record CredentialSnapshot(ApiKeyCredential? Key, bool Remembered, string Epoch);
+public sealed record CredentialSnapshot(ApiKeyCredential? Key, bool Remembered, string Epoch, string Region = AholoRegions.International);
 
 /// <summary>Coordinates the fixed OS credential scope across processes. State files contain no secrets.</summary>
 public sealed class CredentialCoordinator
 {
     public const string Account = "international-api-key";
-    private sealed record State(int SchemaVersion, string Epoch, bool Ready);
+    private sealed record State(int SchemaVersion, string Epoch, bool Ready, string Region = AholoRegions.International);
     private readonly ICredentialStore store;
     private readonly string statePath;
     private CredentialSnapshot? cached;
@@ -23,36 +23,65 @@ public sealed class CredentialCoordinator
         string scope = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(CredentialStoreFactory.DefaultService + "\0" + Account))).ToLowerInvariant();
         statePath = Path.Combine(root ?? DefaultRoot, scope + ".json");
     }
+    private static string AccountFor(string region) => AholoRegions.Get(region).Id + "-api-key";
     public async Task<CredentialSnapshot> ReadAsync(CancellationToken ct = default)
     {
         using var gate = await LockAsync(ct).ConfigureAwait(false);
-        State state = ReadState();
+        return await ReadLockedAsync(ReadState(),ct).ConfigureAwait(false);
+    }
+    private async Task<CredentialSnapshot> ReadLockedAsync(State state,CancellationToken ct)
+    {
         if (!state.Ready) { cached = null; throw Changed(); }
         if (cached?.Epoch == state.Epoch) return cached;
         cached = null;
-        string? secret = await store.GetAsync(Account, ct).ConfigureAwait(false);
-        var key = string.IsNullOrWhiteSpace(secret) ? null : new ApiKeyCredential(secret);
-        return cached = new(key, key is not null, state.Epoch);
+        string? secret = await store.GetAsync(AccountFor(state.Region), ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        var key = string.IsNullOrWhiteSpace(secret) ? null : new ApiKeyCredential(secret,state.Region);
+        return cached = new(key,key is not null,state.Epoch,state.Region);
     }
-    public async Task<CredentialSnapshot> ConnectAsync(ApiKeyCredential key, bool remember, CancellationToken ct = default)
-        => await ChangeAsync(key, remember, ct).ConfigureAwait(false);
-    public async Task<CredentialSnapshot> DisconnectAsync(CancellationToken ct = default)
-        => await ChangeAsync(null, false, ct).ConfigureAwait(false);
-    private async Task<CredentialSnapshot> ChangeAsync(ApiKeyCredential? key, bool remember, CancellationToken ct)
+    // Capture before validation, compare under the mutation lock afterwards. Hashing even a
+    // corrupt state allows explicit repair without overwriting a concurrently repaired state.
+    public async Task<string> MutationStampAsync(CancellationToken ct=default)
+    {using var gate=await LockAsync(ct).ConfigureAwait(false);return MutationStamp();}
+    private string MutationStamp()=>File.Exists(statePath)?Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(statePath))):"missing";
+    public async Task<CredentialSnapshot> ConnectAsync(ApiKeyCredential key,bool remember,CancellationToken ct=default,string? expectedStamp=null)
     {
-        using var gate = await LockAsync(ct).ConfigureAwait(false);
-        cached = null;
-        var state = new State(1, Guid.NewGuid().ToString("N"), false);
-        WriteState(state); // Crash/failure after this point requires an explicit reconnect; never inherit the old key.
-        if (remember && key is not null) await store.SetAsync(Account, key.Value, ct).ConfigureAwait(false);
-        else await store.DeleteAsync(Account, ct).ConfigureAwait(false);
-        WriteState(state with { Ready = true });
-        return cached = new(key, remember && key is not null, state.Epoch);
+        using var gate=await LockAsync(ct).ConfigureAwait(false);
+        if(expectedStamp is not null&&expectedStamp!=MutationStamp())throw Changed();
+        cached=null;
+        var state=new State(2,Guid.NewGuid().ToString("N"),false,key.Region);WriteState(state);
+        if(remember)await store.SetAsync(AccountFor(key.Region),key.Value,ct).ConfigureAwait(false);
+        else await store.DeleteAsync(AccountFor(key.Region),ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();WriteState(state with{Ready=true});
+        return cached=new(key,remember,state.Epoch,key.Region);
     }
+    public async Task<CredentialSnapshot> DisconnectAsync(CancellationToken ct=default,string? expectedEpoch=null)
+    {
+        using var gate=await LockAsync(ct).ConfigureAwait(false);
+        State old=ReadState();CheckEpoch(old,expectedEpoch);
+        cached=null;var state=new State(2,Guid.NewGuid().ToString("N"),false,old.Region);WriteState(state);
+        await store.DeleteAsync(AccountFor(state.Region),ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();WriteState(state with{Ready=true});
+        return cached=new(null,false,state.Epoch,state.Region);
+    }
+    public async Task<CredentialSnapshot> SwitchRegionAsync(string region,CancellationToken ct=default,string? expectedEpoch=null)
+    {
+        region=AholoRegions.Get(region).Id;
+        using var gate=await LockAsync(ct).ConfigureAwait(false);
+        State old=ReadState();CheckEpoch(old,expectedEpoch);
+        if(old.Region==region&&old.Ready)return await ReadLockedAsync(old,ct).ConfigureAwait(false);
+        cached=null;var state=new State(2,Guid.NewGuid().ToString("N"),false,region);WriteState(state);
+        string? secret=await store.GetAsync(AccountFor(region),ct).ConfigureAwait(false);
+        var key=string.IsNullOrWhiteSpace(secret)?null:new ApiKeyCredential(secret,region);
+        ct.ThrowIfCancellationRequested();WriteState(state with{Ready=true});
+        return cached=new(key,key is not null,state.Epoch,region);
+    }
+    private static void CheckEpoch(State state,string? expected)
+    {if(expected is not null&&state.Epoch!=expected)throw Changed();}
     public async Task<ApiKeyCredential> RequireAsync(string? expectedEpoch, CancellationToken ct = default)
     {
         using var gate = await AcquireRequestAsync(expectedEpoch, ct).ConfigureAwait(false);
-        return cached?.Key ?? throw new InvalidOperationException("Connect an international API Key first.");
+        return cached?.Key ?? throw new InvalidOperationException("Connect an API Key for the selected region first.");
     }
     /// <summary>Held through HTTP admission/response headers. A credential change cannot pass a request waiting in this gate.</summary>
     public async Task<IDisposable> AcquireRequestAsync(string? expectedEpoch, CancellationToken ct = default)
@@ -71,11 +100,12 @@ public sealed class CredentialCoordinator
     }
     private State ReadState()
     {
-        if (!File.Exists(statePath)) { var state = new State(1, Guid.NewGuid().ToString("N"), true); WriteState(state); return state; }
+        if (!File.Exists(statePath)) { var state = new State(2, Guid.NewGuid().ToString("N"), true); WriteState(state); return state; }
         try
         {
             var state = JsonSerializer.Deserialize<State>(File.ReadAllText(statePath));
-            if (state?.SchemaVersion != 1 || !Guid.TryParseExact(state.Epoch, "N", out _)) throw Changed();
+            if (state?.SchemaVersion is not (1 or 2) || !Guid.TryParseExact(state.Epoch, "N", out _) ||
+                state.Region is not (AholoRegions.International or AholoRegions.China) || state.SchemaVersion==1&&state.Region!=AholoRegions.International) throw Changed();
             return state;
         }
         catch (JsonException) { throw Changed(); }

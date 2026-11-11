@@ -133,12 +133,12 @@ public sealed partial class AholoPanel : Panel,IPanel
         bool connected=session.Connection.Connected;
         bool working=busy||autoBusy;meshEditor.SetBusy(working);
         connection.ToolTip=UiText.TranslateKnownMessage(session.LastError??"");
-        connection.Text=connected?T("International · Connected"):T("International · Not connected");
+        connection.Text=ConnectionLabel();
         foreach(var button in actions)button.Enabled=!working;
         submit.Enabled=render.Enabled=!working&&connected;
         var task=Selected;var capability=task is null?null:TaskCapabilities.For(task);var artifact=SelectedArtifact;
         artifactDetail.Text=artifact?.Error is not null?UiText.TranslateKnownMessage(artifact.Error):artifact?.LocalPath??"";
-        bool sameAccount=task?.ConnectionId==session.Connection.ConnectionId;
+        bool sameAccount=task?.Region==session.Connection.Region&&task?.ConnectionId==session.Connection.ConnectionId;
         refresh.Enabled=!working&&connected&&sameAccount&&capability?.CanQuery==true;
         download.Enabled=!working&&connected&&sameAccount&&capability?.CanDownload==true&&artifact is not null&&artifact.Error is null;
         bool mesh=task is not null&&artifact is not null&&MeshPlacementPolicy.CanPlaceMesh(task,artifact);
@@ -283,6 +283,7 @@ public sealed partial class AholoPanel : Panel,IPanel
         },token);
         var task=await session.RenderAsync(new(snapshot.Name,path,snapshot.Camera,width,height,Upload:uploadOptions,Lights:snapshot.Lights),token);await RevealAsync(task);
     }
+    private string ConnectionLabel()=>AholoRegions.Label(session.Connection.Region)+" · "+T(session.Connection.Connected?"Connected":"Not connected");
     private void ShowSettings()
     {
         bool closed=false;
@@ -291,10 +292,18 @@ public sealed partial class AholoPanel : Panel,IPanel
         var key=new PasswordBox();var remember=new CheckBox{Text=T("Save in secure local storage")};
         var auto=new CheckBox{Text=T("Auto-refresh active tasks (every 8 seconds)"),Checked=session.AutoRefresh};auto.CheckedChanged+=(_,_)=>session.AutoRefresh=auto.Checked==true;
         var settingsScale=new TextBox{Text=scale.Text};var settingsAxis=new DropDown{DataStore=axis.DataStore,SelectedIndex=axis.SelectedIndex};var settingsHeight=new TextBox{Text=objectHeight.Text};var settingsUnits=new DropDown{DataStore=sourceUnits.DataStore,SelectedIndex=sourceUnits.SelectedIndex};
-        var status=Info(session.Connection.Connected?"International · Connected":"International · Not connected");
+        var status=Info(ConnectionLabel());
+        string displayedRegion=session.Connection.Region;
+        var regions=new DropDown{DataStore=new[]{T("International"),T("China")},SelectedIndex=session.Connection.Region==AholoRegions.China?1:0};
+        string SelectedRegion()=>regions.SelectedIndex==1?AholoRegions.China:AholoRegions.International;
+        var switchRegion=Local("Apply service region",()=>
+        {
+            if(busy)return;string selected=SelectedRegion();if(selected==session.Connection.Region)return;key.Text="";
+            _=RunAsync("Switching service region",async()=>{await session.SwitchRegionAsync(selected,token);});
+        });
         var connectionError=Info(session.LastError??"");
         using var dialog=new Dialog{Title=T("Settings"),ClientSize=new Size(460,620),Resizable=true};
-        var connect=Local("Validate and connect",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}string value=key.Text;bool save=remember.Checked==true;string service=validation.SelectedIndex switch{1=>"lux",2=>"spatial",_=>"world"};key.Text="";_=RunAsync("Connecting",async()=>{await session.ConnectAsync(new(value,save,service),token);AholoHost.Ui(()=>Report(T("Connected. Service permissions and credits are checked per operation.")));});});
+        var connect=Local("Validate and connect",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}string selected=SelectedRegion();string value=key.Text;bool save=remember.Checked==true;string service=validation.SelectedIndex switch{1=>"lux",2=>"spatial",_=>"world"};key.Text="";_=RunAsync("Connecting",async()=>{await session.ConnectAsync(new(value,save,service,selected),token);AholoHost.Ui(()=>Report(T("Connected. Service permissions and credits are checked per operation.")));});});
         var disconnect=Local("Disconnect and clear credentials",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}_=RunAsync("Disconnecting",async()=>{await session.DisconnectAsync(token);AholoHost.Ui(()=>Report(T("Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.")));});});
         var restore=Local("Restore saved connection",()=>{if(busy)return;_=RunAsync("Restoring connection",async()=>{await session.ReadConnectionAsync(token);});});
         var uploadMetadata=new TextBox{Text=uploadOptions.Metadata??""};var uploadPrefix=new TextBox{Text=uploadOptions.CustomPrefix??""};var uploadFilename=new TextBox{Text=uploadOptions.CustomFilename??""};
@@ -314,14 +323,14 @@ public sealed partial class AholoPanel : Panel,IPanel
         settingsCancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
         var close=new Button{Text=T("Close")};close.Click+=(_,_)=>dialog.Close();
         // Dialog controls are snapshots; closing it preserves placement values in this panel.
-        dialog.Content=Column(Local("Account sign-in (optional)",()=>{if(busy)return;if(session.Client is IAccountSessionClient accountClient){using var login=new AccountLoginDialog(accountClient);login.ShowModal(dialog);}}),status,connectionError,Row(restore,settingsCancel),Info("International API Key"),key,remember,Info("Validate access with"),validation,connect,disconnect,
+        dialog.Content=Column(Info("Service region"),regions,switchRegion,Info("Regions have separate API Keys and account sessions. Switching stops task polling and live previews; remote tasks and saved credentials in the other region are retained."),Local("Account sign-in (optional)",()=>{if(busy)return;if(session.Client is IAccountSessionClient accountClient){using var login=new AccountLoginDialog(accountClient,session.Connection.Region);login.ShowModal(dialog);}}),status,connectionError,Row(restore,settingsCancel),Info("API Key for the selected region"),key,remember,Info("Validate access with"),validation,connect,disconnect,
             Info("Validation queries the selected service history. Each service may need separate account permissions. OAuth login does not replace an API Key."),auto,
             Info("GS import scale (document units per source unit)"),settingsScale,settingsAxis,Info("Source units"),settingsUnits,Info("Mesh height (document units)"),settingsHeight,
             Local("Open local asset folder",()=>Process.Start(new ProcessStartInfo(Path.Combine(session.Store.Root,"assets")){UseShellExecute=true})),
             Info("Closing the panel keeps tasks running. Reopen it to view progress. Cancel stops local waiting only; remote tasks remain on the service."),
             uploadAdvanced,uploadFields,Info("Local USD import and export"),usdStatus,usdCheck,Info("Optional runtime setup command (runs only when you execute it):"),usdSetup,
             Info("Aholo3D for Rhino "+AholoPlugin.DisplayVersion+"\nCuriousArc · qrost"),close);
-        void UpdateSettings()=>Application.Instance.AsyncInvoke(()=>{if(!closed){status.Text=T(session.Connection.Connected?"International · Connected":"International · Not connected");connectionError.Text=UiText.TranslateKnownMessage(session.LastError??"");settingsCancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));}});
+        void UpdateSettings()=>Application.Instance.AsyncInvoke(()=>{if(!closed){if(displayedRegion!=session.Connection.Region){displayedRegion=session.Connection.Region;regions.SelectedIndex=displayedRegion==AholoRegions.China?1:0;key.Text="";}status.Text=ConnectionLabel();connectionError.Text=UiText.TranslateKnownMessage(session.LastError??"");settingsCancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));}});
         session.Changed+=UpdateSettings;
         try{dialog.ShowModal(this);}finally{closed=true;session.Changed-=UpdateSettings;}
         static string? Optional(string value)=>string.IsNullOrEmpty(value)?null:value;

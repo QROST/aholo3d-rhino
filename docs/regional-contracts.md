@@ -17,14 +17,12 @@ OUS schemas describe these hosts as common production values and return `globalD
 
 The [China protected resource](https://api.aholo3d.cn/.well-known/oauth-protected-resource) and [authorization server](https://www.aholo3d.cn/.well-known/oauth-authorization-server) advertise dynamic public-client registration, authorization code plus refresh token, S256 and `none` client authentication. The disclosed account scope is `get_user_info`. REST service schemas still require a regional raw API Key. There is no verified token-to-Key exchange or userinfo endpoint; OAuth sign-in is not generation authority.
 
-## Required implementation
+## Implemented runtime and remaining acceptance
 
-The current runtime remains international-only. Region parity is actionable implementation work, not a missing-contract blocker:
+Settings now offers explicit International/China selection. AholoRegions controls gateway/prefix, issuer/resource and verified OUS host; language and credential text never infer a region. API identities, saved credentials, tasks/recovery and realtime cleanup retain region. OAuth has independent regional slots and validated envelopes. Unmarked old data remains International.
 
-- Add one explicit region configuration mapping gateway/prefix, OAuth issuer/resource and allowed OUS host. Never infer it from UI language or credential text.
-- Bind region to API Key identity, secure-store slots, coordination epochs, account sessions, tasks/history recovery and realtime cleanup records. Existing records without a region retain the international meaning.
-- Switch region through connection-change cleanup, canceling stale operations and retaining original task/operation identities. A task from another region must never be queried with the current region's key.
-- Preserve the current query-based multipart upload initialization. The sibling Lux3D plugin's older form-based version is not the authority for the newly verified schemas.
-- Test both regional request routes, authority isolation, migration and switching offline. Then separately validate native account dialogs, actual regional permissions, uploads, generation, render ingestion and realtime streams.
+The shared credential lock/path is preserved, with schema 2 preventing older builds from restoring China as International. Do not mix old/new sidecars. Switching stops local previews, invalidates continuation authority and restores only the target saved Key; other-region saved credentials survive. Admitted requests may finish in their captured region, and unresolved cleanup keeps its original regional identity.
 
-The public contracts still do not establish native cloud depth/alpha/frame-camera composition, arbitrary World PLY/SPZ cloud ingestion or progressive World LOD layout. Those gates remain separate from regional routing.
+Offline tests cover every service family’s fixed gateway, both OUS hosts and query-based multipart initialization, opposite-host rejection, legacy migration, slot isolation, stale validation/epoch rejection, task/cleanup ownership, OAuth issuer separation and two complete local-loopback PKCE paths with synthetic HTTP. Real private-pipe cancellation is exercised while the foreground semaphore is held. No live account, OS credential-store or paid service acceptance is claimed.
+
+Native acceptance must check two Settings windows, switching/restart, Keychain/DPAPI, regional browser login/refresh/sign-out, uploads, generation/reconstruction, render ingestion and streaming. Public contracts still do not establish cloud depth/alpha/frame-camera composition, arbitrary World PLY/SPZ ingestion or progressive World LOD layout; those gates remain separate.

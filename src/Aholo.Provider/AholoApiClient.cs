@@ -7,10 +7,9 @@ using System.Text.Json;
 
 namespace Aholo.Provider;
 
-/// <summary>International Aholo REST API. Creates are submitted once; API keys never go to OUS or a CDN.</summary>
+/// <summary>Region-bound Aholo REST API. Creates are submitted once; API keys never go to OUS or a CDN.</summary>
 public sealed partial class AholoApiClient
 {
-    private static readonly Uri ApiOrigin = new("https://api.aholo.ai/global/");
     private readonly HttpClient _apiHttp;
     private readonly HttpClient _uploadHttp;
     public Func<CancellationToken, Task<IDisposable>>? RequestAdmission { get; set; }
@@ -107,7 +106,7 @@ public sealed partial class AholoApiClient
 
     private static HttpRequestMessage Gateway(ApiKeyCredential key, HttpMethod method, string path, object? body = null)
     {
-        var request = new HttpRequestMessage(method, new Uri(ApiOrigin, path));
+        var request = new HttpRequestMessage(method, new Uri(Aholo.Core.AholoRegions.Get(key.Region).ApiBase, path));
         request.Headers.Add("Authorization", key.Value);
         if (body is not null) request.Content = JsonContent.Create(body);
         return request;
@@ -138,7 +137,7 @@ public sealed partial class AholoApiClient
             if (!response.IsSuccessStatusCode)
             {
                 string code = response.StatusCode switch { HttpStatusCode.Unauthorized => "unauthenticated", HttpStatusCode.Forbidden => "permission_denied", HttpStatusCode.TooManyRequests => "rate_limited", _ => "http_error" };
-                throw new ProviderException(code, code == "unauthenticated" ? "The international API Key is invalid or expired." : string.Format(System.Globalization.CultureInfo.CurrentCulture, "Service request failed (HTTP {0}).", (int)response.StatusCode), isCreate && ((int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.RequestTimeout));
+                throw new ProviderException(code, code == "unauthenticated" ? "The API Key is invalid or expired for the selected region." : string.Format(System.Globalization.CultureInfo.CurrentCulture, "Service request failed (HTTP {0}).", (int)response.StatusCode), isCreate && ((int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.RequestTimeout));
             }
             if (response.Content.Headers.ContentLength > JsonLimit) throw new JsonException();
             await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
