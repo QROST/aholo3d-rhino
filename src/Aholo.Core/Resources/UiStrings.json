@@ -4296,8 +4296,8 @@
     "Chinese": "文档单位或颜色预处理已改变。请重新加载网格候选后再确认。"
   },
   {
-    "English": "Choose an available static GLB, mesh PLY, STL, core 3MF, OBJ or USD mesh result. Use Import GS for Gaussian files.",
-    "Chinese": "请选择可用的静态 GLB、网格 PLY、STL、核心 3MF、OBJ 或 USD 网格结果。高斯文件请使用“导入 GS”。"
+    "English": "Choose an available static GLB, mesh PLY, STL, supported 3MF, OBJ or USD mesh result. Use Import GS for Gaussian files.",
+    "Chinese": "请选择可用的静态 GLB、网格 PLY、STL、支持的 3MF、OBJ 或 USD 网格结果。高斯文件请使用“导入 GS”。"
   },
   {
     "English": "OBJ units and up axis use the explicit import choices. Numeric material colors are interpreted as linear; image colors are sRGB.",
@@ -4722,5 +4722,53 @@
   {
     "English": "Rhino could not prepare complete original render meshes. Repair the object or regenerate its render meshes before exporting surface textures.",
     "Chinese": "Rhino 未能准备完整的原始渲染网格。请修复对象或重新生成渲染网格后再导出曲面贴图。"
+  },
+  {
+    "English": "The 3MF model has invalid structure, values or resource references.",
+    "Chinese": "3MF 模型的结构、数值或资源引用无效。"
+  },
+  {
+    "English": "This 3MF feature is not supported by the static mesh reader. Export a supported static mesh instead.",
+    "Chinese": "静态网格读取器暂不支持此 3MF 特性。请导出为支持的静态网格。"
+  },
+  {
+    "English": "Choose a 3MF file.",
+    "Chinese": "请选择 3MF 文件。"
+  },
+  {
+    "English": "A built 3MF object has an unsupported object type.",
+    "Chinese": "3MF 构建包含不支持的对象类型。"
+  },
+  {
+    "English": "The 3MF build contains no supported meshes.",
+    "Chinese": "3MF 构建不包含支持的网格。"
+  },
+  {
+    "English": "3MF is imported as static mesh instances with facet normals. Manufacturing fill/overlap semantics and editable hierarchy are not reconstructed.",
+    "Chinese": "3MF 导入为带平面法线的静态网格实例，不重建制造填充、重叠语义或可编辑层级。"
+  },
+  {
+    "English": "The 3MF bitmap exceeds the runtime byte-array capacity.",
+    "Chinese": "3MF 图片超出了运行时字节数组容量。"
+  },
+  {
+    "English": "3MF triangle properties require an object default property.",
+    "Chinese": "3MF 三角形属性需要对象默认属性。"
+  },
+  {
+    "English": "A 3MF triangle cannot interpolate different base materials.",
+    "Chinese": "3MF 三角形不能在不同基础材质之间插值。"
+  },
+  {
+    "English": "3MF vertex color gradients are not yet supported. Use a texture or uniform triangle colors.",
+    "Chinese": "暂不支持 3MF 顶点颜色渐变。请使用贴图或颜色一致的三角形。"
+  },
+  {
+    "English": "3MF triangles collapse or change orientation at mesh display precision.",
+    "Chinese": "3MF 三角形在网格显示精度下退化或改变了方向。"
+  },
+  {
+    "English": "3MF attributes exceed mesh display precision.",
+    "Chinese": "3MF 属性超出了网格显示精度。"
   }
 ]

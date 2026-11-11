@@ -33,7 +33,7 @@ internal sealed class MeshPlacementService
         await AholoHost.OnUi(()=>{ValidateIntent();return true;}).ConfigureAwait(false);
         IMeshImportSnapshot snapshot;
         string extension=Path.GetExtension(path).ToLowerInvariant();
-        if(extension is ".usd" or ".usda" or ".usdc" or ".usdz" or ".obj" or ".zip")
+        if(extension is ".usd" or ".usda" or ".usdc" or ".usdz" or ".obj" or ".zip" or ".3mf")
         {
             var settings=await AholoHost.OnUi(()=>
             {
@@ -58,6 +58,7 @@ internal sealed class MeshPlacementService
                 }).ConfigureAwait(false);
                 scene=await Task.Run(()=>{source.SelectEntry(options.EntryName!,ct);return ObjMeshReader.Read(source,options,ct);},ct).ConfigureAwait(false);
             }
+            else if(extension==".3mf")scene=await Task.Run(()=>ThreeMfReader.Read(path,hash,ct),ct).ConfigureAwait(false);
             else scene=await Task.Run(()=>UsdMeshReader.Read(path,hash,ct),ct).ConfigureAwait(false);
             await AholoHost.OnUi(()=>{ValidateSettings();return true;}).ConfigureAwait(false);
             snapshot=await Task.Run(()=>UsdMeshSnapshot.Create(scene,extension==".zip"?"obj_zip":extension.TrimStart('.'),settings,ct),ct).ConfigureAwait(false);

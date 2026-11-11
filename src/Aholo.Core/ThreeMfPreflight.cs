@@ -5,9 +5,13 @@ using System.Text;
 
 namespace Aholo.Core;
 
-/// <summary>Core 3MF package preflight, without extraction or geometry quotas. Rhino owns mesh decoding.</summary>
+internal sealed record ThreeMfPackagePart(string EntryName,string ContentType);
+internal sealed record ThreeMfPackageIndex(string PrimaryModel,IReadOnlyDictionary<string,ThreeMfPackagePart> Parts,IReadOnlySet<(string Source,string Type,string Target)> Relationships);
+
+/// <summary>OPC resource checks. Public validation preserves the strict core-only native import boundary.</summary>
 public static class ThreeMfPreflight
 {
+    internal const string Materials = "http://schemas.microsoft.com/3dmanufacturing/material/2015/02";
     private const string Core = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02";
     private const string Relations = "http://schemas.openxmlformats.org/package/2006/relationships";
     private const string ContentTypes = "http://schemas.openxmlformats.org/package/2006/content-types";
@@ -23,11 +27,16 @@ public static class ThreeMfPreflight
     public static void Validate(string path, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        try { ValidatePackage(path, ct); }
+        _=Inspect(path,false,ct);
+    }
+    internal static ThreeMfPackageIndex Inspect(string path,bool materials,CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        try { return ValidatePackage(path, materials, ct); }
         catch (Exception ex) when (ex is XmlException or UriFormatException or ArgumentException or NotSupportedException)
         { throw new InvalidDataException(Invalid().Message, ex); }
     }
-    private static void ValidatePackage(string path, CancellationToken ct)
+    private static ThreeMfPackageIndex ValidatePackage(string path, bool materials, CancellationToken ct)
     {
         using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         using var archive = new ZipArchive(file, ZipArchiveMode.Read);
@@ -72,6 +81,7 @@ public static class ThreeMfPreflight
         string? primary = null;
         bool rootRelations = false;
         var models = new List<Part>();
+        var relationships=new HashSet<(string Source,string Type,string Target)>();
         foreach (var part in parts.Values)
         {
             ct.ThrowIfCancellationRequested();
@@ -97,6 +107,7 @@ public static class ThreeMfPreflight
                     if (mode is not (null or "Internal")) throw Invalid();
                     string target = Key(Resolve(source, Required(reader, "Target")));
                     if (!parts.TryGetValue(target, out var destination) || PackUriHelper.IsRelationshipPartUri(destination.Uri) || !links.Add((kind, target))) throw Invalid();
+                    relationships.Add((root?"/":Key(source),kind,target));
                     if (root && kind == Start)
                     { if (primary is not null || Type(destination) != ModelType) throw Invalid(); primary = target; }
                 });
@@ -109,16 +120,19 @@ public static class ThreeMfPreflight
             ReadXml(model.Entry, ct, reader =>
             {
                 RequireRoot(reader, "model", Core);
-                if (reader.NamespaceURI != Core) throw Unsupported();
-                if (reader.Depth == 0 && !string.IsNullOrWhiteSpace(reader.GetAttribute("requiredextensions"))) throw Unsupported();
+                if (reader.NamespaceURI != Core && !(materials&&reader.NamespaceURI==Materials)) throw Unsupported();
+                if (reader.Depth == 0 && reader.GetAttribute("requiredextensions") is { } required)
+                    foreach(string prefix in required.Split((char[]?)null,StringSplitOptions.RemoveEmptyEntries))
+                        if(!materials||reader.LookupNamespace(prefix)!=Materials)throw Unsupported();
                 if (reader.LocalName == "object" && reader.GetAttribute("thumbnail") is { } thumbnail &&
                     !parts.ContainsKey(Key(Resolve(model.Uri, thumbnail)))) throw Invalid();
+                bool texture=materials&&reader.NamespaceURI==Materials&&reader.LocalName=="texture2d";
                 if (reader.MoveToFirstAttribute()) do
                 {
                     if (reader.NamespaceURI.Length != 0 && reader.NamespaceURI != Xmlns &&
                         !(reader.NamespaceURI == Xml && reader.LocalName == "lang")) throw Unsupported();
                     // URI-bearing extension attributes must not enter the native importer unnoticed.
-                    if (reader.NamespaceURI.Length == 0 && reader.LocalName is "path" or "href" or "src") throw Unsupported();
+                    if (reader.NamespaceURI.Length == 0 && (reader.LocalName is "path" or "href" or "src") && !(texture&&reader.LocalName=="path")) throw Unsupported();
                 } while (reader.MoveToNextAttribute());
                 reader.MoveToElement();
             });
@@ -135,6 +149,15 @@ public static class ThreeMfPreflight
             if (count != part.Entry.Length) throw Invalid();
         }
         ct.ThrowIfCancellationRequested();
+        return new(parts[primary].Entry.FullName,parts.ToDictionary(p=>p.Key,p=>new ThreeMfPackagePart(p.Value.Entry.FullName,Type(p.Value)),StringComparer.Ordinal),relationships);
+    }
+    internal static string ResolvePartName(string sourceEntry,string target)=>Key(Resolve(PartUri("/"+sourceEntry),target));
+    internal static string NormalizePartName(string entry)=>Key(PartUri("/"+entry));
+    internal static System.Xml.Linq.XDocument ReadDocument(ZipArchiveEntry entry,CancellationToken ct)
+    {
+        using var input=entry.Open();using var stream=new CancelableReadStream(input,ct);
+        using var reader=XmlReader.Create(stream,new XmlReaderSettings{DtdProcessing=DtdProcessing.Prohibit,XmlResolver=null});
+        var document=System.Xml.Linq.XDocument.Load(reader);ct.ThrowIfCancellationRequested();return document;
     }
     private sealed class CancelableReadStream(Stream input, CancellationToken ct) : Stream
     {

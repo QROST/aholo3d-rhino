@@ -380,3 +380,12 @@ Capture distinguishes authored meshes, original render meshes and newly tessella
 ### Candidate checkpoint — alpha.19
 
 Packages original surface render-cache capture from `d186a41`, including original Brep face/material association, supported uniform-material extrusion capture and mapping preflight before cache generation. Existing evidence is 1234 passing offline regression tests and zero-warning/error Release compilation; the new native cache branch remains explicitly pending host acceptance. Stable plugin/assembly/Yak identities are unchanged. Both platform archives are local candidates only, without installation or publication.
+
+
+## Independent textured 3MF import after alpha.19
+
+Local and task-result 3MF now uses an independent managed reader and the existing self-contained candidate/Block/Undo flow. It handles core geometry, base RGBA, units and nested component occurrences, plus direct Materials texture groups and uniform per-triangle color groups. The immutable package copy/hash, OPC relationship checks, cancellation and bilingual errors remain explicit. Repeated instances share decoded resources without losing occurrences; only used geometry contributes to rebasing. The original native preflight entry remains strict/core-only.
+
+Two read-only local reviewers identified generic-only texture MIME rejection, duplicate component containers and unused distant-vertex precision loss. The primary corrected them and added regressions. An initial suggestion to admit forward texture references was rejected after checking the Core's explicit define-before-reference requirement; no schema-only inference was accepted. The final narrow review found no additional blocking issue. Remote allowance was insufficient for useful inference, so no new third-party task was dispatched.
+
+A deterministic packaged three-part texture sample and manual color/UV/alpha checklist accompany the change. Gradients, mirror tiling, layered/composite/display materials, manufacturing fill semantics and broader image profiles remain explicit limits. Native Mac/Windows appearance, embedded image persistence and the real cloud workflow remain pending; no host or paid service was exercised.

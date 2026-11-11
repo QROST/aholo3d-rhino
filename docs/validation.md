@@ -280,3 +280,10 @@ Two independent read-only reviews checked the official borrowed-mesh, duplicate 
 ### Alpha.19 source checkpoint
 
 Candidate `0.2.0-alpha.19` includes `d186a41` and updated bilingual capability boundaries. Numeric assembly version remains `0.2.0.0`. Final archive receipts bind clean source and complete platform payloads. Both archives are produced on Mac; their integrity does not establish Windows execution, native packed UV appearance, extrusion cache metadata or live cloud rendering. The new native adapter requires the explicit original-cache acceptance checks.
+
+
+## Independent static/textured 3MF reader (2026-11-11 UTC)
+
+Release build passed with **zero warnings and errors**. The complete offline .NET suite passed **1280 tests**, zero failed/skipped, including 46 new reader cases. Checks cover base/direct alpha distinctions, partial per-corner defaults, per-face image/UV association, noncommuting nested/reflected transforms with physical-unit oracles, 520 component levels without an arbitrary depth cap, exact original hashes, reference order/type failures, duplicate containers, large coordinate origins and unused distant vertices. Official-writer image MIME variants and the reproducible packaged three-part/five-triangle texture fixture are decoded through the public reader. Existing strict native preflight tests still pass.
+
+`fixtures/create-textured-3mf.py --check` passed and is now a CI gate on both target platforms. Two local read-only reviewers supplied candidate findings; the primary checked the official Core/Materials contracts, implemented changes and ran the stated checks. This is offline decoding/math/build evidence, not native Rhino texture, opacity, Undo/persistence or Windows runtime acceptance. No Rhino automation, authenticated API call, installation, push or publication occurred. Remote quota remained insufficient and no new remote inference ran.

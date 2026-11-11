@@ -23,7 +23,7 @@ public static class MeshPlacementPolicy
     {
         ValidateTask(task);
         var artifact=artifactKey is null?task.Artifacts.FirstOrDefault(a=>IsMeshFormat(a.Format)&&a.Error is null):task.Artifacts.FirstOrDefault(a=>a.Key==artifactKey);
-        if(artifact is null||!CanPlaceMesh(task,artifact)||task.Artifacts.Count(a=>a.Key==artifact.Key)!=1)throw new InvalidOperationException(UiText.Get("Choose an available static GLB, mesh PLY, STL, core 3MF, OBJ or USD mesh result. Use Import GS for Gaussian files."));
+        if(artifact is null||!CanPlaceMesh(task,artifact)||task.Artifacts.Count(a=>a.Key==artifact.Key)!=1)throw new InvalidOperationException(UiText.Get("Choose an available static GLB, mesh PLY, STL, supported 3MF, OBJ or USD mesh result. Use Import GS for Gaussian files."));
         return artifact;
     }
 }
