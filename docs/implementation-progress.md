@@ -225,3 +225,8 @@ Consolidates task-linked USD placement and result identity (`0b6d474`) with loca
 Optional account login now supports explicit OS-protected persistence, local-only restoration, refresh-token rotation and cross-instance sign-out. A dedicated coordinator keeps credential envelopes separate from the API Key and writes only non-secret epoch/ready flags to disk. Pending operations and ambiguous refresh failures cannot revive older sessions; shutdown preserves completed remembered credentials. Account UI remains bilingual, defaults opt-in off, and distinguishes sign-out from closing/canceling an attempt.
 
 Remote Sol supplied design and two implementation/integration reviews. The parent adapted the proposed refresh-failure behavior to fail closed for ambiguous rotating tokens. A suggested pending-cancel deletion was rejected as conflating dialog closure with explicit sign-out; the API now separates these actions and deterministic tests cover both. A claimed busy-poll race was disproved by the existing timer guard; duplicate-attempt ownership was additionally clarified. Actual separate-process fixtures verify lock ordering and stale refresh rejection using synthetic storage. Native OS-store/browser acceptance remains pending.
+
+
+## Candidate checkpoint — alpha.7
+
+Consolidates remembered OAuth sessions (`6a28504`) and the independently verified China contract inventory as `0.2.0-alpha.7`. The runtime still uses international endpoints, keeps OAuth separate from API Key access and retains stable plugin/package identities. Runtime evidence is 946 passing offline tests plus actual separate-process synthetic storage checks; local package receipts separately record clean source and archive hashes. Native/live acceptance remains pending.
