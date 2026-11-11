@@ -1,6 +1,6 @@
 # Integrated alpha acceptance
 
-CuriousArc · qrost. Candidate: 0.2.0-alpha.14. Native and service acceptance: pending.
+CuriousArc · qrost. Candidate: 0.2.0-alpha.15. Native and service acceptance: pending.
 
 ## Offline Rhino checks
 
@@ -148,3 +148,8 @@ Follow the [nested-block host checklist](gs-host-acceptance.md#nested-block-disp
 ## USD polygon and material-subset import
 
 On both native platforms import `fixtures/mesh-subsets.usda` with Original size or Preserve scene coordinates, then Zoom Extents. Expect green triangle, concave blue polygon and red quad as three mesh parts in one accepted Block. The blue source has 6 square metres of area and three triangles; its concavity must remain empty. Check source Mesh/subset user strings, material colors, physical units, one Undo/Redo and save/reopen. Repeat through `AholoImportScene` with a mixed GS scene. Use a separate textured fixture with shared vertices and discontinuous UVs/normals; no texture seam may move when faces split by material. No authored normals means host-generated per-part shading, not guaranteed smoothness across the material boundary. Invalid material partitions and nonplanar/self-crossing n-gons must fail before document mutation. Automated numeric/transport checks do not establish native appearance or texture persistence.
+
+
+## OBJ and typed OBJ ZIP import
+
+Follow [OBJ native acceptance](obj-import-development.md#reproducible-host-acceptance--pending) on Mac and Windows. The packaged textured sample and two-entry archive cover explicit source units/up-axis, entry choice, material transparency versus image alpha, fixed-source selection, candidate/direct paths, one result receipt, cancellation and persistence. Record native outcomes separately from offline reader tests.

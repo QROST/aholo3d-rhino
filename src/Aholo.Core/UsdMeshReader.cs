@@ -8,10 +8,12 @@ public sealed record UsdMeshPrimitive(string PrimPath, string Name, float[] Posi
     float[]? Normals, float[]? TexCoords, GaussianTransform Transform, bool LeftHanded, bool DoubleSided, MeshMaterial Material, MeshTexture? Texture)
 {
     public string SourcePrimPath { get; init; } = PrimPath;
+    public IReadOnlyList<string> SourceGroups { get; init; } = Array.Empty<string>();
 }
 public sealed record UsdMeshScene(IReadOnlyList<UsdMeshPrimitive> Parts, string UpAxis, double MetersPerUnit,
     string SourceSha256, IReadOnlyList<string> DependencyHashes, IReadOnlyList<string> Warnings)
 {
+    public string? SourceEntry { get; init; }
     /// <summary>Proper axis rotation followed by physical-unit conversion, independent of placement height.</summary>
     public GaussianTransform ToMillimetres(GaussianTransform transform)
     {
@@ -19,7 +21,7 @@ public sealed record UsdMeshScene(IReadOnlyList<UsdMeshPrimitive> Parts, string 
         double scale = MetersPerUnit * 1000;
         var scaled = new GaussianMatrix(scale,0,0,0,scale,0,0,0,scale) * basis;
         var result = new GaussianTransform(scaled * transform.Linear, scaled.Transform(transform.Translation));
-        if (!result.Linear.IsFinite || !result.Translation.IsFinite) throw new InvalidDataException("USD physical coordinates exceed numeric precision.");
+        if (!result.Linear.IsFinite || !result.Translation.IsFinite) throw new InvalidDataException("Source physical coordinates exceed numeric precision.");
         _ = result.Linear.Inverse(); return result;
     }
 }

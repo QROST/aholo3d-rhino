@@ -11,7 +11,7 @@ public sealed class MeshTaskSourceTests : IDisposable
     public void Dispose(){if(Directory.Exists(root))Directory.Delete(root,true);}
     [Theory]
     [InlineData("glb")][InlineData("ply")][InlineData("stl")][InlineData("3mf")]
-    [InlineData("usd")][InlineData("usda")][InlineData("usdc")][InlineData("usdz")]
+    [InlineData("usd")][InlineData("usda")][InlineData("usdc")][InlineData("usdz")][InlineData("obj")][InlineData("obj_zip")]
     public void TaskMeshesSupportAllLocalMeshFormatsButWorldPlyIsNotAnObject(string format)
     {
         var row=TaskRow(new TaskArtifact("chosen","mesh",format));
@@ -19,6 +19,19 @@ public sealed class MeshTaskSourceTests : IDisposable
         Assert.False(MeshPlacementPolicy.CanPlaceMesh(row with{Kind="world"},row.Artifacts[0]));
         Assert.Throws<InvalidOperationException>(()=>MeshTaskSelection.Capture(row with{Kind="world"}));
         Assert.Throws<InvalidOperationException>(()=>MeshTaskSelection.Capture(row with{SchemaVersion=999}));
+    }
+    [Theory]
+    [InlineData("zip")][InlineData("fbx_zip")]
+    public void UntypedAndFbxArchivesAreNotObjectPlacementResults(string format)
+    {Assert.Throws<InvalidOperationException>(()=>MeshTaskSelection.Capture(TaskRow(new TaskArtifact("chosen","mesh",format))));}
+    [Fact]
+    public async Task TypedObjArchiveUsesZipSuffixAndWorksOffline()
+    {
+        var artifact=new TaskArtifact("chosen","mesh","obj_zip",LocalPath:FilePath("zip"),Sha256:"original");var row=TaskRow(artifact);
+        var result=await MeshTaskSource.AcquireAsync(MeshTaskSelection.Capture(row),row,()=>new(false,null,false),(_,_)=>throw new Exception("download not expected"),_=>throw new Exception("observe not expected"),Valid,default);
+        Assert.Equal(artifact,result);Assert.True(MeshPlacementPolicy.IsLocalMeshExtension("zip"));Assert.False(MeshPlacementPolicy.IsMeshFormat("zip"));
+        row=row with{Artifacts=new[]{artifact with{LocalPath=FilePath("obj")}}};
+        await Assert.ThrowsAsync<InvalidDataException>(()=>MeshTaskSource.AcquireAsync(MeshTaskSelection.Capture(row),row,()=>Connected,(_,_)=>throw new Exception("no download"),_=>{},Valid,default));
     }
     [Fact]
     public async Task CachedResultWorksOfflineWithoutDownloadOrObservation()

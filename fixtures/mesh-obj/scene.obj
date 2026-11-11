@@ -1,0 +1,27 @@
+# CuriousArc / qrost — units are explicitly selected during import.
+mtllib materials.mtl
+v 0 0 0
+v 2 0 0
+v 2 2 0
+v 0 2 0
+v 0 2 1
+v 2 2 1
+v 0 0 1
+v 1 0 0
+vt 0 0
+vt 1 0
+vt 1 1
+vt 0 1
+s off
+o Floor
+g floor
+usemtl checker
+f 1/1 2/2 3/3 4/4
+o Panel
+g rear panel
+usemtl blue
+f 4 3 6 5
+o Triangle
+g front
+usemtl red
+f 1 7 8

@@ -64,7 +64,7 @@ public static class ObjSyntax
                     case "s":
                         Require(args.Length==2,"OBJ smoothing requires off, on or a non-negative group number.");
                         smoothing=args[1] switch{"off"=>0,"on"=>1,_=>NonNegative(args[1])};break;
-                    default:throw Invalid("Unsupported OBJ statement: "+op+". Only static polygon meshes are accepted; no geometry or shading statements are silently omitted.");
+                    default:throw Invalid(UiText.Format("Unsupported OBJ statement: {0}. Only static polygon meshes are accepted; no geometry or shading statements are silently omitted.",op));
                 }
             }
             catch(Exception error) when(error is InvalidDataException or ArgumentException or OverflowException)
@@ -140,5 +140,5 @@ public static class ObjSyntax
         if(actual<0||actual>=count)throw Invalid("OBJ index is outside the values declared before this face.");return (int)actual;
     }
     internal static void Require(bool condition,string message){if(!condition)throw Invalid(message);}
-    internal static InvalidDataException Invalid(string message)=>new(message);
+    internal static InvalidDataException Invalid(string message)=>new(UiText.Get(message));
 }

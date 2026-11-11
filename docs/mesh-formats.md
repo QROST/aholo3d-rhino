@@ -9,7 +9,8 @@ Maintainer: CuriousArc · qrost.
 | STL | Original bytes passed to Rhino's native importer and audited as mesh geometry. |
 | 3MF | Core static mesh, core components/build transforms and base materials. Package preflight precedes native Rhino import. Extension-bearing files are rejected explicitly. |
 | Mesh USD/USDA/USDC/USDZ (local or task result) | Strict static triangles/quads, simple planar n-gons and material face subsets, full transforms, split normal/UV seams, supported Preview Surface factors/direct bitmaps; converted into a self-contained 3DM candidate. |
-| OBJ/FBX archives, extended 3MF | Retained downloads; integrated placement remains pending. |
+| OBJ / typed OBJ ZIP | Static simple planar polygons, smoothing/authored normals, used MTL PBR preview and PNG/JPEG diffuse maps; explicit entry/units/up-axis choices; shared self-contained 3DM candidate. Native acceptance pending. |
+| FBX archives, untyped ZIP, extended 3MF | Retained downloads; integrated placement remains pending. |
 
 Native mesh formats use a private suffix-preserving copy and the original SHA-256, headless native import, actual mesh audit/repair, candidate preview and one Block/Undo commit. Original downloads are retained. Repeated acceptance uses the existing import receipt instead of creating another object. There is no artificial vertex/face ceiling. Native parsing and memory use still depend on Rhino and the machine.
 
@@ -52,7 +53,7 @@ Preview acceptance and direct placement share the same task/output receipt. A re
 Fit-height and original-size modes anchor the source XY midpoint/minimum Z to the selected point on the captured CPlane, then apply Z rotation. Scene coordinates disable those controls and use identity placement. Switching/removing/accepting candidates preserves the mode. Acceptance now passes the panel operation cancellation token and revision/visibility guard through the native commit checkpoints.
 
 
-## Polygon faces and material groups
+## USD polygon faces and material groups
 
 Faces with five or more corners use deterministic ear clipping after planarity and simple-boundary validation. Orientation/intersection predicates share an exact binary-rational fallback near floating-point cancellation. The planarity tolerance is relative to face extent (1e-6); it is a numerical tolerance, not a geometry-count limit. Original corners, winding and collinear boundary vertices remain; only internal edges are added. Repeated corners, boundary self-crossing/touching/backtracking, zero-area and nonplanar n-gons fail explicitly. There is no fan fallback. Existing triangles and quads retain their native route; this addition does not claim to repair concave/degenerate quads. Very high-sided individual polygons can be expensive; cancellation terminates the worker process. Dense triangle/quad meshes use compact corner offsets without creating per-face Python corner objects.
 
@@ -61,3 +62,8 @@ Only static face `GeomSubset` children in the `materialBind` family are accepted
 Each material group becomes a separate mesh part with the original Mesh path and actual subset path retained separately (`Aholo.Mesh.SourcePrim` and `Aholo.Mesh.SourcePart`). For the unassigned residual faces both values are the Mesh path; subset parts carry their actual subset path in SourcePart. Face-uniform attributes use original face numbers, and indexed face-varying normals/UVs use original global corner numbers even after triangulation and splitting. Authored normals are retained; absent normals remain absent in transport and Rhino computes each part's normals, which can create shading seams across material boundaries. Editable USD hierarchy and subset reassembly on export are not promised.
 
 `fixtures/mesh-subsets.usda` is a self-contained metres/Z-up sample: green triangle, blue concave five-corner face and red quad. Its planar source should use Original size or Preserve scene coordinates rather than fit-height. Import should produce three material parts with one triangle, three triangles and one quad respectively; blue source area is 6 square metres. Native color, normals, Undo and persistence still require manual acceptance on both platforms.
+
+
+## OBJ and typed OBJ archives
+
+Local OBJ/ZIP and task `obj_zip` use the independent .NET reader, with no Python dependency. See [OBJ import and acceptance](obj-import-development.md) for material limits, explicit source coordinates, frozen archive selection, smoothing, metadata and deterministic native samples. All OBJ polygons, including quads, are validated and triangulated; this differs from the current USD quad route. Generic ZIP task outputs and FBX remain unsupported. Each task/output retains one placement receipt; load its downloaded ZIP locally to choose another entry. Native embedded-image resolution, visual correctness and Undo remain pending on both platforms.

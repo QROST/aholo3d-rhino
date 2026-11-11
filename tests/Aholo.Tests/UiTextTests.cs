@@ -91,6 +91,23 @@ public sealed class UiTextTests
     }
 
     [Fact]
+    public void ObjErrorsUseTheHostLanguageAndPreserveSourceNames()
+    {
+        string root=Path.Combine(Path.GetTempPath(),"aholo-obj-language-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
+        string model=Path.Combine(root,"source model.obj");File.WriteAllText(model,"mtllib paint.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl Paint {0}\nf 1 2 3\n");
+        File.WriteAllText(Path.Combine(root,"paint.mtl"),"newmtl Paint {0}\nKd 2 0 0\n");
+        try
+        {
+            UiText.Initialize(2052,null);
+            var error=Assert.Throws<InvalidDataException>(()=>ObjMeshReader.Read(model,new(1,"Z")));
+            Assert.Contains("paint.mtl",error.Message);Assert.Contains("Paint {0}",error.Message);Assert.Contains("必须在 0 到 1 之间",error.Message);
+            UiText.Initialize(1033,"zh-CN");
+            error=Assert.Throws<InvalidDataException>(()=>ObjMeshReader.Read(model,new(1,"Z")));Assert.Contains("between zero and one",error.Message);
+        }
+        finally{UiText.Initialize(1033,null);Directory.Delete(root,true);}
+    }
+
+    [Fact]
     public void StatusLabelsDoNotChangePersistedCodesOrUserNames()
     {
         const string name = "用户原文 Service request failed";

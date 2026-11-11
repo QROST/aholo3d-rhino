@@ -1,0 +1,11 @@
+# RGB image alpha must not control OBJ dissolve.
+newmtl checker
+Kd 1 1 1
+map_Kd -clamp on checker.png
+newmtl blue
+Kd .05 .25 .8
+d .6
+Pr .5
+newmtl red
+Kd .8 .05 .02
+Pr .8

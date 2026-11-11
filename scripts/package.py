@@ -45,6 +45,7 @@ def main():
     if not args.stage_only and not args.yak:
         parser.error('--yak is required unless --stage-only is used.')
     subprocess.run([sys.executable, str(ROOT / "scripts/create-gs-assets.py"), "--check"], check=True)
+    subprocess.run([sys.executable, str(ROOT / "fixtures/create-obj-sample.py"), "--check"], check=True)
     version = ET.parse(ROOT / 'Directory.Build.props').findtext('.//Version')
     manifest = (ROOT / 'packaging/manifest.yml').read_text()
     if f'version: {version}\n' not in manifest or 'name: aholo-rhino\n' not in manifest:
@@ -75,6 +76,7 @@ def main():
         'docs/usd-exchange.md': 'docs/usd-exchange.md',
     }
     for name in ['LICENSE','NOTICE','readme.md','readme.zh-CN.md','fixtures/tiny-world.ply','fixtures/mesh-core.3mf',
+                 'fixtures/create-obj-sample.py','fixtures/mesh-obj/scene.obj','fixtures/mesh-obj/materials.mtl','fixtures/mesh-obj/checker.png','fixtures/mesh-obj-multiple.zip','docs/obj-import-development.md',
                  'fixtures/mixed-scene.usda','fixtures/mesh-subsets.usda','fixtures/gaussian-anisotropic.ply','fixtures/gaussian-sh3.ply','assets/gaussian-alpha.png','assets/gaussian-opacity-atlas.png',
                  'docs/gs-host-acceptance.md','docs/gs-freeze-repair.md','docs/gs-visibility-stability.md','docs/decisions/0001-native-gaussian-viewport.md',
                  'docs/architecture.md','docs/repository-rename.md','docs/host-acceptance.md','docs/validation.md','docs/api/README.md',

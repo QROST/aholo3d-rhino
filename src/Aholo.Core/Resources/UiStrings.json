@@ -4234,5 +4234,441 @@
   {
     "English": "Model pose must be a finite affine row-vector matrix.",
     "Chinese": "模型姿态必须为有限的行向量仿射矩阵。"
+  },
+  {
+    "English": "OBJ import options",
+    "Chinese": "OBJ 导入选项"
+  },
+  {
+    "English": "Document units ({0})",
+    "Chinese": "文档单位（{0}）"
+  },
+  {
+    "English": "Millimeters",
+    "Chinese": "毫米"
+  },
+  {
+    "English": "Centimeters",
+    "Chinese": "厘米"
+  },
+  {
+    "English": "Meters",
+    "Chinese": "米"
+  },
+  {
+    "English": "Inches",
+    "Chinese": "英寸"
+  },
+  {
+    "English": "Feet",
+    "Chinese": "英尺"
+  },
+  {
+    "English": "Z up",
+    "Chinese": "Z 轴向上"
+  },
+  {
+    "English": "Y up",
+    "Chinese": "Y 轴向上"
+  },
+  {
+    "English": "Load candidate",
+    "Chinese": "加载候选"
+  },
+  {
+    "English": "Choose one model. OBJ files do not define physical units or an up axis.",
+    "Chinese": "请选择一个模型。OBJ 文件没有标准的物理单位或上轴定义。"
+  },
+  {
+    "English": "Source length units",
+    "Chinese": "源模型长度单位"
+  },
+  {
+    "English": "Source up axis",
+    "Chinese": "源模型上轴"
+  },
+  {
+    "English": "These choices interpret the source model; they do not change your document settings.",
+    "Chinese": "这些选项用于解释源模型，不会更改文档设置。"
+  },
+  {
+    "English": "Document units or color preprocessing changed. Reload the mesh candidate before acceptance.",
+    "Chinese": "文档单位或颜色预处理已改变。请重新加载网格候选后再确认。"
+  },
+  {
+    "English": "Choose an available static GLB, mesh PLY, STL, core 3MF, OBJ or USD mesh result. Use Import GS for Gaussian files.",
+    "Chinese": "请选择可用的静态 GLB、网格 PLY、STL、核心 3MF、OBJ 或 USD 网格结果。高斯文件请使用“导入 GS”。"
+  },
+  {
+    "English": "OBJ units and up axis use the explicit import choices. Numeric material colors are interpreted as linear; image colors are sRGB.",
+    "Chinese": "OBJ 单位和上轴采用本次导入选项。材质数值颜色按线性颜色解释，图像颜色按 sRGB 解释。"
+  },
+  {
+    "English": "Used legacy OBJ illumination is approximated by a PBR preview; ambient, specular and optical-density terms are not reproduced exactly.",
+    "Chinese": "使用中的旧式 OBJ 光照已转换为近似 PBR 预览；环境光、镜面反射和光学密度项不会被精确重现。"
+  },
+  {
+    "English": "MTL newmtl requires a name.",
+    "Chinese": "MTL 的 newmtl 声明必须指定材质名称。"
+  },
+  {
+    "English": "MTL statements must follow newmtl.",
+    "Chinese": "MTL 材质语句必须位于 newmtl 声明之后。"
+  },
+  {
+    "English": "MTL Ns cannot be negative.",
+    "Chinese": "MTL 的 Ns 值不能为负数。"
+  },
+  {
+    "English": "MTL optical density must be positive.",
+    "Chinese": "MTL 光学密度（折射率）必须为正数。"
+  },
+  {
+    "English": "This OBJ illumination model requires unsupported reflection/refraction.",
+    "Chinese": "此 OBJ 光照模型需要尚不支持的反射或折射效果。"
+  },
+  {
+    "English": "Emissive OBJ materials are not yet supported.",
+    "Chinese": "暂不支持自发光 OBJ 材质。"
+  },
+  {
+    "English": "Colored OBJ transmission is not yet supported.",
+    "Chinese": "暂不支持带颜色的 OBJ 透射效果。"
+  },
+  {
+    "English": "MTL d and Tr disagree.",
+    "Chinese": "MTL 的 d 与 Tr 声明不一致。"
+  },
+  {
+    "English": "OBJ texture transform is missing a number.",
+    "Chinese": "OBJ 贴图变换缺少数值。"
+  },
+  {
+    "English": "Three-dimensional OBJ texture scale is unsupported.",
+    "Chinese": "暂不支持 OBJ 贴图的三维缩放。"
+  },
+  {
+    "English": "Three-dimensional OBJ texture offset is unsupported.",
+    "Chinese": "暂不支持 OBJ 贴图的三维偏移。"
+  },
+  {
+    "English": "OBJ texture turbulence is unsupported.",
+    "Chinese": "暂不支持 OBJ 贴图的湍流扰动。"
+  },
+  {
+    "English": "OBJ clamp requires on or off.",
+    "Chinese": "OBJ 的 clamp 选项必须设为 on 或 off。"
+  },
+  {
+    "English": "Non-default directional OBJ filtering is unsupported.",
+    "Chinese": "暂不支持非默认的 OBJ 贴图方向过滤设置。"
+  },
+  {
+    "English": "OBJ texture color correction is unsupported; provide an sRGB image.",
+    "Chinese": "暂不支持 OBJ 贴图颜色校正；请提供 sRGB 图像。"
+  },
+  {
+    "English": "Non-default OBJ texture gain/bias is unsupported.",
+    "Chinese": "暂不支持非默认的 OBJ 贴图增益或偏置。"
+  },
+  {
+    "English": "OBJ texture requires one relative filename; quote filenames containing spaces.",
+    "Chinese": "OBJ 贴图必须指定一个相对文件名；文件名含空格时请加引号。"
+  },
+  {
+    "English": "The OBJ bitmap exceeds the runtime byte-array capacity.",
+    "Chinese": "OBJ 位图超出运行时字节数组容量。"
+  },
+  {
+    "English": "MTL scalar requires one number.",
+    "Chinese": "MTL 标量声明必须包含一个数值。"
+  },
+  {
+    "English": "MTL color, opacity and PBR factors must be between zero and one.",
+    "Chinese": "MTL 颜色、不透明度和 PBR 参数必须在 0 到 1 之间。"
+  },
+  {
+    "English": "Only scalar or RGB MTL colors are supported.",
+    "Chinese": "仅支持单值或 RGB 形式的 MTL 颜色。"
+  },
+  {
+    "English": "Choose positive finite OBJ length units and a Y or Z up axis.",
+    "Chinese": "OBJ 长度单位换算比例必须为有限正数，上轴必须为 Y 或 Z。"
+  },
+  {
+    "English": "The chosen OBJ entry does not match the captured source.",
+    "Chinese": "所选 OBJ 文件与已保存的源文件快照不一致。"
+  },
+  {
+    "English": "An OBJ face uses a bitmap material without texture coordinates.",
+    "Chinese": "某个 OBJ 面使用了位图材质，但缺少纹理坐标。"
+  },
+  {
+    "English": "OBJ smoothing cancels to a zero normal; provide explicit normals or separate smoothing groups.",
+    "Chinese": "OBJ 平滑计算中的法线相互抵消为零；请提供显式法线或拆分平滑组。"
+  },
+  {
+    "English": "MTL -clamp on outside [0,1] requires decal compositing and cannot be represented by edge clamping.",
+    "Chinese": "MTL 启用 -clamp on 且纹理坐标超出 [0,1] 时需要贴花合成，不能用边缘钳制代替。"
+  },
+  {
+    "English": "OBJ triangulation loses orientation or collapses at mesh display precision.",
+    "Chinese": "OBJ 三角化结果在网格显示精度下发生朝向翻转或退化。"
+  },
+  {
+    "English": "OBJ attribute exceeds mesh display precision.",
+    "Chinese": "OBJ 属性超出网格显示数值的可表示范围。"
+  },
+  {
+    "English": "Select an OBJ entry first.",
+    "Chinese": "请先选择一个 OBJ 文件。"
+  },
+  {
+    "English": "Choose an OBJ file or an OBJ ZIP package.",
+    "Chinese": "请选择 OBJ 文件或包含 OBJ 的 ZIP 包。"
+  },
+  {
+    "English": "An entry name applies only to an OBJ ZIP package.",
+    "Chinese": "包内文件选择仅适用于 OBJ ZIP 包。"
+  },
+  {
+    "English": "OBJ package contains a link, special file or inconsistent directory.",
+    "Chinese": "OBJ 包包含链接、特殊文件或不一致的目录信息。"
+  },
+  {
+    "English": "OBJ package contains ambiguous duplicate names.",
+    "Chinese": "OBJ 包中存在无法区分的重复名称。"
+  },
+  {
+    "English": "OBJ package contains a file/directory collision.",
+    "Chinese": "OBJ 包中存在文件与目录的名称冲突。"
+  },
+  {
+    "English": "The ZIP contains no OBJ entry.",
+    "Chinese": "此 ZIP 包不包含 OBJ 文件。"
+  },
+  {
+    "English": "The ZIP must contain exactly one OBJ entry, or an explicit OBJ entry must be selected.",
+    "Chinese": "ZIP 包必须只包含一个 OBJ 文件，或先明确选择其中一个 OBJ 文件。"
+  },
+  {
+    "English": "The selected OBJ entry is missing from the package.",
+    "Chinese": "包中缺少所选的 OBJ 文件。"
+  },
+  {
+    "English": "The captured OBJ selection cannot change.",
+    "Chinese": "此源文件快照中的 OBJ 选择已固定，不能更改。"
+  },
+  {
+    "English": "OBJ dependencies must be relative to an already captured source.",
+    "Chinese": "OBJ 依赖必须相对于已保存快照的源文件解析。"
+  },
+  {
+    "English": "OBJ dependencies must be relative local paths.",
+    "Chinese": "OBJ 依赖必须使用相对的本地路径。"
+  },
+  {
+    "English": "OBJ dependencies cannot traverse symbolic links.",
+    "Chinese": "OBJ 依赖路径不能经过符号链接。"
+  },
+  {
+    "English": "OBJ package dependency is truncated.",
+    "Chinese": "OBJ 包中的依赖文件不完整。"
+  },
+  {
+    "English": "Invalid OBJ dependency path.",
+    "Chinese": "OBJ 依赖路径无效。"
+  },
+  {
+    "English": "OBJ dependency escapes its source directory.",
+    "Chinese": "OBJ 依赖路径超出了源文件目录。"
+  },
+  {
+    "English": "OBJ dependency name is not portable.",
+    "Chinese": "OBJ 依赖名称不符合跨平台文件命名要求。"
+  },
+  {
+    "English": "OBJ dependency uses a reserved file name.",
+    "Chinese": "OBJ 依赖使用了系统保留的文件名。"
+  },
+  {
+    "English": "OBJ dependency does not name a file.",
+    "Chinese": "OBJ 依赖路径未指定文件。"
+  },
+  {
+    "English": "OBJ vertices require XYZ and an optional rational weight; vertex-color extensions are not yet supported.",
+    "Chinese": "OBJ 顶点需要 XYZ 坐标和可选的有理权重；暂不支持顶点颜色扩展。"
+  },
+  {
+    "English": "Non-unit rational OBJ weights require a freeform surface and cannot be interpreted as polygon coordinates.",
+    "Chinese": "不等于 1 的 OBJ 有理权重需要自由曲面，不能作为多边形坐标解释。"
+  },
+  {
+    "English": "OBJ vertex exceeds numeric precision.",
+    "Chinese": "OBJ 顶点超出数值可表示范围。"
+  },
+  {
+    "English": "OBJ normals require three coordinates.",
+    "Chinese": "OBJ 法线必须包含三个分量。"
+  },
+  {
+    "English": "OBJ texture coordinates require one to three coordinates.",
+    "Chinese": "OBJ 纹理坐标需要一至三个分量。"
+  },
+  {
+    "English": "Three-dimensional OBJ texture coordinates are not supported.",
+    "Chinese": "暂不支持非零第三分量的 OBJ 纹理坐标。"
+  },
+  {
+    "English": "OBJ faces need at least three corners.",
+    "Chinese": "OBJ 面至少需要三个角点。"
+  },
+  {
+    "English": "Invalid OBJ face corner.",
+    "Chinese": "OBJ 面角点格式无效。"
+  },
+  {
+    "English": "OBJ v/ is not a complete corner.",
+    "Chinese": "OBJ 的 v/ 不是完整的角点格式。"
+  },
+  {
+    "English": "OBJ v/vt/ is not a complete corner.",
+    "Chinese": "OBJ 的 v/vt/ 不是完整的角点格式。"
+  },
+  {
+    "English": "Each OBJ face must use a consistent corner attribute form.",
+    "Chinese": "同一 OBJ 面的各角点必须使用一致的属性格式。"
+  },
+  {
+    "English": "OBJ usemtl requires a material name.",
+    "Chinese": "OBJ 的 usemtl 必须指定材质名称。"
+  },
+  {
+    "English": "OBJ mtllib requires a relative library path.",
+    "Chinese": "OBJ 的 mtllib 必须指定材质库的相对路径。"
+  },
+  {
+    "English": "OBJ material libraries require an MTL extension.",
+    "Chinese": "OBJ 材质库必须使用 MTL 扩展名。"
+  },
+  {
+    "English": "OBJ smoothing requires off, on or a non-negative group number.",
+    "Chinese": "OBJ 平滑设置必须为 off、on 或非负组号。"
+  },
+  {
+    "English": "OBJ has no polygon mesh geometry.",
+    "Chinese": "OBJ 不包含多边形网格几何。"
+  },
+  {
+    "English": "Unterminated OBJ/MTL continuation.",
+    "Chinese": "OBJ/MTL 续行未结束。"
+  },
+  {
+    "English": "Control characters are not valid OBJ/MTL text.",
+    "Chinese": "OBJ/MTL 文本不能包含控制字符。"
+  },
+  {
+    "English": "Unterminated OBJ/MTL quoted name.",
+    "Chinese": "OBJ/MTL 名称的引号未闭合。"
+  },
+  {
+    "English": "Expected a finite OBJ/MTL number.",
+    "Chinese": "OBJ/MTL 需要有限数值。"
+  },
+  {
+    "English": "Invalid OBJ smoothing group.",
+    "Chinese": "OBJ 平滑组无效。"
+  },
+  {
+    "English": "OBJ indices are nonzero integers.",
+    "Chinese": "OBJ 索引必须为非零整数。"
+  },
+  {
+    "English": "OBJ index is outside the values declared before this face.",
+    "Chinese": "OBJ 索引超出此面之前已声明的数据范围。"
+  },
+  {
+    "English": "A polygon requires at least three corners.",
+    "Chinese": "多边形至少需要三个角点。"
+  },
+  {
+    "English": "Polygon coordinates must be finite.",
+    "Chinese": "多边形坐标必须为有限数值。"
+  },
+  {
+    "English": "Polygon extent is degenerate or exceeds numeric precision.",
+    "Chinese": "多边形范围退化或超出数值精度。"
+  },
+  {
+    "English": "Collinear polygon has no area.",
+    "Chinese": "共线多边形没有面积。"
+  },
+  {
+    "English": "Nonplanar polygons must be tessellated before import.",
+    "Chinese": "非平面多边形必须先细分再导入。"
+  },
+  {
+    "English": "Polygon corners repeat or collapse in projection.",
+    "Chinese": "多边形角点重复或在投影中重合。"
+  },
+  {
+    "English": "Polygon boundary doubles back.",
+    "Chinese": "多边形边界发生折返重叠。"
+  },
+  {
+    "English": "Polygon boundary intersects or touches itself.",
+    "Chinese": "多边形边界存在自交或自接触。"
+  },
+  {
+    "English": "Polygon has no stable winding.",
+    "Chinese": "无法确定多边形的稳定绕序。"
+  },
+  {
+    "English": "Polygon cannot be triangulated without losing source corners.",
+    "Chinese": "无法在保留所有原始角点的前提下对多边形三角化。"
+  },
+  {
+    "English": "Polygon triangulation ended with a degenerate face.",
+    "Chinese": "多边形三角化产生了退化面。"
+  },
+  {
+    "English": "A used OBJ material is defined more than once: {0}",
+    "Chinese": "使用中的 OBJ 材质被重复定义：{0}"
+  },
+  {
+    "English": "OBJ references an undefined material: {0}",
+    "Chinese": "OBJ 引用了未定义的材质：{0}"
+  },
+  {
+    "English": "Conflicting MTL declarations: {0}",
+    "Chinese": "MTL 声明冲突：{0}"
+  },
+  {
+    "English": "Unsupported used MTL statement: {0}",
+    "Chinese": "使用中的 MTL 语句暂不支持：{0}"
+  },
+  {
+    "English": "Duplicate OBJ texture option: {0}",
+    "Chinese": "OBJ 贴图选项重复：{0}"
+  },
+  {
+    "English": "Unsupported OBJ texture option: {0}",
+    "Chinese": "暂不支持此 OBJ 贴图选项：{0}"
+  },
+  {
+    "English": "OBJ package dependency is missing: {0}",
+    "Chinese": "OBJ 包缺少依赖：{0}"
+  },
+  {
+    "English": "OBJ dependency is missing or has ambiguous case/Unicode names: {0}",
+    "Chinese": "OBJ 依赖缺失，或其名称的大小写/Unicode 形式有歧义：{0}"
+  },
+  {
+    "English": "Unsupported OBJ statement: {0}. Only static polygon meshes are accepted; no geometry or shading statements are silently omitted.",
+    "Chinese": "暂不支持 OBJ 语句：{0}。仅接受静态多边形网格，不会静默忽略几何或着色语句。"
+  },
+  {
+    "English": "{0}: material {1}: {2}",
+    "Chinese": "{0}：材质 {1}：{2}"
   }
 ]

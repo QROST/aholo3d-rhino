@@ -6,7 +6,7 @@ using Rhino.Geometry;
 using RhinoDoc=global::Rhino.RhinoDoc;
 namespace Aholo.Rhino;
 
-/// <summary>Derived, self-contained 3DM. Source USD provenance is distinct from the derived file's integrity hash.</summary>
+/// <summary>Derived, self-contained 3DM. Source provenance is distinct from the derived file's integrity hash.</summary>
 internal sealed record UsdSnapshotSettings(global::Rhino.UnitSystem Units,double Tolerance,double MillimetresToDocument,double ColorGamma);
 
 internal sealed class UsdMeshSnapshot : IMeshImportSnapshot
@@ -43,8 +43,8 @@ internal sealed class UsdMeshSnapshot : IMeshImportSnapshot
             if(OperatingSystem.IsWindows())Directory.CreateDirectory(directory);
             else Directory.CreateDirectory(directory,UnixFileMode.UserRead|UnixFileMode.UserWrite|UnixFileMode.UserExecute);
             using var file=new File3dm();file.Settings.ModelUnitSystem=settings.Units;file.Settings.ModelAbsoluteTolerance=settings.Tolerance;
-            int layerIndex=file.AllLayers.AddLayer("USD meshes",System.Drawing.Color.White);
-            if(layerIndex<0)throw new InvalidOperationException("Could not create the USD snapshot layer.");
+            int layerIndex=file.AllLayers.AddLayer("Imported meshes",System.Drawing.Color.White);
+            if(layerIndex<0)throw new InvalidOperationException("Could not create the mesh snapshot layer.");
             double factor=settings.MillimetresToDocument,gamma=settings.ColorGamma;
             var embedded=new Dictionary<string,string>(StringComparer.Ordinal);
             foreach(var part in scene.Parts)
@@ -57,7 +57,7 @@ internal sealed class UsdMeshSnapshot : IMeshImportSnapshot
                 {
                     if((i&4095)==0)ct.ThrowIfCancellationRequested();
                     var p=transform.TransformPoint(new(part.Positions[i],part.Positions[i+1],part.Positions[i+2]))*factor;
-                    if(!p.IsFinite)throw new InvalidDataException("USD vertex exceeds document coordinate precision.");
+                    if(!p.IsFinite)throw new InvalidDataException("Source vertex exceeds document coordinate precision.");
                     mesh.Vertices.Add(p.X,p.Y,p.Z);
                 }
                 bool reverse=part.LeftHanded^Reflected(transform.Linear);int offset=0;
@@ -77,15 +77,15 @@ internal sealed class UsdMeshSnapshot : IMeshImportSnapshot
                         var n=normalTransform.Transform(new(normals[i*3],normals[i*3+1],normals[i*3+2])).Normalized();
                         converted[i]=new((float)n.X,(float)n.Y,(float)n.Z);
                     }
-                    if(!mesh.Normals.SetNormals(converted))throw new InvalidDataException("Could not preserve USD normals.");
+                    if(!mesh.Normals.SetNormals(converted))throw new InvalidDataException("Could not preserve mesh normals.");
                 }
-                else if(!mesh.Normals.ComputeNormals())throw new InvalidDataException("Could not compute USD mesh normals.");
+                else if(!mesh.Normals.ComputeNormals())throw new InvalidDataException("Could not compute mesh normals.");
                 if(part.TexCoords is {} uv)
                 {
                     var converted=new Point2f[uv.Length/2];for(int i=0;i<converted.Length;i++)converted[i]=new(uv[i*2],uv[i*2+1]);
-                    if(!mesh.TextureCoordinates.SetTextureCoordinates(converted))throw new InvalidDataException("Could not preserve USD texture coordinates.");
+                    if(!mesh.TextureCoordinates.SetTextureCoordinates(converted))throw new InvalidDataException("Could not preserve mesh texture coordinates.");
                 }
-                if(!mesh.IsValidWithLog(out string log))throw new InvalidDataException("USD mesh did not pass Rhino validation: "+log);
+                if(!mesh.IsValidWithLog(out string log))throw new InvalidDataException("Source mesh did not pass Rhino validation: "+log);
                 using var material=new Material{Name=part.Name};material.ToPhysicallyBased();var pbr=material.PhysicallyBased;
                 var color=part.Material.LinearBaseColor();
                 pbr.BaseColor=new global::Rhino.Display.Color4f((float)Math.Pow(color[0],1/gamma),(float)Math.Pow(color[1],1/gamma),(float)Math.Pow(color[2],1/gamma),1);
@@ -97,7 +97,7 @@ internal sealed class UsdMeshSnapshot : IMeshImportSnapshot
                     {
                         imagePath=System.IO.Path.Combine(directory,filename);
                         using(var image=File.Create(imagePath))bitmap.CopyEncodedTo(image,ct);
-                        if(!file.EmbeddedFiles.Add(imagePath))throw new InvalidDataException("Could not embed the USD bitmap in the snapshot.");
+                        if(!file.EmbeddedFiles.Add(imagePath))throw new InvalidDataException("Could not embed the mesh bitmap in the snapshot.");
                         embedded.Add(filename,imagePath);
                     }
                     using var texture=new Texture{FileReference=FileReference.CreateFromFullPath(imagePath),Enabled=true,
@@ -106,32 +106,36 @@ internal sealed class UsdMeshSnapshot : IMeshImportSnapshot
                         WrapV=bitmap.WrapV==MeshTextureWrap.Repeat?TextureUvwWrapping.Repeat:TextureUvwWrapping.Clamp,
                         MinFilter=bitmap.MinFilter==MeshTextureFilter.Nearest?TextureFilter.Nearest:TextureFilter.Linear,
                         MagFilter=bitmap.MagFilter==MeshTextureFilter.Nearest?TextureFilter.Nearest:TextureFilter.Linear};
-                    if(!pbr.SetTexture(texture,TextureType.PBR_BaseColor))throw new InvalidDataException("Could not assign the USD bitmap.");
+                    if(!pbr.SetTexture(texture,TextureType.PBR_BaseColor))throw new InvalidDataException("Could not assign the mesh bitmap.");
                     pbr.UseBaseColorTextureAlphaForObjectAlphaTransparencyTexture=bitmap.UseAlpha;
                 }
                 pbr.SynchronizeLegacyMaterial();int materialIndex=file.AllMaterials.AddMaterial(material);
-                if(materialIndex<0)throw new InvalidOperationException("Could not create the USD snapshot material.");
+                if(materialIndex<0)throw new InvalidOperationException("Could not create the mesh snapshot material.");
                 using var attr=new ObjectAttributes{Name=part.Name,LayerIndex=layerIndex,MaterialSource=ObjectMaterialSource.MaterialFromObject,MaterialIndex=materialIndex};
                 attr.SetUserString("Aholo.Mesh.SourceFormat",sourceFormat);attr.SetUserString("Aholo.Mesh.SourceSha256",scene.SourceSha256);attr.SetUserString("Aholo.Mesh.SourcePrim",part.SourcePrimPath);attr.SetUserString("Aholo.Mesh.SourcePart",part.PrimPath);attr.SetUserString("Aholo.Mesh.SourceDoubleSided",part.DoubleSided?"true":"false");attr.SetUserString("Aholo.Mesh.SourceDependencies",System.Text.Json.JsonSerializer.Serialize(scene.DependencyHashes));
-                if(file.Objects.AddMesh(mesh,attr)==Guid.Empty)throw new InvalidOperationException("Could not create the USD snapshot mesh.");
+                if(scene.SourceEntry is not null)attr.SetUserString("Aholo.Mesh.SourceEntry",scene.SourceEntry);
+                attr.SetUserString("Aholo.Mesh.SourceUpAxis",scene.UpAxis);
+                attr.SetUserString("Aholo.Mesh.SourceMetersPerUnit",scene.MetersPerUnit.ToString("R",System.Globalization.CultureInfo.InvariantCulture));
+                if(part.SourceGroups.Count>0)attr.SetUserString("Aholo.Mesh.SourceGroups",System.Text.Json.JsonSerializer.Serialize(part.SourceGroups));
+                if(file.Objects.AddMesh(mesh,attr)==Guid.Empty)throw new InvalidOperationException("Could not create the mesh snapshot mesh.");
             }
             string path=System.IO.Path.Combine(directory,"asset.3dm");ct.ThrowIfCancellationRequested();
-            if(!file.WriteWithLog(path,8,out string writeLog))throw new InvalidDataException("Could not write the USD snapshot: "+writeLog);
+            if(!file.WriteWithLog(path,8,out string writeLog))throw new InvalidDataException("Could not write the mesh snapshot: "+writeLog);
             // Independent readback verifies embedded bytes before disposable extraction paths disappear.
-            using(var reopened=File3dm.Read(path)??throw new InvalidDataException("Could not reopen the USD snapshot."))
+            using(var reopened=File3dm.Read(path)??throw new InvalidDataException("Could not reopen the mesh snapshot."))
             {
-                if(reopened.Objects.Count!=scene.Parts.Count)throw new InvalidDataException("USD snapshot object count changed.");
+                if(reopened.Objects.Count!=scene.Parts.Count)throw new InvalidDataException("Mesh snapshot object count changed.");
                 var verified=new HashSet<string>(StringComparer.Ordinal);
                 foreach(var image in reopened.EmbeddedFiles)
                 {
                     string name=System.IO.Path.GetFileName(image.Filename);
-                    if(!embedded.ContainsKey(name)||!verified.Add(name))throw new InvalidDataException("Unexpected embedded USD bitmap.");
+                    if(!embedded.ContainsKey(name)||!verified.Add(name))throw new InvalidDataException("Unexpected embedded mesh bitmap.");
                     string check=System.IO.Path.Combine(directory,"verify-"+name);
-                    if(!image.SaveToFile(check))throw new InvalidDataException("Could not verify an embedded USD bitmap.");
-                    using(var bytes=File.OpenRead(check))if(!Convert.ToHexString(SHA256.HashData(bytes)).Equals(System.IO.Path.GetFileNameWithoutExtension(name),StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("Embedded USD bitmap changed.");
+                    if(!image.SaveToFile(check))throw new InvalidDataException("Could not verify an embedded mesh bitmap.");
+                    using(var bytes=File.OpenRead(check))if(!Convert.ToHexString(SHA256.HashData(bytes)).Equals(System.IO.Path.GetFileNameWithoutExtension(name),StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("Embedded mesh bitmap changed.");
                     File.Delete(check);
                 }
-                if(verified.Count!=embedded.Count)throw new InvalidDataException("USD snapshot is missing an embedded bitmap.");
+                if(verified.Count!=embedded.Count)throw new InvalidDataException("Mesh snapshot is missing an embedded bitmap.");
             }
             ct.ThrowIfCancellationRequested();using var stream=File.OpenRead(path);string hash=Convert.ToHexString(SHA256.HashData(stream));
             return new UsdMeshSnapshot(path,hash,sourceFormat,scene,settings);
@@ -147,7 +151,7 @@ internal sealed class UsdMeshSnapshot : IMeshImportSnapshot
     {
         var current=CaptureSettings(target);
         if(current!=Settings)
-            throw new InvalidOperationException(UiText.Get("Document units or color preprocessing changed. Reload the USD candidate before acceptance."));
+            throw new InvalidOperationException(UiText.Get("Document units or color preprocessing changed. Reload the mesh candidate before acceptance."));
     }
     public void Dispose(){if(Interlocked.Exchange(ref disposed,1)!=0)return;try{Directory.Delete(System.IO.Path.GetDirectoryName(Path)!,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
 }

@@ -79,6 +79,31 @@ public sealed class ObjInputTests
         using var captured=ObjSourceSnapshot.Create(path,entryName:"nested/two.obj");Assert.Single(ObjSyntax.Read(captured).Faces);
         Assert.Throws<InvalidDataException>(()=>ObjSourceSnapshot.Create(path,entryName:"absent.obj"));
     }
+    [Fact]
+    public void FrozenArchiveSelectionSurvivesOriginalReplacementAndCannotBeChanged()
+    {
+        using var files=new Files();string path=files.Zip(("one.obj",Triangle),("nested/two.obj",Triangle));
+        string hash=Hash(File.ReadAllBytes(path));using var source=ObjSourceSnapshot.OpenForSelection(path,hash);
+        Assert.Equal(new[]{"nested/two.obj","one.obj"},source.CandidateEntries);
+        Assert.Throws<InvalidOperationException>(()=>source.Root());File.WriteAllText(path,"replaced while choosing");
+        source.SelectEntry("nested/two.obj");Assert.Single(ObjSyntax.Read(source).Faces);Assert.Equal(hash,source.SourceSha256);
+        source.SelectEntry("nested/two.obj");Assert.Throws<InvalidOperationException>(()=>source.SelectEntry("one.obj"));
+        Assert.Throws<NotSupportedException>(()=>((IList<string>)source.CandidateEntries)[0]="changed.obj");
+    }
+    [Fact]
+    public void SelectionHonorsCancellationAndMissingEntryWithoutPoisoningSource()
+    {
+        using var files=new Files();using var source=ObjSourceSnapshot.OpenForSelection(files.Zip(("one.obj",Triangle)));
+        Assert.Throws<OperationCanceledException>(()=>source.SelectEntry("one.obj",new CancellationToken(true)));
+        Assert.Throws<InvalidDataException>(()=>source.SelectEntry("missing.obj"));source.SelectEntry("one.obj");Assert.Single(ObjSyntax.Read(source).Faces);
+        source.Dispose();Assert.Throws<ObjectDisposedException>(()=>source.SelectEntry("one.obj"));
+    }
+    [Fact]
+    public void StandaloneSourceAlsoExposesOneImmutableCandidate()
+    {
+        using var files=new Files();using var source=ObjSourceSnapshot.OpenForSelection(files.Text("one.obj",Triangle));
+        Assert.Equal("one.obj",Assert.Single(source.CandidateEntries));source.SelectEntry("one.obj");Assert.Single(ObjSyntax.Read(source).Faces);
+    }
     [Theory]
     [InlineData("../escape.obj")][InlineData("/root.obj")][InlineData("C:/root.obj")][InlineData("a\\b.obj")]
     [InlineData("a/./b.obj")][InlineData("a//b.obj")][InlineData("CON.obj")][InlineData("a/file. ")]

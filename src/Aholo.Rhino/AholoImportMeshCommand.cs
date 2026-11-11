@@ -18,7 +18,7 @@ public sealed class AholoImportMeshCommand : Command
     internal static OpenFileDialog FileDialog()
     {
         var dialog=new OpenFileDialog{Title=UiText.Get("Load local mesh"),MultiSelect=false};
-        dialog.Filters.Add(new FileFilter(UiText.Get("Static mesh"),".glb",".ply",".stl",".3mf",".usd",".usda",".usdc",".usdz"));return dialog;
+        dialog.Filters.Add(new FileFilter(UiText.Get("Static mesh"),".glb",".ply",".stl",".3mf",".usd",".usda",".usdc",".usdz",".obj",".zip"));return dialog;
     }
     protected override Result RunCommand(RhinoDoc doc,RunMode mode)
     {
@@ -38,7 +38,7 @@ public sealed class AholoImportMeshCommand : Command
                 if(dialog.ShowDialog(RhinoEtoApp.MainWindowForDocument(doc))!=DialogResult.Ok)return Result.Cancel;
                 path=dialog.FileName;
             }
-            if(!File.Exists(path)||!MeshPlacementPolicy.IsMeshFormat(System.IO.Path.GetExtension(path).TrimStart('.').ToLowerInvariant()))
+            if(!File.Exists(path)||!MeshPlacementPolicy.IsLocalMeshExtension(System.IO.Path.GetExtension(path).TrimStart('.').ToLowerInvariant()))
                 throw new InvalidOperationException(UiText.Get("Select an existing supported static mesh file."));
             _=AholoHost.CaptureTarget(doc);
             Panels.OpenPanel(typeof(AholoPanel),true);

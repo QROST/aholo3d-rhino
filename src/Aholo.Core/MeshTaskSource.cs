@@ -83,7 +83,7 @@ public static class MeshTaskSource
     }
     private static TaskArtifact ValidatePath(TaskArtifact artifact)
     {
-        if (!string.Equals(Path.GetExtension(artifact.LocalPath), "." + artifact.Format, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(Path.GetExtension(artifact.LocalPath), "." + (artifact.Format=="obj_zip"?"zip":artifact.Format), StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException(UiText.Get("The cached result does not match its recorded format. Download it again."));
         return artifact;
     }

@@ -8,7 +8,7 @@ public sealed record PolygonTriangles(int[] Corners,GaussianVector UnitNormal);
 public static class PolygonTriangulator
 {
     private readonly record struct Point(double X,double Y);
-    private static InvalidDataException Invalid(string message)=>new(message);
+    private static InvalidDataException Invalid(string message)=>new(UiText.Get(message));
     public static PolygonTriangles Triangulate(IReadOnlyList<GaussianVector> points,CancellationToken ct=default)
     {
         ct.ThrowIfCancellationRequested();int count=points.Count;

@@ -32,16 +32,35 @@ internal sealed class MeshPlacementService
         void ValidateIntent(){ct.ThrowIfCancellationRequested();Resolve(target);if(allowed is not null&&!allowed())throw new OperationCanceledException(ct);}
         await AholoHost.OnUi(()=>{ValidateIntent();return true;}).ConfigureAwait(false);
         IMeshImportSnapshot snapshot;
-        if(Path.GetExtension(path).ToLowerInvariant() is ".usd" or ".usda" or ".usdc" or ".usdz")
+        string extension=Path.GetExtension(path).ToLowerInvariant();
+        if(extension is ".usd" or ".usda" or ".usdc" or ".usdz" or ".obj" or ".zip")
         {
-            var scene=await Task.Run(()=>UsdMeshReader.Read(path,hash,ct),ct).ConfigureAwait(false);
             var settings=await AholoHost.OnUi(()=>
             {
                 ValidateIntent();var doc=Resolve(target);
                 if(doc.IsCommandRunning||doc.UndoRecordingIsActive)throw new InvalidOperationException(UiText.Get("Finish the current Rhino command before accepting a candidate."));
                 return UsdMeshSnapshot.CaptureSettings(doc);
             }).ConfigureAwait(false);
-            snapshot=await Task.Run(()=>UsdMeshSnapshot.Create(scene,Path.GetExtension(path).TrimStart('.').ToLowerInvariant(),settings,ct),ct).ConfigureAwait(false);
+            void ValidateSettings()
+            {
+                ValidateIntent();var doc=Resolve(target);
+                if(doc.IsCommandRunning||doc.UndoRecordingIsActive)throw new InvalidOperationException(UiText.Get("Finish the current Rhino command before accepting a candidate."));
+                if(UsdMeshSnapshot.CaptureSettings(doc)!=settings)throw new InvalidOperationException(UiText.Get("Document units or color preprocessing changed. Reload the mesh candidate before acceptance."));
+            }
+            UsdMeshScene scene;
+            if(extension is ".obj" or ".zip")
+            {
+                using var source=await Task.Run(()=>ObjSourceSnapshot.OpenForSelection(path,hash,ct),ct).ConfigureAwait(false);
+                var options=await AholoHost.OnUi(()=>
+                {
+                    ValidateSettings();var choice=ObjImportDialog.Choose(Resolve(target),source.CandidateEntries,settings,ct);
+                    ValidateSettings();return choice;
+                }).ConfigureAwait(false);
+                scene=await Task.Run(()=>{source.SelectEntry(options.EntryName!,ct);return ObjMeshReader.Read(source,options,ct);},ct).ConfigureAwait(false);
+            }
+            else scene=await Task.Run(()=>UsdMeshReader.Read(path,hash,ct),ct).ConfigureAwait(false);
+            await AholoHost.OnUi(()=>{ValidateSettings();return true;}).ConfigureAwait(false);
+            snapshot=await Task.Run(()=>UsdMeshSnapshot.Create(scene,extension==".zip"?"obj_zip":extension.TrimStart('.'),settings,ct),ct).ConfigureAwait(false);
         }
         else snapshot=await Task.Run(()=>NativeMeshImportSnapshot.Create(path,hash,trace,ct),ct).ConfigureAwait(false);
         try
@@ -93,7 +112,7 @@ internal sealed class MeshPlacementService
         var prior=Existing(doc,importId);if(prior is not null)return prior;
         ImportReceipt receipt=host.Commit(asset,target.Placement,importId,taskId,trace,ValidateCommit);
         if(receipt.State=="Imported")Frame(doc,receipt.ObjectId);
-        return new(receipt.State,UiText.Get("The model is placed as an independent block. One Undo reverses this placement."));
+        return new(receipt.State,UiText.Get("The model is placed as an independent block. One Undo reverses this placement.")+(asset.ImportWarnings.Count==0?"":"\n"+string.Join("\n",asset.ImportWarnings.Select(w=>UiText.Get(w)))));
     }
     private MeshPlacementResult? Existing(RhinoDoc doc,Guid importId)
     {
