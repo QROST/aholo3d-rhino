@@ -389,3 +389,8 @@ Local and task-result 3MF now uses an independent managed reader and the existin
 Two read-only local reviewers identified generic-only texture MIME rejection, duplicate component containers and unused distant-vertex precision loss. The primary corrected them and added regressions. An initial suggestion to admit forward texture references was rejected after checking the Core's explicit define-before-reference requirement; no schema-only inference was accepted. The final narrow review found no additional blocking issue. Remote allowance was insufficient for useful inference, so no new third-party task was dispatched.
 
 A deterministic packaged three-part texture sample and manual color/UV/alpha checklist accompany the change. Gradients, mirror tiling, layered/composite/display materials, manufacturing fill semantics and broader image profiles remain explicit limits. Native Mac/Windows appearance, embedded image persistence and the real cloud workflow remain pending; no host or paid service was exercised.
+
+
+### Candidate checkpoint — alpha.20
+
+Packages the independent textured 3MF reader from `f767e13`, its bilingual boundaries and reproducible texture/transform fixture. Evidence: 1280 passing offline tests and zero-warning/error Release compilation. Numeric assembly/plugin/Yak identities remain stable. Both platform archives are local candidates only; manual native texture/opacity/persistence and live-service acceptance remain pending.
