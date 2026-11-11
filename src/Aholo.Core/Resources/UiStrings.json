@@ -4770,5 +4770,89 @@
   {
     "English": "3MF attributes exceed mesh display precision.",
     "Chinese": "3MF 属性超出了网格显示精度。"
+  },
+  {
+    "English": "Cached file missing",
+    "Chinese": "本地缓存文件已缺失"
+  },
+  {
+    "English": "Not downloaded.",
+    "Chinese": "尚未下载。"
+  },
+  {
+    "English": "No result selected.",
+    "Chinese": "尚未选择结果。"
+  },
+  {
+    "English": "This task record cannot be used by this version.",
+    "Chinese": "当前版本无法使用此任务记录。"
+  },
+  {
+    "English": "This result has an ambiguous identity. Refresh the original task before using it.",
+    "Chinese": "此结果的标识不明确。请先刷新原任务，再使用此结果。"
+  },
+  {
+    "English": "Preview checks the static mesh before placement. Place can also locate an earlier placement.",
+    "Chinese": "预览会先校验静态网格；“放入当前文档”也可定位已有放置。"
+  },
+  {
+    "English": "Preview or Place downloads this result from the original task; it does not generate a new model.",
+    "Chinese": "预览或放置会下载原任务的此项结果，不会重新生成模型。"
+  },
+  {
+    "English": "Place can check for an earlier placement. A new placement needs the file or access to the completed task in its original account and region.",
+    "Chinese": "“放入当前文档”可查找已有放置。新放置需要本地文件，或通过原账号及区域访问已完成的任务。"
+  },
+  {
+    "English": "Use Place in current document. A downloaded file is not automatically placed.",
+    "Chinese": "请点击“放入当前文档”。已下载文件不会自动放置。"
+  },
+  {
+    "English": "Download this result, then use Place in current document.",
+    "Chinese": "请先下载此结果，再点击“放入当前文档”。"
+  },
+  {
+    "English": "To download this result, wait for task completion and connect to its original account and region.",
+    "Chinese": "请等待任务完成并连接其原账号及区域，然后下载此结果。"
+  },
+  {
+    "English": "Use Open image to view this result.",
+    "Chinese": "请点击“打开图像”查看此结果。"
+  },
+  {
+    "English": "Download this result, then use Open image.",
+    "Chinese": "请先下载此结果，再点击“打开图像”。"
+  },
+  {
+    "English": "Use Open result folder. This format cannot be placed directly.",
+    "Chinese": "请点击“打开结果文件夹”。此格式暂不能直接放置。"
+  },
+  {
+    "English": "Download only: this format cannot be placed directly. Choose a supported model result to preview or place.",
+    "Chinese": "此格式仅供下载，暂不能直接放置。请选择支持的模型结果进行预览或放置。"
+  },
+  {
+    "English": "This format cannot be placed directly. Download requires a completed task and its original account and region.",
+    "Chinese": "此格式暂不能直接放置。下载需要任务已完成，并连接其原账号及区域。"
+  },
+  {
+    "English": "A download saves the file locally; it does not place it in the document.",
+    "Chinese": "下载仅将文件保存到本机，不会将其放入文档。"
+  },
+  {
+    "English": "Service progress is unavailable.",
+    "Chinese": "服务暂未提供进度。"
+  },
+  {
+    "English": "Waiting for a service progress update.",
+    "Chinese": "等待服务更新进度。"
+  },
+  {
+    "English": "Service progress: {0}%",
+    "Chinese": "服务进度：{0}%"
+  },
+  {
+    "English": "Time since recorded: {0}",
+    "Chinese": "任务记录已等待：{0}"
   }
 ]

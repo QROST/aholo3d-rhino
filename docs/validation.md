@@ -292,3 +292,10 @@ Release build passed with **zero warnings and errors**. The complete offline .NE
 ### Alpha.20 source checkpoint
 
 Candidate `0.2.0-alpha.20` includes `f767e13` and the self-contained textured 3MF acceptance sample. Numeric assembly version remains `0.2.0.0`. Candidate archive receipts bind clean source and complete payload bytes. Both archives are built on Mac; they do not establish Windows execution or native Rhino acceptance. No installation or publication is part of this checkpoint.
+
+
+## Library result guidance and honest progress (2026-11-11 UTC)
+
+Release compilation passed with zero warnings/errors. **1323 offline .NET tests passed**, zero failed/skipped: 43 new cases cover actual Lux result ordering, automatic/default versus explicit selection, full task provenance, refresh/reorder/missing/duplicate keys, late outputs, real-cache facts, offline receipt lookup, successful-task/original-account download gates, World/render synthetic rows, bilingual guidance, fractional progress and clock/terminal-state boundaries. The source retains all existing backend identity/credential-epoch/hash/receipt checks.
+
+Two independent local read-only reviewers checked the integration. One identified a cache-label refresh mismatch; the primary fixed it and rebuilt/reran the complete suite. A final review covers the binding and timer lifecycle. The World progress interval comes from the pinned public schema; an attempted live web fetch was unavailable in this turn and no newly fetched contract or live progress behavior is claimed. No Rhino automation, authenticated API call, installation, push or publication occurred. Actual Mac/Windows Eto interaction and narrow-panel layout remain manual acceptance items.

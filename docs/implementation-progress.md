@@ -394,3 +394,12 @@ A deterministic packaged three-part texture sample and manual color/UV/alpha che
 ### Candidate checkpoint — alpha.20
 
 Packages the independent textured 3MF reader from `f767e13`, its bilingual boundaries and reproducible texture/transform fixture. Evidence: 1280 passing offline tests and zero-warning/error Release compilation. Numeric assembly/plugin/Yak identities remain stable. Both platform archives are local candidates only; manual native texture/opacity/persistence and live-service acceptance remain pending.
+
+
+## Library output guidance and service progress after alpha.20
+
+Added a host-independent result recommendation/action policy. The Library favors supported placement types over image/download-only/error outputs, then existing cache and supported-format preference, without reordering service outputs. Explicit selection is scoped by complete task identity and operation, checked by key/format and retained across refreshes or reported output errors. Automatic choices are not recorded as user intent. Missing/ambiguous/changed-format choices fall back safely. Programmatic row binding is guarded, and actual cache-state changes refresh labels without changing the current choice.
+
+Actions now explain cached versus missing files, image viewing, download-only formats and mesh receipt-first offline lookup. Download remains gated by the original account/region and successful task; downloaded bytes are not automatically placed. Known World progress is formatted as a percentage; absent/zero/invalid values remain explicit and a visible-only timer reports local record age rather than a completion estimate. Source progress and server state are unchanged.
+
+Two local read-only reviewers checked identity, account/action gates and actual native bindings. Review caught stale dropdown cache labels, corrected before final integration. Remote allowance remained only 135 tokens, so no useful remote inference could be dispatched. Native Eto events, layout and host/live-service acceptance remain pending.

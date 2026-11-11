@@ -78,6 +78,8 @@ This alpha is built locally; it has not been installed or published automaticall
 6. For an already-ingested cloud asset, open the separate cloud preview window. Starting a stream may use service credits. Stop it there; if cleanup is not confirmed, retry the original session from its cleanup list. A lost create reply is not automatically retried.
 7. `AholoCancel` or the footer button stops local waiting/preparation. It does not cancel remote work. Closing the panel preserves the shared session and task history.
 
+Library initially recommends a supported model result when a task returns both an archive and a mesh. Your explicit result selection is kept per task while the panel is open, including across refreshes. Result details distinguish saved files, missing cache and download-only formats, and explain the next action. Downloading does not place geometry. For an uncached mesh, **Place** can still check an earlier placement while offline; a new placement needs the file or the original account/region. Reported World progress appears as a percentage; missing/zero progress remains a waiting state with local record age and last-query information, without an estimated finish time.
+
 3MF placement uses an independent static mesh reader for core geometry, components/transforms, base RGBA, direct PNG/JPEG textures and uniform triangle color groups. It retains the original source/hash and shares the self-contained candidate, Block and Undo flow. Gradient colors, mirror tiling, layered/composite materials and production/slice/vendor extensions remain unsupported. Native texture/opacity and persistence acceptance is pending; see [format boundaries and acceptance](docs/mesh-formats.md).
 
 ## Local mesh USD / USDZ exchange
