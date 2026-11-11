@@ -80,7 +80,7 @@ public sealed partial class AholoPanel
     }
     private async Task LoadLocalMeshAsync()
     {
-        using var dialog=new OpenFileDialog{Title=T("Load local mesh"),MultiSelect=false};dialog.Filters.Add(new FileFilter(T("Static mesh"),".glb",".ply",".stl",".3mf"));
+        using var dialog=new OpenFileDialog{Title=T("Load local mesh"),MultiSelect=false};dialog.Filters.Add(new FileFilter(T("Static mesh"),".glb",".ply",".stl",".3mf",".usd",".usda",".usdc",".usdz"));
         if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
         await meshEditor.AddAsync(dialog.FileName,null,Path.GetFileName(dialog.FileName),null,token);
     }

@@ -3642,5 +3642,25 @@
   {
     "English": "Select model-space geometry. Page-space objects use different units and cannot enter this mesh workflow.",
     "Chinese": "请选择模型空间几何。页面空间对象使用不同单位，不能进入此网格流程。"
+  },
+  {
+    "English": "Mesh import flattens instance hierarchy. Display is two-sided; Rhino materials are a preview of the supported USD shading subset.",
+    "Chinese": "网格导入会展开实例层级。Rhino 使用双面显示；材质仅表示当前支持的 USD 着色子集。"
+  },
+  {
+    "English": "Texture filter settings are source metadata; final sampling is controlled by the viewer.",
+    "Chinese": "纹理过滤设置作为来源信息保留，实际采样效果由显示器决定。"
+  },
+  {
+    "English": "USD units were unauthored; the OpenUSD 0.01 metre fallback was used.",
+    "Chinese": "USD 未指定单位，已采用 OpenUSD 默认的 0.01 米单位。"
+  },
+  {
+    "English": "USD upAxis was unauthored; the OpenUSD fallback axis was used.",
+    "Chinese": "USD 未指定向上轴，已采用 OpenUSD 的默认向上轴。"
+  },
+  {
+    "English": "Document units or color preprocessing changed. Reload the USD candidate before acceptance.",
+    "Chinese": "文档单位或颜色预处理设置已改变，请重新加载 USD 候选后再接受。"
   }
 ]

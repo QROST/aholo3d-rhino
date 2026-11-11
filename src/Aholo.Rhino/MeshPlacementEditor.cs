@@ -66,7 +66,7 @@ internal sealed class MeshPlacementEditor : IDisposable
         long expected=revision;var target=Capture();PreparedAsset asset=await placement.PrepareAsync(path,hash,target,ct);
         if(disposed||expected!=revision||ct.IsCancellationRequested){asset.Dispose();ct.ThrowIfCancellationRequested();return;}
         candidates.Add(new(name,asset,target,Guid.NewGuid(),taskId));Select(candidates.Count-1);
-        report(UiText.Get("Candidate loaded. Adjust placement, compare candidates, then accept. The document is unchanged until acceptance."));
+        report(UiText.Get("Candidate loaded. Adjust placement, compare candidates, then accept. The document is unchanged until acceptance.")+(asset.ImportWarnings.Count==0?"":"\n"+string.Join("\n",asset.ImportWarnings.Select(w=>UiText.Get(w)))));
     }
     private void Select(int index){selected.DataStore=candidates.Select((c,i)=>$"{(char)('A'+i)} · {c.Name}").ToArray();selected.SelectedIndex=index;Schedule();}
     private void Pick()

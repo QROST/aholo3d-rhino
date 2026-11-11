@@ -31,6 +31,13 @@ public sealed class MeshTexture
         UseAlpha = useAlpha; Sha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
         WrapU = wrapU; WrapV = wrapV; MinFilter = minFilter; MagFilter = magFilter;
     }
+    /// <summary>Copy the immutable, validated encoded bitmap without exposing its mutable backing array.</summary>
+    public void CopyEncodedTo(Stream output, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(output); ct.ThrowIfCancellationRequested();
+        for (int i=0;i<bytes.Length;)
+        { ct.ThrowIfCancellationRequested(); int count=Math.Min(131072,bytes.Length-i); output.Write(bytes,i,count); i+=count; }
+    }
     private static (string, bool) ValidateImage(ReadOnlySpan<byte> data, CancellationToken ct)
     {
         if (data.StartsWith(new byte[]{137,80,78,71,13,10,26,10}))

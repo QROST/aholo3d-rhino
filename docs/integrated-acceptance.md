@@ -95,3 +95,8 @@ Native Mac/Windows checks remain pending. Use the packaged `fixtures/mesh-core.3
 ## Local mesh USD export
 
 Run `AholoExportMesh` and the panel action on both platforms. Follow the mesh checklist in `usd-exchange.md`, including mirrored/far-translated blocks, readonly/orthographic capture, page-space rejection, source materials unchanged, alpha/UV appearance, moved USDZ/plain companion bundles and cancellation/closure. This route needs no API Key. Automated USD parsing does not establish Rhino capture or native viewing acceptance.
+
+
+### Local ordinary USD import (source after alpha.4)
+
+Use the local mesh loader for USD/USDA/USDC/USDZ. Exercise textured triangles/quads, face-varying seams, nested/mirrored instances, Y/Z axes and normal document units; verify chosen height/CPlane placement and one Block/Undo. Change units/tolerance/color preprocessing during loading: preparation or acceptance must reject the stale snapshot. Close the document/cancel during processing. Clear the candidate’s temporary directory, save/reopen and verify embedded textures and source/derived hashes. Unsupported subdivision/n-gons/animation/subsets/mixed GS must fail with no document mutation. Record Mac and Windows native results separately; the automated OpenUSD checks do not establish this acceptance.

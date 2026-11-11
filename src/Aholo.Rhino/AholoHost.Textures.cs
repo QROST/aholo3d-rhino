@@ -18,6 +18,11 @@ internal static partial class AholoHost
         if(!uvw.IsValid||uvw.M30!=0||uvw.M31!=0||uvw.M32!=0||uvw.M33!=1||uvw.M02!=0||uvw.M12!=0||uvw.M20!=0||uvw.M21!=0||uvw.M23!=0)throw TextureUnsupported();
         string path=texture.FileName;
         if(string.IsNullOrWhiteSpace(path)||path.Contains("://",StringComparison.Ordinal)||path.StartsWith("\\\\",StringComparison.Ordinal)||path.StartsWith("//",StringComparison.Ordinal))throw TextureUnsupported();
+        if(!Path.IsPathFullyQualified(path)||!File.Exists(path))
+        {
+            _=doc.Bitmaps.Find(texture.FileName,true,out string embeddedPath);
+            if(!string.IsNullOrEmpty(embeddedPath))path=embeddedPath;
+        }
         if(!Path.IsPathFullyQualified(path))
         {
             if(string.IsNullOrEmpty(doc.Path))throw new InvalidOperationException(UiText.Get("The bitmap path is unresolved. Save the document with local bitmap files or disable bitmap export."));

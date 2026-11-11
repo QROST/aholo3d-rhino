@@ -41,11 +41,16 @@ public sealed class PreparedAsset : IDisposable
         DocumentSessionId = documentSessionId; DocumentSerial = documentSerial;
     }
     public string Sha256 { get; }
+    internal string? SourceFormat => (_snapshot as UsdMeshSnapshot)?.SourceFormat;
+    internal string? SourceSha256 => (_snapshot as UsdMeshSnapshot)?.SourceSha256;
+    internal string? SourceDependencies => (_snapshot as UsdMeshSnapshot)?.Dependencies;
+    internal IReadOnlyList<string> ImportWarnings => (_snapshot as UsdMeshSnapshot)?.Warnings ?? Array.Empty<string>();
     public AssetAudit Audit { get; }
     public string DocumentSessionId { get; }
     public uint DocumentSerial { get; }
     internal string SnapshotPath { get; }
     internal RhinoDoc Staging { get; }
+    internal void ValidateTarget(RhinoDoc target) { if(_snapshot is UsdMeshSnapshot usd)usd.ValidateTarget(target); }
     internal void Verify()
     {
         if (!File.Exists(SnapshotPath))
@@ -114,6 +119,7 @@ public sealed class MeshHostService : IDisposable
         RhinoDoc? stage = null;
         try
         {
+            if(snapshot is UsdMeshSnapshot usd)usd.ValidateTarget(target);
             NativeMeshImportSnapshot.Verify(snapshot.Path,snapshot.Sha256);
             stage = RhinoDoc.CreateHeadless(null) ?? throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Could not create an independent preview document."));
             stage.ModelUnitSystem = target.ModelUnitSystem;
@@ -196,6 +202,7 @@ public sealed class MeshHostService : IDisposable
         if (doc.UndoRecordingIsActive) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Finish the current Rhino command before accepting a candidate."));
         int previousLayerIndex = doc.Layers.CurrentLayerIndex;
         int targetLayerIndex = previousLayerIndex;
+        asset.ValidateTarget(doc);
         asset.Verify();
         string durableImportPath = PersistImportSnapshot(asset);
         trace?.Record("commit_snapshot_verified");
@@ -203,7 +210,7 @@ public sealed class MeshHostService : IDisposable
         HashSet<Guid> before = Objects(doc).Select(o => o.Id).ToHashSet();
         HashSet<Guid> definitionsBefore = doc.InstanceDefinitions.GetList(true).Select(d => d.Id).ToHashSet();
         string beforeState = DocumentState(doc);
-        validateCommit?.Invoke();
+        asset.ValidateTarget(doc); validateCommit?.Invoke();
         uint undo = doc.BeginUndoRecord(global::Aholo.Core.UiText.Get("Accept Aholo mesh candidate"));
         if (undo == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Could not create an undo record. Nothing was imported."));
         List<GeometryBase> geometry = new();
@@ -233,7 +240,7 @@ public sealed class MeshHostService : IDisposable
             }
             trace?.Record("commit_native_import_result", importedNative ? "true" : "false");
             if (!importedNative) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Document import: Rhino's native mesh import failed before mesh repair."));
-            validateCommit?.Invoke();
+            asset.ValidateTarget(doc); validateCommit?.Invoke();
             VerifyHash(durableImportPath, asset.Sha256);
             asset.Verify();
             RhinoObject[] added = Objects(doc).Where(o => !before.Contains(o.Id)).ToArray();
@@ -267,11 +274,17 @@ public sealed class MeshHostService : IDisposable
             instanceAttributes.Space = ActiveSpace.ModelSpace;
             instanceAttributes.ViewportId = Guid.Empty;
             instanceAttributes.SetUserString("Aholo.Mesh.AssetFormat",Path.GetExtension(asset.SnapshotPath).TrimStart('.').ToLowerInvariant());
+            if(asset.SourceSha256 is not null)
+            {
+                instanceAttributes.SetUserString("Aholo.Mesh.SourceFormat",asset.SourceFormat);
+                instanceAttributes.SetUserString("Aholo.Mesh.SourceSha256",asset.SourceSha256);
+                instanceAttributes.SetUserString("Aholo.Mesh.SourceDependencies",asset.SourceDependencies);
+            }
             instanceAttributes.SetUserString("Aholo.Mesh.ImportId", importId.ToString("D"));
             instanceAttributes.SetUserString("Aholo.Mesh.AssetSha256", asset.Sha256);
             instanceAttributes.SetUserString("Aholo.Mesh.DocumentSession", asset.DocumentSessionId);
             if (generationOperationId.HasValue) instanceAttributes.SetUserString("Aholo.Mesh.GenerationOperationId", generationOperationId.Value.ToString("D"));
-            validateCommit?.Invoke();
+            asset.ValidateTarget(doc); validateCommit?.Invoke();
             instanceId = doc.Objects.AddInstanceObject(definitionIndex, transform, instanceAttributes);
             if (instanceId == Guid.Empty) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Could not place the Aholo mesh block."));
             trace?.Record("commit_instance_added", instanceId.ToString("D"));

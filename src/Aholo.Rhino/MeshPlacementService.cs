@@ -30,7 +30,19 @@ internal sealed class MeshPlacementService
     }
     internal async Task<PreparedAsset> PrepareAsync(string path,string? hash,MeshPlacementTarget target,CancellationToken ct)
     {
-        var snapshot=await Task.Run(()=>NativeMeshImportSnapshot.Create(path,hash,ct:ct),ct).ConfigureAwait(false);
+        IMeshImportSnapshot snapshot;
+        if(Path.GetExtension(path).ToLowerInvariant() is ".usd" or ".usda" or ".usdc" or ".usdz")
+        {
+            var scene=await Task.Run(()=>UsdMeshReader.Read(path,hash,ct),ct).ConfigureAwait(false);
+            var settings=await AholoHost.OnUi(()=>
+            {
+                ct.ThrowIfCancellationRequested();var doc=Resolve(target);
+                if(doc.IsCommandRunning||doc.UndoRecordingIsActive)throw new InvalidOperationException(UiText.Get("Finish the current Rhino command before accepting a candidate."));
+                return UsdMeshSnapshot.CaptureSettings(doc);
+            }).ConfigureAwait(false);
+            snapshot=await Task.Run(()=>UsdMeshSnapshot.Create(scene,Path.GetExtension(path).TrimStart('.').ToLowerInvariant(),settings,ct),ct).ConfigureAwait(false);
+        }
+        else snapshot=await Task.Run(()=>NativeMeshImportSnapshot.Create(path,hash,ct:ct),ct).ConfigureAwait(false);
         try
         {
             return await AholoHost.OnUi(()=>

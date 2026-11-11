@@ -170,11 +170,19 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--format', choices=('usd', 'usda', 'usdc', 'usdz'), required=True)
+    parser.add_argument('--format', choices=('usd', 'usda', 'usdc', 'usdz'))
     parser.add_argument('--export', action='store_true')
     args = parser.parse_args()
     try:
-        export(args.input, args.output, args.format)
+        if args.export:
+            export(args.input, args.output, args.format)
+        else:
+            # Isolated Python excludes script-directory imports; load only our installed sibling.
+            import importlib.util
+            spec = importlib.util.spec_from_file_location('aholo_mesh_reader', Path(__file__).with_name('usd_mesh_reader.py'))
+            reader = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(reader)
+            reader.convert(args.input, args.output)
     except Exception as error:
         try:
             (args.output / 'error.json').write_text(json.dumps({'message': str(error)}, ensure_ascii=False), encoding='utf-8')
