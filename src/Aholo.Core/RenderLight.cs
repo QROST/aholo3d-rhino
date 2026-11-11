@@ -6,6 +6,10 @@ namespace Aholo.Core;
 public sealed record RenderLight(string Kind,double[] Transform,double[] Color,double Intensity,
     double Width=0,double Height=0,double Radius=0)
 {
+    public double Exposure { get; init; }
+    public double Specular { get; init; } = 1;
+    public bool AffectReflections { get; init; } = true;
+    public bool DoubleSided { get; init; }
     public void Validate()
     {
         if(Kind is not "Rect" and not "Sphere")throw new ArgumentException("Only rectangular and spherical cloud lights are supported.");
@@ -18,7 +22,24 @@ public sealed record RenderLight(string Kind,double[] Transform,double[] Color,d
             throw new ArgumentException("Light pose must be rigid and right handed; dimensions carry its scale.");
         if(Color is not{Length:3}||Color.Any(v=>!double.IsFinite(v)||v<0||!float.IsFinite((float)v)))throw new ArgumentException("Light color must contain three finite nonnegative linear values.");
         if(!double.IsFinite(Intensity)||Intensity<0||!float.IsFinite((float)Intensity))throw new ArgumentException("Light intensity must be finite and nonnegative.");
+        if(!double.IsFinite(Exposure)||!float.IsFinite((float)Exposure))throw new ArgumentException("Light exposure must be a finite float.");
+        if(!double.IsFinite(Specular)||Specular<0||!float.IsFinite((float)Specular))throw new ArgumentException("Light specular contribution must be finite and nonnegative.");
+        // Validate the final float-domain brightness without overflowing an intermediate 2^exposure.
+        double intensity=(float)Intensity;
+        double effective=intensity==0?0:Math.Pow(2,Math.Log2(intensity)+(float)Exposure);
+        if(!double.IsFinite(effective)||!float.IsFinite((float)effective))throw new ArgumentException("Intensity and exposure together exceed finite light brightness.");
+        if(Kind!="Rect"&&DoubleSided)throw new ArgumentException("Double-sided emission is available only for rectangular lights.");
         if(Kind=="Rect"){Positive(Width);Positive(Height);}else Positive(Radius);
+    }
+    /// <summary>Rotate the existing orientation around world X, Y, then Z; retain position and physical dimensions.</summary>
+    public RenderLight RotateWorld(double xDegrees,double yDegrees,double zDegrees)
+    {
+        Validate();var rotation=RenderModelPlacement.Rotation(xDegrees,yDegrees,zDegrees);
+        if(xDegrees%360==0&&yDegrees%360==0&&zDegrees%360==0)
+            return this with{Transform=(double[])Transform.Clone(),Color=(double[])Color.Clone()};
+        var existing=new GaussianMatrix(Transform[0],Transform[4],Transform[8],Transform[1],Transform[5],Transform[9],Transform[2],Transform[6],Transform[10]);
+        var changed=this with{Transform=RenderModelPlacement.RowPose(rotation*existing,new(Transform[12],Transform[13],Transform[14])),Color=(double[])Color.Clone()};
+        changed.Validate();return changed;
     }
     internal static void Positive(double value)
     {if(!double.IsFinite(value)||value<=0||!float.IsFinite((float)value)||(float)value<=0)throw new ArgumentException("Light dimensions must be positive finite floats.");}
@@ -64,9 +85,13 @@ public static class RenderLightsUsda
         ArgumentNullException.ThrowIfNull(light);light.Validate();
         string F(double value)=>value.ToString("R",CultureInfo.InvariantCulture);
         string pose=string.Join(", ",Enumerable.Range(0,4).Select(row=>"("+string.Join(", ",light.Transform.Skip(row*4).Take(4).Select(F))+")"));
-        var text=new StringBuilder("        ").Append(specifier).Append(' ').Append(light.Kind).Append("Light \"").Append(id).Append("\"\n        {\n")
+        var text=new StringBuilder("        ").Append(specifier).Append(' ').Append(light.Kind).Append("Light \"").Append(id).Append("\" (\n            customData = {\n                int \"manycore:affectReflections\" = ").Append(light.AffectReflections?"1":"0").Append('\n');
+        if(light.Kind=="Rect")text.Append("                bool \"manycore:doubleFace\" = ").Append(light.DoubleSided?"true":"false").Append('\n');
+        text.Append("            }\n        )\n        {\n")
             .Append("            color3f inputs:color = (").Append(string.Join(", ",light.Color.Select(F))).Append(")\n")
-            .Append("            float inputs:intensity = ").Append(F(light.Intensity)).Append("\n            float inputs:exposure = 0\n            float inputs:specular = 1\n            bool inputs:normalize = false\n");
+            .Append("            float inputs:intensity = ").Append(F(light.Intensity))
+            .Append("\n            float inputs:exposure = ").Append(F(light.Exposure)).Append("\n            float inputs:specular = ").Append(F(light.Specular))
+            .Append("\n            bool inputs:normalize = false\n");
         if(light.Kind=="Rect")text.Append("            float inputs:width = ").Append(F(light.Width)).Append("\n            float inputs:height = ").Append(F(light.Height)).Append('\n');
         else text.Append("            float inputs:radius = ").Append(F(light.Radius)).Append('\n');
         return text.Append("            matrix4d xformOp:transform = (").Append(pose).Append(")\n            uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        }\n").ToString();

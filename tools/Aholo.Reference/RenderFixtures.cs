@@ -24,6 +24,14 @@ internal static class RenderFixtures
         Write("composition-edit.usda",RealtimeLayout.Patch(multiple,adjusted));
         Write("composition-remove.usda",RealtimeLayout.Patch(adjusted,removed));
         Write("composition-empty.usda",RealtimeLayout.Patch(removed,new(Array.Empty<RealtimeAssetSlot>(),Array.Empty<RealtimeLightSlot>())));
+        var fullShape=new RenderModelPlacement(10,20,30,2,90)
+        {RotationXDegrees=90,RotationYDegrees=90,AxisScaleX=-1,AxisScaleY=1.5,AxisScaleZ=2,ShearXY=.5,ShearXZ=.25,ShearYZ=-.5};
+        var area=(light with{Kind="Rect",Width=500,Height=700,Exposure=2,Specular=.4,DoubleSided=true}).RotateWorld(90,0,0);
+        var advanced=new RealtimeSceneLayout(new[]{new RealtimeAssetSlot("Model","mesh-advanced",Model:fullShape)},
+            new[]{new RealtimeLightSlot("Light_area",area),new RealtimeLightSlot("Light_point",light with{Exposure=-1,Specular=2.5,AffectReflections=false})});
+        var advancedEdit=advanced with{Assets=new[]{advanced.Assets[0] with{GltfCoordinates=false}},Lights=new[]{advanced.Lights[0] with{Light=area.RotateWorld(0,0,90) with{Exposure=0,Specular=0,DoubleSided=false,AffectReflections=false}},advanced.Lights[1]}};
+        Write("advanced-base.usda",RealtimeScene.Build(start with{Scene=advanced}));
+        Write("advanced-patch.usda",RealtimeLayout.Patch(advanced,advancedEdit));
         Console.WriteLine("Production render/patch fixtures written; no service or Rhino calls.");
         return 0;
     }

@@ -4154,5 +4154,85 @@
   {
     "English": "Use the scene editor for this multi-object preview.",
     "Chinese": "请使用场景编辑器调整此多对象预览。"
+  },
+  {
+    "English": "Advanced model shape",
+    "Chinese": "高级模型形变"
+  },
+  {
+    "English": "Axis scale X / Y / Z (negative mirrors, zero is invalid)",
+    "Chinese": "X / Y / Z 轴比例（负值为镜像，不能为零）"
+  },
+  {
+    "English": "Shear: X from Y / X from Z / Y from Z",
+    "Chinese": "剪切：Y 对 X / Z 对 X / Z 对 Y"
+  },
+  {
+    "English": "Shear acts after scale and before rotation. Mirrored and sheared cloud appearance still needs service validation.",
+    "Chinese": "剪切在缩放之后、旋转之前应用。镜像和剪切的云端显示效果仍需服务验收。"
+  },
+  {
+    "English": "Model rotation X / Y / Z (degrees)",
+    "Chinese": "模型 X / Y / Z 旋转（度）"
+  },
+  {
+    "English": "Rotate around world X, then Y, then Z, about the asset origin before its position offset.",
+    "Chinese": "围绕资产原点依次按世界 X、Y、Z 轴旋转，再应用位置偏移。"
+  },
+  {
+    "English": "Affect reflections",
+    "Chinese": "影响反射"
+  },
+  {
+    "English": "Emit from both rectangle sides",
+    "Chinese": "矩形灯双面发光"
+  },
+  {
+    "English": "Advanced light settings",
+    "Chinese": "高级灯光设置"
+  },
+  {
+    "English": "Exposure (stops; +1 doubles intensity)",
+    "Chinese": "曝光（档；+1 使强度翻倍）"
+  },
+  {
+    "English": "Specular contribution multiplier",
+    "Chinese": "高光贡献倍率"
+  },
+  {
+    "English": "Rotate current light around world X / Y / Z (degrees)",
+    "Chinese": "当前灯光绕世界 X / Y / Z 旋转（度）"
+  },
+  {
+    "English": "Rotation is applied X, then Y, then Z without moving the light. Zero keeps its captured orientation; new rectangles face downward along Z.",
+    "Chinese": "依次按 X、Y、Z 旋转，不改变灯光位置。零值保留捕获的方向；新矩形灯朝向 Z 轴负方向。"
+  },
+  {
+    "English": "Light exposure must be a finite float.",
+    "Chinese": "灯光曝光必须为有限浮点数。"
+  },
+  {
+    "English": "Light specular contribution must be finite and nonnegative.",
+    "Chinese": "灯光高光贡献必须有限且不能为负。"
+  },
+  {
+    "English": "Intensity and exposure together exceed finite light brightness.",
+    "Chinese": "强度与曝光组合后的亮度超出有限范围。"
+  },
+  {
+    "English": "Double-sided emission is available only for rectangular lights.",
+    "Chinese": "只有矩形灯支持双面发光。"
+  },
+  {
+    "English": "Axis scales must be finite and nonzero; shear values must be finite.",
+    "Chinese": "各轴比例必须有限且不为零，剪切值必须有限。"
+  },
+  {
+    "English": "Rotation angles must be finite.",
+    "Chinese": "旋转角度必须为有限数值。"
+  },
+  {
+    "English": "Model pose must be a finite affine row-vector matrix.",
+    "Chinese": "模型姿态必须为有限的行向量仿射矩阵。"
   }
 ]

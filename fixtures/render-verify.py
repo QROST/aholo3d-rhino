@@ -66,4 +66,30 @@ with tempfile.TemporaryDirectory(prefix="aholo-render-check-") as temporary:
         stage=Usd.Stage.Open(layer,load=Usd.Stage.LoadNone)
         marked={str(prim.GetPath()):prim.GetTypeName() for prim in stage.TraverseAll() if prim.GetCustomData().get("manycore:operation:type")=="del"}
         assert marked==targets,marked
-print("OpenUSD production render patches passed: typed paths, world pose, light, environment, independent camera and GS.")
+    advanced_base=Sdf.Layer.FindOrOpen(str(root/"advanced-base.usda"))
+    advanced_patch=Sdf.Layer.FindOrOpen(str(root/"advanced-patch.usda"))
+    assert advanced_base and advanced_patch
+    before=Usd.Stage.Open(advanced_base,load=Usd.Stage.LoadNone)
+    affine=UsdGeom.Xformable(before.GetPrimAtPath("/World/Model")).GetLocalTransformation()
+    assert all(abs(a-b)<1e-6 for a,b in zip(affine.Transform(Gf.Vec3d(2,-3,5)),(-11990,-8980,14530)))
+    sphere=UsdLux.SphereLight(before.GetPrimAtPath("/World/Lights/Light_point"))
+    assert sphere.GetExposureAttr().Get()==-1 and sphere.GetSpecularAttr().Get()==2.5
+    assert sphere.GetPrim().GetCustomData()["manycore:affectReflections"]==0
+    assert "manycore:doubleFace" not in sphere.GetPrim().GetCustomData()
+    rectangle=UsdLux.RectLight(before.GetPrimAtPath("/World/Lights/Light_area"))
+    assert rectangle.GetExposureAttr().Get()==2 and abs(rectangle.GetSpecularAttr().Get()-.4)<1e-6
+    assert rectangle.GetPrim().GetCustomData()["manycore:doubleFace"] is True
+    assert rectangle.GetPrim().GetCustomData()["manycore:affectReflections"]==1
+    full=Sdf.Layer.CreateAnonymous("advanced.usda");full.subLayerPaths=[advanced_patch.identifier,advanced_base.identifier]
+    after=Usd.Stage.Open(full,load=Usd.Stage.LoadNone)
+    affine=UsdGeom.Xformable(after.GetPrimAtPath("/World/Model")).GetLocalTransformation()
+    assert all(abs(a-b)<1e-6 for a,b in zip(affine.Transform(Gf.Vec3d(2,-3,5)),(30,1,33.5)))
+    rectangle=UsdLux.RectLight(after.GetPrimAtPath("/World/Lights/Light_area"))
+    assert rectangle.GetExposureAttr().Get()==0 and rectangle.GetSpecularAttr().Get()==0
+    assert rectangle.GetPrim().GetCustomData()["manycore:doubleFace"] is False
+    assert rectangle.GetPrim().GetCustomData()["manycore:affectReflections"]==0
+    pose=UsdGeom.Xformable(rectangle).GetLocalTransformation()
+    assert tuple(pose.ExtractTranslation())==(1000,2000,3000)
+    assert all(abs(a-b)<1e-6 for a,b in zip(pose.TransformDir(Gf.Vec3d(0,0,-1)),(-1,0,0)))
+    assert rectangle.GetWidthAttr().Get()==500 and rectangle.GetHeightAttr().Get()==700
+print("OpenUSD production render patches passed: multi-asset pose, signed affine/shear, independent light rotation, advanced light values/metadata reset, camera and typed deletion markers.")

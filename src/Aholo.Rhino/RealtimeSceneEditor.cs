@@ -75,14 +75,21 @@ internal sealed class RealtimeSceneEditor:Dialog<RealtimeSceneLayout?>
         var id=new TextBox{Text=seed.MeshId,PlaceholderText=T("Existing ingested cloud asset ID")};
         var kind=new DropDown{DataStore=new[]{T("Cloud mesh"),T("Cloud Gaussian asset")},SelectedIndex=seed.Gaussian?1:0};
         var units=new DropDown{DataStore=new[]{T("Imported glTF · metres / Y-up"),T("Cloud native · millimetres / Z-up")},SelectedIndex=seed.GltfCoordinates?0:1};
-        var x=Field(model.X);var y=Field(model.Y);var z=Field(model.Z);var scale=Field(model.Scale);var rotation=Field(model.RotationDegrees);
+        var x=Field(model.X);var y=Field(model.Y);var z=Field(model.Z);var scale=Field(model.Scale);var rotation=Field(model.RotationDegrees);var rotationX=Field(model.RotationXDegrees);var rotationY=Field(model.RotationYDegrees);
+        var axisX=Field(model.AxisScaleX);var axisY=Field(model.AxisScaleY);var axisZ=Field(model.AxisScaleZ);
+        var shearXY=Field(model.ShearXY);var shearXZ=Field(model.ShearXZ);var shearYZ=Field(model.ShearYZ);
+        var advanced=new Expander{Header=Label("Advanced model shape"),Expanded=model.AxisScaleX!=1||model.AxisScaleY!=1||model.AxisScaleZ!=1||model.ShearXY!=0||model.ShearXZ!=0||model.ShearYZ!=0,
+            Content=Column(Label("Axis scale X / Y / Z (negative mirrors, zero is invalid)"),Row(axisX,axisY,axisZ),Label("Shear: X from Y / X from Z / Y from Z"),Row(shearXY,shearXZ,shearYZ),
+                Label("Shear acts after scale and before rotation. Mirrored and sheared cloud appearance still needs service validation."))};
         bool fixedIdentity=existingAssets.Contains(seed.Id);id.Enabled=kind.Enabled=!fixedIdentity;
         kind.SelectedIndexChanged+=(_,_)=>{if(kind.SelectedIndex==1)units.SelectedIndex=1;};
-        var fields=Column(Label("Prepared cloud asset ID"),id,kind,units,Label("Model X / Y / Z offset (mm)"),Row(x,y,z),Label("Model scale"),scale,Label("Model rotation around Z (degrees)"),rotation,
+        var fields=Column(Label("Prepared cloud asset ID"),id,kind,units,Label("Model X / Y / Z offset (mm)"),Row(x,y,z),Label("Model scale"),scale,Label("Model rotation X / Y / Z (degrees)"),Row(rotationX,rotationY,rotation),
+            Label("Rotate around world X, then Y, then Z, about the asset origin before its position offset."),advanced,
             Label(fixedIdentity?"To replace this asset or its type, add a new asset and remove this one.":"The selected coordinate convention is applied once, before the model placement."));
         return Edit(T("Cloud asset"),fields,()=>
         {
-            var result=new RealtimeAssetSlot(seed.Id,id.Text.Trim(),kind.SelectedIndex==1,units.SelectedIndex==0,new(Number(x),Number(y),Number(z),Number(scale,true),Number(rotation)));
+            var result=new RealtimeAssetSlot(seed.Id,id.Text.Trim(),kind.SelectedIndex==1,units.SelectedIndex==0,new(Number(x),Number(y),Number(z),Number(scale,true),Number(rotation))
+            {RotationXDegrees=Number(rotationX),RotationYDegrees=Number(rotationY),AxisScaleX=Number(axisX),AxisScaleY=Number(axisY),AxisScaleZ=Number(axisZ),ShearXY=Number(shearXY),ShearXZ=Number(shearXZ),ShearYZ=Number(shearYZ)});
             return RealtimeLayout.Snapshot(new(new[]{result},Array.Empty<RealtimeLightSlot>())).Assets[0];
         });
     }
@@ -92,18 +99,25 @@ internal sealed class RealtimeSceneEditor:Dialog<RealtimeSceneLayout?>
         var light=seed.Light;var kind=new DropDown{DataStore=new[]{T("Point light (sphere)"),T("Rectangular light")},SelectedIndex=light.Kind=="Rect"?1:0,Enabled=!existingLights.Contains(seed.Id)};
         var x=Field(light.Transform[12]);var y=Field(light.Transform[13]);var z=Field(light.Transform[14]);
         var r=Field(light.Color[0]);var g=Field(light.Color[1]);var b=Field(light.Color[2]);var intensity=Field(light.Intensity);
+        var rotationX=Field(0);var rotationY=Field(0);var rotationZ=Field(0);var exposure=Field(light.Exposure);var specular=Field(light.Specular);
+        var reflections=new CheckBox{Text=T("Affect reflections"),Checked=light.AffectReflections};
+        var doubleSided=new CheckBox{Text=T("Emit from both rectangle sides"),Checked=light.DoubleSided};
+        var advanced=new Expander{Header=Label("Advanced light settings"),Expanded=light.Exposure!=0||light.Specular!=1||!light.AffectReflections||light.DoubleSided,
+            Content=Column(Label("Exposure (stops; +1 doubles intensity)"),exposure,Label("Specular contribution multiplier"),specular,reflections,doubleSided)};
         var width=Field(light.Width>0?light.Width:1000);var height=Field(light.Height>0?light.Height:1000);var lightRadius=Field(light.Radius>0?light.Radius:50);
-        void Dimensions(){width.Enabled=height.Enabled=kind.SelectedIndex==1;lightRadius.Enabled=kind.SelectedIndex==0;}
+        void Dimensions(){width.Enabled=height.Enabled=doubleSided.Enabled=kind.SelectedIndex==1;lightRadius.Enabled=kind.SelectedIndex==0;}
         kind.SelectedIndexChanged+=(_,_)=>Dimensions();Dimensions();
         var fields=Column(kind,Label("Light X / Y / Z position (mm)"),Row(x,y,z),Label("Linear RGB color"),Row(r,g,b),Label("Relative light intensity multiplier"),intensity,
             Label("Rectangle width / height (mm)"),Row(width,height),Label("Sphere radius (mm)"),lightRadius,
-            Label("Light orientation is preserved. Capture a selected Rhino rectangle to use its orientation. New rectangles face downward along Z."));
+            Label("Rotate current light around world X / Y / Z (degrees)"),Row(rotationX,rotationY,rotationZ),
+            Label("Rotation is applied X, then Y, then Z without moving the light. Zero keeps its captured orientation; new rectangles face downward along Z."),advanced);
         return Edit(T("Cloud light"),fields,()=>
         {
             var pose=(double[])light.Transform.Clone();pose[12]=Number(x);pose[13]=Number(y);pose[14]=Number(z);
             var changed=new RenderLight(kind.SelectedIndex==1?"Rect":"Sphere",pose,new[]{Number(r,nonnegative:true),Number(g,nonnegative:true),Number(b,nonnegative:true)},Number(intensity,nonnegative:true),
-                Width:kind.SelectedIndex==1?Number(width,true):0,Height:kind.SelectedIndex==1?Number(height,true):0,Radius:kind.SelectedIndex==0?Number(lightRadius,true):0);
-            changed.Validate();return new RealtimeLightSlot(seed.Id,changed);
+                Width:kind.SelectedIndex==1?Number(width,true):0,Height:kind.SelectedIndex==1?Number(height,true):0,Radius:kind.SelectedIndex==0?Number(lightRadius,true):0)
+            {Exposure=Number(exposure),Specular=Number(specular,nonnegative:true),AffectReflections=reflections.Checked==true,DoubleSided=kind.SelectedIndex==1&&doubleSided.Checked==true};
+            changed=changed.RotateWorld(Number(rotationX),Number(rotationY),Number(rotationZ));return new RealtimeLightSlot(seed.Id,changed);
         });
     }
     private TResult? Edit<TResult>(string title,Control fields,Func<TResult> read) where TResult:class

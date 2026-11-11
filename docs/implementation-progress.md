@@ -290,3 +290,10 @@ Two independent local read-only reviews checked the queue/epoch and UI/SDK bound
 ## Candidate checkpoint — alpha.12
 
 Packages multi-object realtime scene editing (`c65dc8f`) as `0.2.0-alpha.12`. A bilingual draft editor manages prepared mesh/GS assets and lights with stable paths and confirmed scene revisions. Runtime evidence is 1048 passing offline tests and actual OpenUSD parsing/composition, including provider-delete marker syntax checks without claiming live deletion. The shared-translation initialization regression is fixed. Stable assembly/plugin/Yak identities remain unchanged. Local package receipts bind clean source and exact bytes; real service behavior, native Mac/Windows interaction and the broader parity backlog remain open. No installation or publication is performed by this checkpoint.
+
+
+## Advanced realtime transforms and lights after alpha.12
+
+Added model XYZ rotation, independent signed axis scales and upper-triangular shear while preserving the original constructor and old JSON defaults. Placement applies one asset-coordinate conversion, then shape/rotation and separate world translation. New advanced controls are collapsible. Light world-axis incremental rotation preserves captured position/dimensions and exact orientation for zero turns. Exposure, specular contribution, reflection influence and Rect-only two-sided emission are validated and serialized explicitly, including reset-to-false/zero patches. The common writer also supports these fields for offline requests; the offline selection form still uses captured defaults.
+
+Two local read-only reviewers checked the official contract, matrix order, independent hand-calculated samples, fixed Eto API and property preservation. The primary implemented and verified the changes. Remote catalog/status still showed only 135 available daily output tokens; no inference or limit change occurred. OpenUSD verifies complete matrices and literal metadata readback, while mirrors/shears, advanced flag interpretation and native UI behavior remain explicit live/host gates. The service does not document a specular maximum of 1, so no such range was invented.
