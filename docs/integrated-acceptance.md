@@ -215,3 +215,8 @@ Run the document-scoped command cancellation, queued placement, Scripted path/OB
 ## Exact GS depth-sort acceleration (after alpha.24)
 
 Repeat the saved-document/overlapping-instance orbit, clipping, settling and equal-depth color checks in [GS sorting performance](gs-sort-performance.md). Verify unchanged compositing and complete instances on both hosts. Record native preparation and navigation observations separately from the CPU-only synthetic benchmark.
+
+
+## Workspace commands and panel recreation (source after alpha.25)
+
+Follow [workspace navigation and draft checks](workspace-navigation.md) on both hosts and in both languages. Include a fresh closed panel, rapid command changes, raw incomplete fields, two open documents, delayed task completion, queued local mesh import, panel ownership transfer and narrow/wide collapsed Library sections. These checks remain pending; command metadata and portable state tests do not establish native behavior.

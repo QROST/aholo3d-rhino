@@ -39,7 +39,7 @@ public sealed class AholoPlugin : PlugIn
         }
     }
     private static void OnDocumentClosed(object? sender, global::Rhino.DocumentEventArgs e)
-    { CancelDocumentOperations(e.Document.RuntimeSerialNumber); meshHost?.Forget(e.Document.RuntimeSerialNumber); }
+    { PanelNavigation.Close(e.Document.RuntimeSerialNumber);CancelDocumentOperations(e.Document.RuntimeSerialNumber); meshHost?.Forget(e.Document.RuntimeSerialNumber); }
     protected override LoadReturnCode OnLoad(ref string errorMessage)
     {
         int? language = null;
@@ -55,7 +55,7 @@ public sealed class AholoPlugin : PlugIn
     protected override void OnShutdown()
     {
         global::Rhino.RhinoDoc.CloseDocument -= OnDocumentClosed;
-        AholoImportMeshCommand.Cancel();
+        PanelNavigation.Shutdown();AholoImportMeshCommand.Cancel();
         if(SharedSession.IsValueCreated)_ = Session.DisposeAsync().AsTask();
         meshHost?.Dispose();meshHost=null;
         GaussianViewport.Shutdown();

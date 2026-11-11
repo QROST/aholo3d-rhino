@@ -5,12 +5,13 @@ namespace Aholo.Rhino;
 public sealed partial class AholoPanel
 {
     private MeshPlacementEditor meshEditor=null!;
+    private Expander meshSection=null!;
     private readonly CheckBox autoPlace=new(){Text=T("Place generated mesh when ready"),Checked=true};
     private readonly AutomaticPlacementIntents<MeshPlacementTarget> placementIntents=new();
     private readonly Dictionary<Guid,LocalTask> readyPlacements=new();
     private readonly UITimer placementTimer=new(){Interval=1};
     private ConnectionState placementConnection=new(false,null,false);
-    private bool autoBusy,shown=true;
+    private bool autoBusy,shown;
     private Button previewResult=null!;
     private readonly CheckBox meshExportTextures=new(){Text=T("Include direct base-color bitmaps in mesh USD"),Checked=true};
     private void InitializePlacement()
@@ -66,6 +67,7 @@ public sealed partial class AholoPanel
     }
     private async Task PreviewSelectedAsync()
     {
+        meshSection.Expanded=true;
         var task=Selected??throw new InvalidOperationException(T("Select a task first."));
         var artifact=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
         var selection=MeshTaskSelection.Capture(task,artifact.Key);
@@ -102,18 +104,20 @@ public sealed partial class AholoPanel
         string message=await MeshUsdExport.ExportAsync(GaussianExportDialogs.NormalizePath(dialog),snapshot,token);
         AholoHost.Ui(()=>Report(message));
     }
-    internal Task ImportMeshCandidateAsync(string path)
+    internal Task ImportMeshCandidateAsync(string path,long expectedNavigation)
     {
         if(disposed||!shown)throw new InvalidOperationException(T("Open Aholo3D Library before loading a mesh candidate."));
         _=AholoHost.CaptureTarget(Document());
         if(busy||autoBusy)throw new InvalidOperationException(T("The panel is busy. Wait for the current operation or cancel it, then load the mesh."));
-        tabs.SelectedIndex=1;
+        if(workspace.NavigationRevision!=expectedNavigation)throw new LocalOperationCanceledException();
+        SetPage(WorkspacePage.Library);meshSection.Expanded=true;
         return RunAsync("Load local mesh",()=>meshEditor.AddAsync(path,null,Path.GetFileName(path),null,token));
     }
     private async Task LoadLocalMeshAsync()
     {
         using var dialog=AholoImportMeshCommand.FileDialog();
         if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
+        meshSection.Expanded=true;
         await meshEditor.AddAsync(dialog.FileName,null,Path.GetFileName(dialog.FileName),null,token);
     }
 }

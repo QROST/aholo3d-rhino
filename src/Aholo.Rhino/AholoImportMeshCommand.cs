@@ -13,7 +13,7 @@ namespace Aholo.Rhino;
 public sealed class AholoImportMeshCommand : Command
 {
     public override string EnglishName=>"AholoImportMesh";
-    private sealed record Pending(uint Serial,string Path,Stopwatch Clock);
+    private sealed record Pending(uint Serial,string Path,long NavigationRevision,Stopwatch Clock);
     private static Pending? pending;
     internal static OpenFileDialog FileDialog()
     {
@@ -41,8 +41,10 @@ public sealed class AholoImportMeshCommand : Command
             if(!File.Exists(path)||!MeshPlacementPolicy.IsLocalMeshExtension(System.IO.Path.GetExtension(path).TrimStart('.').ToLowerInvariant()))
                 throw new InvalidOperationException(UiText.Get("Select an existing supported static mesh file."));
             _=AholoHost.CaptureTarget(doc);
+            var workspace=PanelNavigation.Workspaces.Open(doc.RuntimeSerialNumber);workspace.UserNavigated();
+            long navigation=workspace.NavigationRevision;
             Panels.OpenPanel(typeof(AholoPanel),true);
-            pending=new(doc.RuntimeSerialNumber,path,Stopwatch.StartNew());
+            pending=new(doc.RuntimeSerialNumber,path,navigation,Stopwatch.StartNew());
             global::Rhino.RhinoApp.Idle+=OnIdle;
             global::Rhino.RhinoApp.WriteLine(UiText.Get("Opening a local mesh candidate in Library. Review placement and accept it there. No cloud request is made."));
             return Result.Success;
@@ -65,14 +67,14 @@ public sealed class AholoImportMeshCommand : Command
             if(request.Clock.Elapsed>TimeSpan.FromSeconds(30))
                 throw new InvalidOperationException(UiText.Get("The mesh import could not start. Finish the current command and run AholoImportMesh again."));
             if(doc.IsCommandRunning||doc.UndoRecordingIsActive)return;
-            var panel=Panels.GetPanel<AholoPanel>(request.Serial);if(panel is null)return;
-            Cancel();_=StartAsync(panel,request.Path);
+            var panel=Panels.GetPanel<AholoPanel>(request.Serial);if(panel is null||!panel.CanNavigate)return;
+            Cancel();_=StartAsync(panel,request.Path,request.NavigationRevision);
         }
         catch(Exception error){Cancel();global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(error));}
     }
-    private static async Task StartAsync(AholoPanel panel,string path)
+    private static async Task StartAsync(AholoPanel panel,string path,long navigation)
     {
-        try{await panel.ImportMeshCandidateAsync(path);}
+        try{await panel.ImportMeshCandidateAsync(path,navigation);}
         catch(Exception error){AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(error)));}
     }
 }

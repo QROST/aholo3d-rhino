@@ -51,6 +51,45 @@ public sealed class RhinoPluginMetadataTests
         Assert.Equal(expected, Assert.Single(descriptions, item => item.Type == descriptionType).Text);
     }
 
+    [Fact]
+    public void BuiltCommandsHaveUniqueNamesAndGuidsWithoutLoadingRhino()
+    {
+        using var stream=File.OpenRead(GetPluginPath());using var pe=new PEReader(stream);var metadata=pe.GetMetadataReader();
+        var commands=new Dictionary<string,Guid>(StringComparer.OrdinalIgnoreCase);
+        foreach(var handle in metadata.TypeDefinitions)
+        {
+            var definition=metadata.GetTypeDefinition(handle);
+            if(definition.BaseType.Kind!=HandleKind.TypeReference)continue;
+            var parent=metadata.GetTypeReference((TypeReferenceHandle)definition.BaseType);
+            if(!metadata.StringComparer.Equals(parent.Namespace,"Rhino.Commands")||!metadata.StringComparer.Equals(parent.Name,"Command"))continue;
+            var getter=Assert.Single(definition.GetMethods().Select(metadata.GetMethodDefinition),m=>metadata.StringComparer.Equals(m.Name,"get_EnglishName"));
+            var il=pe.GetMethodBody(getter.RelativeVirtualAddress).GetILBytes()!;
+            // Existing command names are literal getters: ldstr <token>; ret.
+            Assert.Equal(6,il.Length);Assert.Equal(0x72,il[0]);Assert.Equal(0x2a,il[5]);
+            int token=System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(il.AsSpan(1,4));
+            Assert.Equal(0x70,token>>24);
+            string name=metadata.GetUserString(System.Reflection.Metadata.Ecma335.MetadataTokens.UserStringHandle(token&0xffffff));
+            var guids=new List<Guid>();
+            foreach(var attributeHandle in definition.GetCustomAttributes())
+            {
+                var attribute=metadata.GetCustomAttribute(attributeHandle);
+                if(attribute.Constructor.Kind!=HandleKind.MemberReference)continue;
+                var constructor=metadata.GetMemberReference((MemberReferenceHandle)attribute.Constructor);
+                if(constructor.Parent.Kind!=HandleKind.TypeReference)continue;
+                var type=metadata.GetTypeReference((TypeReferenceHandle)constructor.Parent);
+                if(!metadata.StringComparer.Equals(type.Namespace,"System.Runtime.InteropServices")||!metadata.StringComparer.Equals(type.Name,"GuidAttribute"))continue;
+                var blob=metadata.GetBlobReader(attribute.Value);Assert.Equal((ushort)1,blob.ReadUInt16());guids.Add(Guid.Parse(blob.ReadSerializedString()!));
+            }
+            var guid=Assert.Single(guids);Assert.NotEqual(Guid.Empty,guid);Assert.True(commands.TryAdd(name,guid),"Duplicate command name: "+name);
+        }
+        Assert.Equal(commands.Count,commands.Values.Distinct().Count());
+        Assert.Equal(new Guid("30BE962C-4333-419C-BFB1-58D4E7C04DE7"),commands["AholoWorld"]);
+        Assert.Equal(new Guid("2CFAB6F4-2A45-41E5-BD0B-CB48BFA42067"),commands["AholoModel"]);
+        Assert.Equal(new Guid("4A2AD212-2088-4236-869F-EDC4F9EC44BD"),commands["AholoTasks"]);
+        Assert.Equal(new Guid("3E5B6073-3659-40D4-82D2-E1A03E7B1CF4"),commands["AholoRender"]);
+        Assert.Equal(new Guid("4E7AB6C0-5922-4E79-9F28-0897985E7F5D"),commands["AholoCancelOperation"]);
+    }
+
     // Inspect the compiled PE without loading the plug-in or resolving RhinoCommon.
     // Runtime reflection can resolve unrelated custom attribute types even when
     // requesting only GuidAttribute, so it is unsuitable for this portable test.

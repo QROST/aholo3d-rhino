@@ -4930,5 +4930,25 @@
   {
     "English": "That operation has ended or belongs to another document. Nothing was cancelled.",
     "Chinese": "该操作已结束或属于其他文档，未取消任何操作。"
+  },
+  {
+    "English": "The workspace could not open. Finish the current command and try again.",
+    "Chinese": "未能打开工作区，请结束当前命令后重试。"
+  },
+  {
+    "English": "Placement and mesh candidates",
+    "Chinese": "放置与网格候选"
+  },
+  {
+    "English": "Local file exchange",
+    "Chinese": "本地文件导入导出"
+  },
+  {
+    "English": "Task tools and recovery",
+    "Chinese": "任务工具与恢复"
+  },
+  {
+    "English": "GS display and diagnostics",
+    "Chinese": "GS 显示与诊断"
   }
 ]

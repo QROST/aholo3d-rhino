@@ -10,6 +10,14 @@ internal sealed class CreationForm : Panel
     private readonly string operation;
     private readonly List<Func<(string,object?)>> readers=new();
     private readonly List<Func<ServiceFileInput?>> files=new();
+    private readonly Dictionary<string,(Func<string[]> Capture,Action<IReadOnlyList<string>> Restore)> draftFields=new(StringComparer.Ordinal);
+    private void DraftField(string key,Func<string[]> capture,Action<IReadOnlyList<string>> restore)=>draftFields.Add(key,(capture,restore));
+    private void DraftText(string key,TextControl control)=>DraftField(key,()=>new[]{control.Text},values=>control.Text=values.FirstOrDefault()??"");
+    private static string Toggle(bool? value)=>value is null?"":value==true?"true":"false";
+    private static bool? Toggle(string? value)=>value=="true"?true:value=="false"?false:null;
+    public CreationDraft CaptureDraft()=>new(draftFields.Select(x=>new KeyValuePair<string,string[]>(x.Key,x.Value.Capture())));
+    public void RestoreDraft(CreationDraft draft)
+    {foreach(var field in draftFields)if(draft.Values.TryGetValue(field.Key,out var values))field.Value.Restore(values);}
     private readonly TextBox name=new(){PlaceholderText=UiText.Get("Task name (optional)")};
     private static Label Label(string text)=>new(){Text=UiText.Get(text),Wrap=WrapMode.Word};
     private static readonly Dictionary<string,string> Titles=new()
@@ -25,7 +33,7 @@ internal sealed class CreationForm : Panel
         this.operation=operation;
         var basic=new StackLayout{Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch};
         var advanced=new StackLayout{Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch,Visible=false};
-        basic.Items.Add(name);
+        basic.Items.Add(name);DraftText("$name",name);
         var schema=ServiceOperations.RequestSchema(operation);
         var required=schema.TryGetProperty("required",out var r)?r.EnumerateArray().Select(x=>x.GetString()!).ToHashSet():new HashSet<string>();
         foreach(var property in schema.GetProperty("properties").EnumerateObject())
@@ -37,6 +45,7 @@ internal sealed class CreationForm : Panel
             container.Items.Add(BuildField(field,definition,required.Contains(field)));
         }
         var more=new CheckBox{Text=UiText.Get("Advanced options")};more.CheckedChanged+=(_,_)=>advanced.Visible=more.Checked==true;
+        DraftField("$advanced",()=>new[]{Toggle(more.Checked)},values=>{more.Checked=Toggle(values.FirstOrDefault());advanced.Visible=more.Checked==true;});
         basic.Items.Add(more);basic.Items.Add(advanced);Content=basic;
     }
     private Control BuildField(string field,JsonElement schema,bool required)
@@ -55,6 +64,8 @@ internal sealed class CreationForm : Panel
                 if(dialog.ShowDialog(this)!=DialogResult.Ok)return;paths=dialog.Filenames.ToArray();url.Text="";summary.Text=string.Join("\n",paths.Select(Path.GetFileName));
             };
             clear.Click+=(_,_)=>{paths=Array.Empty<string>();url.Text="";summary.Text=UiText.Get("No files selected");};
+            DraftText(field+":url",url);
+            DraftField(field+":files",()=>paths.ToArray(),values=>{paths=values.ToArray();summary.Text=paths.Length==0?UiText.Get("No files selected"):string.Join("\n",paths.Select(Path.GetFileName));});
             files.Add(()=>paths.Length==0?null:new ServiceFileInput(field,paths.ToArray()));
             readers.Add(()=>{string text=url.Text.Trim();return(field,text.Length==0?null:field=="imgs"?text.Split(new[]{'\r','\n'},StringSplitOptions.RemoveEmptyEntries):text);});
             var row=new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={choose,clear}};
@@ -67,18 +78,22 @@ internal sealed class CreationForm : Panel
             var control=new DropDown{DataStore=all.Select(x=>x.Length==0?UiText.Get("Service default"):UiText.Get(x)).ToArray(),SelectedIndex=0};
             string? initial=schema.TryGetProperty("default",out var d)?d.GetString():field=="version"?"G1-Turbo":null;
             if(initial is not null&&Array.IndexOf(all,initial) is int selected&&selected>=0)control.SelectedIndex=selected;
+            DraftField(field+":choice",()=>control.SelectedIndex<0?Array.Empty<string>():new[]{all[control.SelectedIndex]},values=>control.SelectedIndex=values.Count==0?-1:Array.IndexOf(all,values[0]));
             readers.Add(()=>(field,control.SelectedIndex<0||all[control.SelectedIndex].Length==0?null:all[control.SelectedIndex]));return control;
         }
         string type=schema.GetProperty("type").GetString()!;
         if(type=="boolean")
         {
             var box=new DropDown{DataStore=new[]{UiText.Get("Service default"),UiText.Get("Yes"),UiText.Get("No")},SelectedIndex=0};
+            DraftField(field+":choice",()=>new[]{box.SelectedIndex==1?"true":box.SelectedIndex==2?"false":""},values=>box.SelectedIndex=values.FirstOrDefault() switch{"true"=>1,"false"=>2,_=>0});
             readers.Add(()=>(field,box.SelectedIndex==0?null:box.SelectedIndex==1));return box;
         }
         if(field=="transformationMatrix")
         {
             var enabled=new CheckBox{Text=UiText.Get("Apply alignment transform")};var rows=new StackLayout{Spacing=3};var cells=new TextBox[4,4];
             for(int r=0;r<4;r++){var row=new StackLayout{Orientation=Orientation.Horizontal,Spacing=3};for(int c=0;c<4;c++){cells[r,c]=new(){Text=r==c?"1":"0",Width=60};row.Items.Add(cells[r,c]);}rows.Items.Add(row);}
+            DraftField(field+":enabled",()=>new[]{Toggle(enabled.Checked)},values=>enabled.Checked=Toggle(values.FirstOrDefault()));
+            DraftField(field+":matrix",()=>Enumerable.Range(0,16).Select(i=>cells[i/4,i%4].Text).ToArray(),values=>{if(values.Count==16)for(int i=0;i<16;i++)cells[i/4,i%4].Text=values[i];});
             rows.Items.Insert(0,enabled);readers.Add(()=>(field,enabled.Checked==true?Enumerable.Range(0,4).Select(r=>Enumerable.Range(0,4).Select(c=>double.Parse(cells[r,c].Text,CultureInfo.InvariantCulture)).ToArray()).ToArray():null));return rows;
         }
         if(type=="array")
@@ -86,15 +101,17 @@ internal sealed class CreationForm : Panel
             var entries=schema.GetProperty("items").GetProperty("enum").EnumerateArray().Select(x=>x.GetString()!).ToArray();
             var boxes=entries.Select(x=>new CheckBox{Text=UiText.Get(x),Tag=x,Checked=field=="outputFormat"&&x=="glb"}).ToArray();
             var list=new StackLayout{Spacing=3};foreach(var box in boxes)list.Items.Add(box);
+            DraftField(field+":selected",()=>boxes.Where(x=>x.Checked==true).Select(x=>(string)x.Tag).ToArray(),values=>{foreach(var box in boxes)box.Checked=values.Contains((string)box.Tag);});
             readers.Add(()=>{var selected=boxes.Where(x=>x.Checked==true).Select(x=>(string)x.Tag).ToArray();return(field,selected.Length==0?null:selected);});
             return boxes.Length>10?new Scrollable{Height=160,Content=list}:list;
         }
         if(type is "number" or "integer")
         {
             var box=new TextBox{PlaceholderText=UiText.Get("Service default"),Text=field=="faceCount"?"300000":""};
+            DraftText(field+":text",box);
             readers.Add(()=>(field,string.IsNullOrWhiteSpace(box.Text)?null:type=="integer"?(object)long.Parse(box.Text,CultureInfo.InvariantCulture):double.Parse(box.Text,CultureInfo.InvariantCulture)));return box;
         }
-        var input=new TextArea{Height=field=="prompt"?100:45,Wrap=true};readers.Add(()=>(field,string.IsNullOrWhiteSpace(input.Text)?null:input.Text.Trim()));return input;
+        var input=new TextArea{Height=field=="prompt"?100:45,Wrap=true};DraftText(field+":text",input);readers.Add(()=>(field,string.IsNullOrWhiteSpace(input.Text)?null:input.Text.Trim()));return input;
     }
     public CreateServiceRequest Capture()
     {
