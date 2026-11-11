@@ -256,3 +256,10 @@ Fixed RhinoCommon 8.32 API compilation and official component/channel contracts 
 ### Alpha.17 source checkpoint
 
 Candidate `0.2.0-alpha.17` contains the verified portable material-binding changes and compiled native adapter from `72857e3`. Version metadata preserves numeric assembly identity `0.2.0.0`. The local packaging tool verifies every allowlisted payload and emits clean-source/SHA-256 receipts for each platform. Both archives are built on Mac; they do not establish native Windows execution, Rhino material visuals or real cloud rendering.
+
+
+## Bitmap mapping and surface-UV capture (2026-11-11 UTC)
+
+Release compilation passed with zero warnings/errors. **1234 offline .NET tests passed**, zero failed/skipped. Thirty-three new cases cover requested/default/surface selection, relevant versus unrelated parent channels, legacy-channel refusal, independent noncommuting repeat/rotation/offset oracles, one V conversion, affine matrix restrictions, finite/float-range failure, cancellation and production GLB UV/vertex correspondence. The existing packaged 2×2 RGBA bitmap was locally decoded to confirm the manual checklist's corner colors and alpha values.
+
+Two local read-only reviews verified fixed RhinoCommon 8.32 interfaces and official 8.x implementation details. Surface failure detection now uses the boolean API after cache invalidation; source normal computation precedes seam duplication. The primary inspected changes, built the adapter and ran all stated tests. No Rhino execution, native visual validation, Windows runtime, authenticated API call, installation, push or publication occurred. The native implementation is compiled and reviewed, not visually accepted.

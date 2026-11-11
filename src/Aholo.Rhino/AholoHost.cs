@@ -158,13 +158,14 @@ internal static partial class AholoHost
         if (objects.Length == 0) throw new InvalidOperationException(UiText.Get("Select meshes, surfaces, extrusions or ordinary blocks first."));
         if(objects.Any(o=>o.Attributes.Space==ActiveSpace.PageSpace))throw new InvalidOperationException(UiText.Get("Select model-space geometry. Page-space objects use different units and cannot enter this mesh workflow."));
         var meshes = new List<MeshData>();var lights=new List<RenderLight>();var textures=new Dictionary<int,MeshTextureSource>();var origins=new List<GaussianVector>();var names=new List<string>();
-        foreach (var (obj,transform,binding,parentMapping) in RenderObjects(objects,doc,includeLights,gaussianParts))
+        foreach (var (obj,transform,binding,parentChannels) in RenderObjects(objects,doc,includeLights,gaussianParts))
         {
             if(obj.Geometry is Light light)
             {
                 if(light.IsEnabled)lights.Add(CaptureLight(light,transform,mm,pointRadiusMillimetres,lightIntensityMultiplier,doc));
                 continue;
             }
+            var objectChannels=obj.GetTextureChannels();
             var generated = CaptureMeshParts(obj,binding,doc);
             try
             {
@@ -173,12 +174,14 @@ internal static partial class AholoHost
                 {
                     Mesh mesh=part.Mesh;
                     var appearance=CaptureMaterial(part.Binding,doc,includeTextures);
-                    float[]? uv = appearance.Texture is { } bitmap ? CaptureTextureCoordinates(obj, mesh, bitmap, parentMapping) : null;
-                    if (appearance.Texture is not null) textures.Add(meshes.Count, appearance.Texture.Source);
-                    // Preserve custom/welded normals before Rhino transforms its private mesh copy.
-                    // Face winding is corrected separately below; inverse-transpose directions are not negated.
+                    // Compute smooth source normals before UV seam splitting; native duplication preserves them.
                     if (mesh.Normals.Count != mesh.Vertices.Count && !mesh.Normals.ComputeNormals())
                         throw new InvalidOperationException(UiText.Get("Cannot compute valid mesh normals. Repair the selected mesh before rendering."));
+                    float[]? uv = appearance.Texture is { } bitmap ? CaptureTextureCoordinates(obj, mesh, bitmap, objectChannels, parentChannels) : null;
+                    if (appearance.Texture is not null) textures.Add(meshes.Count, appearance.Texture.Source);
+                    // Read attributes after seam duplication. Never recompute smoothing on split adjacency.
+                    if(mesh.Normals.Count!=mesh.Vertices.Count)
+                        throw new InvalidOperationException(UiText.Get("Texture mapping did not preserve vertex normals. Repair the mapping or disable bitmap export."));
                     var sourceNormals = new float[checked(mesh.Vertices.Count * 3)];
                     for (int i = 0; i < mesh.Vertices.Count; i++)
                     {
@@ -216,11 +219,11 @@ internal static partial class AholoHost
         return new GeometrySnapshot(meshes,lights.ToArray(),textures,origins.ToArray(),names.ToArray());
     }
     private sealed record MaterialSnapshot(Color Color,MeshMaterial? Factors,TextureSnapshot? Texture=null);
-    private static IEnumerable<(RhinoObject Object,Transform Transform,MaterialBinding Binding,bool ParentMapping)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc,bool includeLights,List<GaussianDocument.ExportPart>? gaussianParts=null)
+    private static IEnumerable<(RhinoObject Object,Transform Transform,MaterialBinding Binding,int[] ParentChannels)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc,bool includeLights,List<GaussianDocument.ExportPart>? gaussianParts=null)
     {
         var ancestry=new HashSet<Guid>();
-        var stack=new Stack<(IEnumerator<RhinoObject> Objects,Transform Transform,Guid? Definition,Lazy<MaterialBinding>? ParentMaterial,bool ParentMapping)>();
-        stack.Push((roots.GetEnumerator(),Transform.Identity,null,null,false));
+        var stack=new Stack<(IEnumerator<RhinoObject> Objects,Transform Transform,Guid? Definition,Lazy<MaterialBinding>? ParentMaterial,int[] ParentChannels)>();
+        stack.Push((roots.GetEnumerator(),Transform.Identity,null,null,Array.Empty<int>()));
         try
         {
             while(stack.Count>0)
@@ -243,9 +246,9 @@ internal static partial class AholoHost
                     if(!ancestry.Add(definition.Id))throw new InvalidOperationException(UiText.Get("A selected block has a cyclic reference."));
                     var transform=frame.Transform*instance.InstanceXform;
                     if(!transform.IsValid||Math.Abs(transform.Determinant)<1e-20)throw new InvalidOperationException(UiText.Get("A selected block transform is invalid."));
-                    stack.Push((((IEnumerable<RhinoObject>)definition.GetObjects()).GetEnumerator(),transform,definition.Id,appearance,frame.ParentMapping||obj.GetTextureChannels().Length!=0));
+                    stack.Push((((IEnumerable<RhinoObject>)definition.GetObjects()).GetEnumerator(),transform,definition.Id,appearance,frame.ParentChannels.Concat(obj.GetTextureChannels()).Distinct().ToArray()));
                 }
-                else if(obj.Geometry is Mesh or Brep or Extrusion || includeLights&&obj.Geometry is Light)yield return(obj,frame.Transform,appearance.Value,frame.ParentMapping);
+                else if(obj.Geometry is Mesh or Brep or Extrusion || includeLights&&obj.Geometry is Light)yield return(obj,frame.Transform,appearance.Value,frame.ParentChannels);
                 else throw new InvalidOperationException(UiText.Get("The selection contains unsupported geometry. Select meshes, surfaces, extrusions or blocks containing them."));
             }
         }

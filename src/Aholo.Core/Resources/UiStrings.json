@@ -4686,5 +4686,33 @@
   {
     "English": "The mesh could not be triangulated. Repair it before export.",
     "Chinese": "无法将网格三角化。请修复网格后再导出。"
+  },
+  {
+    "English": "This bitmap uses unsupported mapping, blending or color space. Use supported object mapping or mesh surface UVs, or disable bitmap export.",
+    "Chinese": "此位图使用暂不支持的映射、混合或色彩空间。请使用支持的对象映射或网格曲面 UV，或关闭位图导出。"
+  },
+  {
+    "English": "The selected bitmap mapping is assigned to a parent block. Apply it to the geometry itself or disable bitmap export.",
+    "Chinese": "所选位图映射来自父级块。请将映射应用到几何对象本身，或关闭位图导出。"
+  },
+  {
+    "English": "The bitmap coordinates are invalid or exceed the output format range. Check its mapping and repeat settings.",
+    "Chinese": "位图坐标无效或超出输出格式范围。请检查映射和重复设置。"
+  },
+  {
+    "English": "Surface-parameter textures on surfaces need their original packed UVs. Use an explicit object mapping or a textured mesh, or disable bitmap export.",
+    "Chinese": "曲面的参数贴图需要原始打包 UV。请使用显式对象映射或带贴图的网格，或关闭位图导出。"
+  },
+  {
+    "English": "Rhino could not compute texture coordinates for this mapping. Repair the mapping or disable bitmap export.",
+    "Chinese": "Rhino 无法为此映射计算纹理坐标。请修复映射或关闭位图导出。"
+  },
+  {
+    "English": "This bitmap uses legacy mapping channel 0. Reassign it to a current mapping channel in Rhino before export.",
+    "Chinese": "此位图使用旧式映射通道 0。请先在 Rhino 中将其分配到当前支持的映射通道，再导出。"
+  },
+  {
+    "English": "Texture mapping did not preserve vertex normals. Repair the mapping or disable bitmap export.",
+    "Chinese": "纹理映射未保留顶点法线。请修复映射或关闭位图导出。"
   }
 ]

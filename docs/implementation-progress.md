@@ -356,3 +356,10 @@ Cloud and local export now share native quad triangulation on double-precision c
 ### Candidate checkpoint — alpha.17
 
 Packages effective parent and supported Brep/extrusion face-material capture from `72857e3`, plus shared native quad triangulation. Evidence: 1201 passing offline tests and zero-warning/error compilation against the pinned Rhino SDK. Existing IDs and the Yak slug are unchanged. Face-material and new native component behavior remain pending manual Mac/Windows acceptance; complex shaders and surface bitmap mapping remain outside this change. Local candidate packaging does not install or publish.
+
+
+## Explicit bitmap mapping after alpha.17
+
+Added requested/default/surface channel routing, effective-parent-channel checks and native plane/box/cylinder/sphere baking for private mesh/surface/extrusion snapshots. Mesh surface UVs now use their original surface parameters when present rather than blindly copying the current UV array. Bitmap and mapping UVW operations remain separate, with portable affine and GLB-coordinate evidence. Normals are computed before native seam splitting, and surface calculation checks its actual success result after clearing caches.
+
+Two read-only native reviewers identified surface zero-array failure behavior, normal seam ordering and the unsupported legacy-channel assumption. The primary implemented and verified the fixes. Packed remeshed Brep/extrusion surface mapping, parent mapping precedence, WCS/custom projections and native visual acceptance remain open. Remote allowance was insufficient for useful work; no third-party inference was dispatched.
