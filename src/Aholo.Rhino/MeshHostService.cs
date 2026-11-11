@@ -183,6 +183,11 @@ public sealed class MeshHostService : IDisposable
         return receipt with { State = state };
     }
     public ImportReceipt Commit(PreparedAsset asset, PlacementIntent placement, Guid importId, Guid? generationOperationId = null, HostImportTrace? trace = null, Action? validateCommit = null)
+        =>CommitCore(asset,placement,importId,generationOperationId,trace,validateCommit,null);
+    // Additional scene siblings participate in this same native Undo, after the mesh block is complete.
+    internal ImportReceipt CommitScene(PreparedAsset asset,Guid importId,Action<RhinoDoc,Guid,int> appendWithinUndo,Action validateCommit)
+        =>CommitCore(asset,new(Plane.WorldXY,Point3d.Origin,1,0,MeshPlacementMode.SourceCoordinates),importId,null,null,validateCommit,appendWithinUndo);
+    private ImportReceipt CommitCore(PreparedAsset asset,PlacementIntent placement,Guid importId,Guid? generationOperationId,HostImportTrace? trace,Action? validateCommit,Action<RhinoDoc,Guid,int>? appendWithinUndo)
     {
         RequireUiThread();
         trace?.Record("commit_start");
@@ -208,9 +213,9 @@ public sealed class MeshHostService : IDisposable
         Transform transform = placement.ToTransform(asset.Audit.Bounds);
         HashSet<Guid> before = Objects(doc).Select(o => o.Id).ToHashSet();
         HashSet<Guid> definitionsBefore = doc.InstanceDefinitions.GetList(true).Select(d => d.Id).ToHashSet();
-        string beforeState = DocumentState(doc);
+        string beforeState = DocumentState(doc,appendWithinUndo is not null);
         asset.ValidateTarget(doc); validateCommit?.Invoke();
-        uint undo = doc.BeginUndoRecord(global::Aholo.Core.UiText.Get("Accept Aholo mesh candidate"));
+        uint undo = doc.BeginUndoRecord(UiText.Get(appendWithinUndo is null?"Accept Aholo mesh candidate":"Import USD scene"));
         if (undo == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Could not create an undo record. Nothing was imported."));
         List<GeometryBase> geometry = new();
         List<ObjectAttributes> attributes = new();
@@ -239,6 +244,7 @@ public sealed class MeshHostService : IDisposable
             }
             trace?.Record("commit_native_import_result", importedNative ? "true" : "false");
             if (!importedNative) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Document import: Rhino's native mesh import failed before mesh repair."));
+            if(appendWithinUndo is not null&&doc.CurrentUndoRecordSerialNumber!=undo)throw new InvalidOperationException(UiText.Get("Rhino changed the scene import Undo record. Import stopped."));
             asset.ValidateTarget(doc); validateCommit?.Invoke();
             VerifyHash(durableImportPath, asset.Sha256);
             asset.Verify();
@@ -280,6 +286,7 @@ public sealed class MeshHostService : IDisposable
                 instanceAttributes.SetUserString("Aholo.Mesh.SourceDependencies",asset.SourceDependencies);
             }
             instanceAttributes.SetUserString("Aholo.Mesh.ImportId", importId.ToString("D"));
+            if(appendWithinUndo is not null)instanceAttributes.SetUserString("Aholo.Scene.ImportId",importId.ToString("D"));
             instanceAttributes.SetUserString("Aholo.Mesh.AssetSha256", asset.Sha256);
             instanceAttributes.SetUserString("Aholo.Mesh.DocumentSession", asset.DocumentSessionId);
             if (generationOperationId.HasValue) instanceAttributes.SetUserString("Aholo.Mesh.GenerationOperationId", generationOperationId.Value.ToString("D"));
@@ -289,6 +296,13 @@ public sealed class MeshHostService : IDisposable
             trace?.Record("commit_instance_added", instanceId.ToString("D"));
             if (doc.Objects.Delete(added.Select(o => o.Id), true) != added.Length) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Could not remove temporary top-level objects from this import."));
             if (Objects(doc).Count(o => !before.Contains(o.Id)) != 1) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The import created unexpected top-level objects."));
+            if(appendWithinUndo is not null)
+            {
+                asset.ValidateTarget(doc);validateCommit?.Invoke();
+                appendWithinUndo(doc,instanceId,targetLayerIndex);
+                asset.ValidateTarget(doc);validateCommit?.Invoke();
+                if(doc.CurrentUndoRecordSerialNumber!=undo)throw new InvalidOperationException(UiText.Get("Rhino changed the scene import Undo record. Import stopped."));
+            }
         }
         catch (Exception ex) { failure = ex; }
         finally
@@ -307,11 +321,11 @@ public sealed class MeshHostService : IDisposable
         {
             trace?.Record("commit_rollback_start", failure.Message);
             // The record was started here and no concurrent UI commands can run inside this synchronous block.
-            bool restored = DocumentState(doc) == beforeState;
+            bool restored = DocumentState(doc,appendWithinUndo is not null) == beforeState;
             if (!restored && undoEnded && doc.Undo())
             {
                 doc.ClearRedoRecords();
-                restored = DocumentState(doc) == beforeState;
+                restored = DocumentState(doc,appendWithinUndo is not null) == beforeState;
             }
             trace?.Record("commit_rollback_result", restored ? "restored" : "unconfirmed");
             if (!restored) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Import failed and automatic rollback could not be confirmed. Inspect the document and Undo history."), failure);
@@ -370,16 +384,17 @@ public sealed class MeshHostService : IDisposable
         if (!string.Equals(Convert.ToHexString(SHA256.HashData(stream)), expected, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Persistent import asset verification failed; the target document was not changed."));
     }
-    private static string DocumentState(RhinoDoc doc)
+    private static string DocumentState(RhinoDoc doc,bool contentSignatures=false)
     {
         // A failed import must not undo an earlier user action if the native importer made no change.
         var parts = new List<string>();
         parts.AddRange(Objects(doc).Select(x => "o" + x.Id));
-        parts.AddRange(doc.InstanceDefinitions.GetList(true).Select(x => "d" + x.Id));
-        for (int i = 0; i < doc.Materials.Count; i++) if (!doc.Materials[i].IsDeleted) parts.Add("m" + doc.Materials[i].Id);
-        for (int i = 0; i < doc.Layers.Count; i++) if (!doc.Layers[i].IsDeleted) parts.Add("l" + doc.Layers[i].Id);
-        parts.AddRange(doc.RenderMaterials.Select(x => "r" + x.Id));
-        parts.AddRange(doc.RenderTextures.Select(x => "t" + x.Id));
+        string Component(ModelComponent value)=>value.Id+(contentSignatures?":"+value.DataCRC(0).ToString("x8",System.Globalization.CultureInfo.InvariantCulture):"");
+        parts.AddRange(doc.InstanceDefinitions.GetList(true).Select(x => "d" + Component(x)));
+        for (int i = 0; i < doc.Materials.Count; i++) if (!doc.Materials[i].IsDeleted) parts.Add("m" + Component(doc.Materials[i]));
+        for (int i = 0; i < doc.Layers.Count; i++) if (!doc.Layers[i].IsDeleted) parts.Add("l" + Component(doc.Layers[i]));
+        parts.AddRange(doc.RenderMaterials.Select(x => "r" + x.Id+(contentSignatures?":"+x.RenderHash.ToString("x8",System.Globalization.CultureInfo.InvariantCulture):"")));
+        parts.AddRange(doc.RenderTextures.Select(x => "t" + x.Id+(contentSignatures?":"+x.RenderHash.ToString("x8",System.Globalization.CultureInfo.InvariantCulture):"")));
         parts.AddRange(doc.GetEmbeddedFilesList(false).Select(x => "f" + x));
         parts.Add("units" + doc.ModelUnitSystem); parts.Add("layer" + doc.Layers.CurrentLayerIndex);
         parts.Sort(StringComparer.Ordinal);

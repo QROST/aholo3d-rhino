@@ -254,3 +254,10 @@ One remote/gpt-6.1-sol design review recommended factoring authors into a caller
 ## Candidate checkpoint — alpha.9
 
 Packages unified static scene export (`7c0717d`) as `0.2.0-alpha.9`. The installed command is `AholoExportScene`; existing strict GS/mesh routes and stable plugin/package identities are retained. Runtime evidence is 988 passing offline tests and 24 actual OpenUSD scene combinations, with original mesh/GS exchange regressions passing. Local archive receipts bind the clean source revision and all packaged bytes. Mixed import, native nested-GS viewport rendering, Mac/Windows and live-service acceptance remain pending. This is a local candidate, not installation or publication.
+
+
+## Combined scene import after alpha.9
+
+Added `AholoImportScene` and the bilingual Library action. One frozen dependency snapshot and one OpenUSD Stage decode/validate both typed payloads; a complete-scene manifest gates admission. Source coordinates/units are preserved. Mesh snapshot preparation and GS cache preparation precede one native commit: a mesh block plus top-level GS siblings, with shared scene identity and one Undo. Content signatures improve rollback checks; pure-GS completion now checks last cancellation and Undo completion. GS-only imports now reject mixed geometry explicitly instead of warning and omitting meshes.
+
+Independent local read-only reviews confirmed the one-snapshot parser and shared transaction design, and prompted the material-content/Undo fixes. Remote catalog/status were checked; only 135 daily output tokens remained, so no useful remote inference was attempted and no quota was changed. The parent implemented and verified the code. A small packaged USDA scene supplies repeatable offline manual acceptance. Native renderer/Undo/material persistence, Windows execution and real cloud-service acceptance remain open.

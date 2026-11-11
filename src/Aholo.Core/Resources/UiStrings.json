@@ -3882,5 +3882,77 @@
   {
     "English": "Exported {0:N0} GS blocks, {1:N0} Gaussians, {2:N0} mesh parts and {3:N0} triangles.\n{4}",
     "Chinese": "已导出 {0:N0} 个 GS 块、{1:N0} 个高斯、{2:N0} 个网格部件和 {3:N0} 个三角形。\n{4}"
+  },
+  {
+    "English": "Import USD scene",
+    "Chinese": "导入 USD 场景"
+  },
+  {
+    "English": "USD scene file",
+    "Chinese": "USD 场景文件"
+  },
+  {
+    "English": "Import USD scene at its original position and size",
+    "Chinese": "按原始位置和尺寸导入 USD 场景"
+  },
+  {
+    "English": "Reading the complete USD scene and its dependencies…",
+    "Chinese": "正在读取完整 USD 场景及其依赖…"
+  },
+  {
+    "English": "Imported a USD scene with {0:N0} GS parts and {1:N0} mesh parts. One Undo reverses the complete import.",
+    "Chinese": "已导入包含 {0:N0} 个 GS 部分和 {1:N0} 个网格部分的 USD 场景；一次撤销可恢复整个导入。"
+  },
+  {
+    "English": "Rhino changed the scene import Undo record. Import stopped.",
+    "Chinese": "Rhino 更改了场景导入的撤销记录，导入已停止。"
+  },
+  {
+    "English": "Importing the complete USD scene locally at its source position and size. Use AholoCancel to stop.",
+    "Chinese": "正在本地按源位置与尺寸导入完整 USD 场景，可用 AholoCancel 取消。"
+  },
+  {
+    "English": "Local scene import cancelled before completion.",
+    "Chinese": "本地场景导入已在完成前取消。"
+  },
+  {
+    "English": "This scene contains non-Gaussian geometry. Use AholoImportScene to import the complete GS and mesh scene; no geometry was omitted.",
+    "Chinese": "此场景包含非高斯几何，请用 AholoImportScene 导入完整 GS 和网格场景；未省略任何几何。"
+  },
+  {
+    "English": "OpenUSD conversion failed: ",
+    "Chinese": "OpenUSD 转换失败："
+  },
+  {
+    "English": "the decoder returned no diagnostic.",
+    "Chinese": "解码器未返回诊断信息。"
+  },
+  {
+    "English": "USD contains no supported static scene geometry.",
+    "Chinese": "USD 不包含支持的静态场景几何。"
+  },
+  {
+    "English": "USD scene payloads disagree with the complete-scene manifest.",
+    "Chinese": "USD 场景数据与完整场景清单不一致。"
+  },
+  {
+    "English": "USD geometry was not decoded from the same source snapshot.",
+    "Chinese": "USD 几何并非来自同一份源文件快照。"
+  },
+  {
+    "English": "Empty Gaussian parts were skipped; no particle data was removed.",
+    "Chinese": "已跳过不含高斯的空部分，未删除任何粒子数据。"
+  },
+  {
+    "English": "Source archival retains the root file only; complete GS caches and embedded mesh textures retain the imported scene. Share original USD with all dependencies.",
+    "Chinese": "源文件归档仅保存根文件；完整 GS 缓存和内嵌网格贴图保留已导入的场景。分享原始 USD 时请同时提供全部依赖。"
+  },
+  {
+    "English": "Mesh import flattens instance hierarchy. Display is two-sided; materials use the supported USD shading subset.",
+    "Chinese": "网格导入会展开实例层级并双面显示；材质采用支持的 USD 着色子集。"
+  },
+  {
+    "English": "{0}: renderer hints differ from the viewport camera projection and center-z sorting.",
+    "Chinese": "{0}：渲染提示与视窗的相机投影及中心深度排序方式不同。"
   }
 ]

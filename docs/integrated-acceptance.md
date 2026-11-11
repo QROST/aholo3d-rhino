@@ -132,4 +132,9 @@ Open two Rhino instances under the same OS user: explicit sign-out in one must r
 
 ## Combined GS + mesh export
 
-Use `AholoExportScene` and Library → Export selected scene USD with mixed and single-type selections, nested/repeated GS, mirrored/nonuniform blocks and both unit systems. Follow the combined scene checklist in `usd-exchange.md`, especially parent-material overrides, corrupted references, cancellation/document closure, page-space rejection and captured-state placement. Mixed imports still reject the file as a whole; do not label an export-only result a round trip. Record macOS/Windows native results separately from the 24-file OpenUSD checks.
+Use `AholoExportScene` and Library → Export selected scene USD with mixed and single-type selections, nested/repeated GS, mirrored/nonuniform blocks and both unit systems. Follow the combined scene checklist in `usd-exchange.md`, especially parent-material overrides, corrupted references, cancellation/document closure, page-space rejection and captured-state placement. Use `AholoImportScene` for the mixed round trip; separate typed importers still reject mixed content. Record macOS/Windows native results separately from the 24-file OpenUSD checks.
+
+
+## Combined GS + mesh import
+
+Import the packaged `fixtures/mixed-scene.usda` via `AholoImportScene` and the Library action. Expect two red/cyan GS siblings and one blue mesh block, with a 2-metre-high box converted to document units. Check GS display, opaque occlusion, source positions, one Undo/Redo and save/reopen. Repeat with textured external dependencies, native USD instances, mirrors/nonuniform scale and both axes. While a scene loads, cancel, close the original document or change units/gamma; there must be no stale or partial commit. Exercise a failure during the final GS append after mesh native import, including preexisting material-name conflicts; inspect material/resource rollback and any explicit unconfirmed-state warning. Repeat separately on Mac and Windows. Automated parsing and fixed-SDK compilation do not accept native Undo or resource persistence.

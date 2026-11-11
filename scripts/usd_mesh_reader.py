@@ -251,6 +251,23 @@ def write_mesh(prim, output, index, cache, UsdGeom, UsdShade, Ar, Sdf):
                 transform=transform,leftHanded=orientation=='leftHanded',doubleSided=bool(mesh.GetDoubleSidedAttr().Get()),**material)
 
 
+def validate_prim(prim, allowed=('', 'Xform', 'Scope', 'Mesh', 'Material', 'Shader', 'NodeGraph')):
+    label=str(prim.GetPath());typename=str(prim.GetTypeName())
+    require(typename in allowed,label+': unsupported scene primitive '+typename+'; no geometry was silently omitted.')
+    if typename != 'ParticleField3DGaussianSplat':
+        suspicious = bool(prim.GetAttribute('radiance:sphericalHarmonicsCoefficients')) or bool(prim.GetAttribute('radiance:sphericalHarmonicsCoefficientsh'))
+        suspicious = suspicious or any(str(api).startswith('ParticleField') or any(word in str(api).lower() for word in ('gaussian','splat','nurec')) for api in prim.GetAppliedSchemas())
+        require(not suspicious,label+': unsupported Gaussian schema on a non-Gaussian primitive; no data was silently omitted.')
+    require(not prim.HasMetadata('clips'),label+': value clips must be baked first.')
+    require(not any('Skel' in str(api) for api in prim.GetAppliedSchemas()),label+': skinning must be baked first.')
+    for attr in prim.GetAttributes():
+        require(attr.GetNumTimeSamples()==0,label+': animated USD must be baked at the intended time first.')
+        if typename not in ('Material','Shader','NodeGraph'):
+            require(not attr.HasAuthoredConnections(),label+': connected geometry attributes are unsupported.')
+        if str(attr.GetName()) in ('velocities','accelerations'):
+            require(not attr.Get(),label+': motion attributes must be baked first.')
+
+
 def convert(input_path, output):
     from pxr import Ar,Sdf,Usd,UsdGeom,UsdShade,UsdUtils
     require(Usd.GetVersion()==(0,26,11),'Mesh exchange requires usd-core==26.11.')
@@ -262,16 +279,7 @@ def convert(input_path, output):
     require(axis in ('Y','Z') and math.isfinite(units) and units>0,'Invalid USD axis or units.')
     cache=UsdGeom.XformCache(Usd.TimeCode.Default());parts=[];warnings=[]
     for prim in Usd.PrimRange.Stage(stage,Usd.TraverseInstanceProxies()):
-        label=str(prim.GetPath());typename=str(prim.GetTypeName())
-        require(typename in ('','Xform','Scope','Mesh','Material','Shader','NodeGraph'),label+': unsupported scene primitive '+typename+'; no geometry was silently omitted.')
-        require(not prim.HasMetadata('clips'),label+': value clips must be baked first.')
-        require(not any('Skel' in str(api) for api in prim.GetAppliedSchemas()),label+': skinning must be baked first.')
-        for attr in prim.GetAttributes():
-            require(attr.GetNumTimeSamples()==0,label+': animated USD must be baked at the intended time first.')
-            if typename not in ('Material','Shader','NodeGraph'):
-                require(not attr.HasAuthoredConnections(),label+': connected geometry attributes are unsupported.')
-            if str(attr.GetName()) in ('velocities','accelerations'):
-                require(not attr.Get(),label+': motion attributes must be baked first.')
+        validate_prim(prim)
         if prim.IsA(UsdGeom.Mesh): parts.append(write_mesh(prim,output,len(parts),cache,UsdGeom,UsdShade,Ar,Sdf))
     require(parts,'USD contains no static mesh geometry.')
     if not stage.HasAuthoredMetadata('metersPerUnit'): warnings.append('USD units were unauthored; the OpenUSD 0.01 metre fallback was used.')

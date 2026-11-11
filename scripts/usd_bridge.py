@@ -199,12 +199,13 @@ def convert(input_path, output):
         else:
             suspicious = prim.IsA(UsdVol.ParticleField) or any(word in type_name.lower() for word in ("gaussian", "splat", "nurec"))
             suspicious = suspicious or bool(prim.GetAttribute("radiance:sphericalHarmonicsCoefficients"))
+            suspicious = suspicious or bool(prim.GetAttribute("radiance:sphericalHarmonicsCoefficientsh"))
+            suspicious = suspicious or any(str(api).startswith("ParticleField") or any(word in str(api).lower() for word in ("gaussian", "splat", "nurec")) for api in prim.GetAppliedSchemas())
             require(not suspicious, label + ": unsupported Gaussian schema or vendor-compressed field " + type_name + "; no conversion to Points/Mesh was attempted.")
             if prim.IsA(UsdGeom.Boundable):
                 ignored.append(label + " (" + type_name + ")")
     require(bool(prims), "No official ParticleField3DGaussianSplat prims were found. Ordinary Points and Mesh are not Gaussian splats.")
-    if ignored:
-        warnings.append(f"{len(ignored)} non-Gaussian geometry prim(s) were not imported: " + ", ".join(ignored[:8]) + (" ..." if len(ignored) > 8 else ""))
+    require(not ignored, "This scene contains non-Gaussian geometry. Use AholoImportScene to import the complete GS and mesh scene; no geometry was omitted.")
     parts = [write_part(prim, output, index, cache, UsdGeom, UsdVol, UsdShade) for index, prim in enumerate(prims)]
     require(sum(part["count"] for part in parts) > 0, "The USD stage contains no Gaussian particles.")
     for part in parts:

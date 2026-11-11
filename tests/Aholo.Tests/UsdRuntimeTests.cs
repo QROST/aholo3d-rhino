@@ -101,6 +101,31 @@ public sealed class UsdRuntimeTests
     }
 
     [UnixRuntimeFact]
+    public async Task PublicMixedSceneImportCancellationIncludesInheritedPipesAndRemovesWorkspace()
+    {
+        using var launcher = new FakeInterpreter();
+        using var cancellation = new CancellationTokenSource();
+        string? previous = Environment.GetEnvironmentVariable(UsdGaussianReader.PythonEnvironmentVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(UsdGaussianReader.PythonEnvironmentVariable, launcher.Path);
+            string input = System.IO.Path.Combine(launcher.DirectoryPath, "input.usda");
+            File.WriteAllText(input, "#usda 1.0\n");
+            Task<UsdScene> read = Task.Run(() => UsdSceneReader.Read(input, ct: cancellation.Token));
+            await launcher.WaitUntilLauncherExits();
+            Assert.True(launcher.ChildIsAlive);
+            string workspace = File.ReadAllText(System.IO.Path.Combine(launcher.DirectoryPath, "output.path"));
+            Assert.True(Directory.Exists(workspace));
+            cancellation.Cancel();
+            OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => read.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Equal(cancellation.Token, error.CancellationToken);
+            Assert.False(Directory.Exists(workspace));
+        }
+        finally { Environment.SetEnvironmentVariable(UsdGaussianReader.PythonEnvironmentVariable, previous); }
+    }
+
+    [UnixRuntimeFact]
     public async Task PublicMeshExportCancellationPreservesDestinationAndRemovesWorkspace()
     {
         using var launcher=new FakeInterpreter();using var cancellation=new CancellationTokenSource();

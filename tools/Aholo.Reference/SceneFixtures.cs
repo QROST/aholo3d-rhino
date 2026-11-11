@@ -38,6 +38,58 @@ internal static class SceneFixtures
         if(oldImages.Any(x=>!File.Exists(x.Key)||!x.Value.SequenceEqual(File.ReadAllBytes(x.Key))))throw new InvalidOperationException("Replacement changed a prior texture bundle.");
         Console.WriteLine("24 production scene files written; publication failure, cancellation and prior texture retention checked. No Rhino/cloud acceptance.");return 0;
     }
+    internal static int VerifyImports(string directory)
+    {
+        int files=0;
+        foreach(string path in Directory.GetFiles(directory).Where(p=>new[]{".usd",".usda",".usdc",".usdz"}.Contains(Path.GetExtension(p))))
+        {
+            string name=Path.GetFileName(path);bool hasGs=!name.StartsWith("mesh-only."),hasMesh=!name.StartsWith("gs-only.");
+            string axis=name.StartsWith("mixed-Y-")?"Y":"Z";double units=name.Contains("-ft.")?.3048:.001;
+            using var source=File.OpenRead(path);string hash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(source));
+            var scene=UsdSceneReader.Read(path,hash);
+            if((scene.Gaussians is not null)!=hasGs||(scene.Meshes is not null)!=hasMesh||!scene.SourceSha256.Equals(hash,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("Scene identity/type mismatch.");
+            if(hasGs)
+            {
+                var actual=scene.Gaussians!;var expected=Scene(axis,units);
+                if(actual.Parts.Count!=5||actual.UpAxis!=axis||actual.MetersPerUnit!=units)throw new InvalidDataException("GS metadata mismatch.");
+                for(int part=0;part<5;part++)
+                {
+                    var a=actual.Parts[part];var e=expected.Parts[part];
+                    if(a.Name!=e.Name||a.Antialiased!=e.Antialiased||a.Splats.Length!=e.Splats.Length)throw new InvalidDataException("GS part mismatch.");
+                    for(int i=0;i<a.Splats.Length;i++)
+                    {
+                        var before=e.Splats[i];var after=a.Splats[i];
+                        Close(a.Transform.TransformPoint(after.Center),e.Transform.TransformPoint(before.Center),2e-6);
+                        Close(after.LogScale,before.LogScale,1e-7);
+                        if(after.Rotation!=before.Rotation||after.OpacityLogit!=before.OpacityLogit)throw new InvalidDataException("GS orientation/opacity mismatch.");
+                        float[] padded=before.Coefficients.ToArray().Concat(Enumerable.Repeat(0f,after.Coefficients.Length-before.Coefficients.Length)).ToArray();
+                        if(!padded.SequenceEqual(after.Coefficients.ToArray()))throw new InvalidDataException("GS SH coefficients changed.");
+                    }
+                }
+            }
+            if(hasMesh)
+            {
+                var meshes=scene.Meshes!;if(meshes.Parts.Count!=3||meshes.UpAxis!=axis||meshes.MetersPerUnit!=units)throw new InvalidDataException("Mesh metadata mismatch.");
+                var origins=new[]{new GaussianVector(1e12+.125,-2e12+.25,3e12+.5),new GaussianVector(0,0,10),new GaussianVector(304.8,609.6,914.4)};
+                for(int i=0;i<3;i++)
+                {
+                    var p=meshes.Parts[i];var t=meshes.ToMillimetres(p.Transform);
+                    if(!p.Positions.SequenceEqual(new float[]{0,0,0,.125f,0,0,0,.25f,.5f})||!p.Indices.SequenceEqual(new[]{0,1,2}))throw new InvalidDataException("Mesh geometry changed.");
+                    for(int j=0;j<3;j++)Close(t.TransformPoint(new(p.Positions[j*3],p.Positions[j*3+1],p.Positions[j*3+2])),origins[i]+new GaussianVector(p.Positions[j*3],p.Positions[j*3+1],p.Positions[j*3+2]),i==0?.004:1e-10);
+                    if(i<2&& (p.Texture?.Sha256.ToLowerInvariant()!="ce261ebea422e4b82e9aa5f2e86a4b1f90ebae7d267d16ebf0cb6002604117c6"||p.Texture.UseAlpha!=(i==0)||!p.TexCoords!.SequenceEqual(new float[]{0,0,1,0,0,1})))throw new InvalidDataException("Mesh image/UV/alpha changed.");
+                    if(Math.Abs(p.Material.Alpha-.6)>1e-6)throw new InvalidDataException("Mesh material alpha changed.");
+                }
+            }
+            try{UsdSceneReader.Read(path,new string('0',64));throw new InvalidOperationException("Expected source-hash rejection.");}catch(InvalidDataException){}
+            files++;
+        }
+        if(files!=24)throw new InvalidDataException("Expected 24 production fixture files.");
+        Console.WriteLine("24 files read through the public scene reader: full SH, both geometry types, provenance, placement and bitmap bytes verified. No native Rhino acceptance.");return 0;
+    }
+    private static void Close(GaussianVector actual,GaussianVector expected,double tolerance)
+    {
+        if(Math.Abs(actual.X-expected.X)>tolerance||Math.Abs(actual.Y-expected.Y)>tolerance||Math.Abs(actual.Z-expected.Z)>tolerance)throw new InvalidDataException($"Coordinate mismatch: {actual} / {expected}.");
+    }
     private static GaussianSplat Splat(int degree,int index)=>new(new(1e9+.01+index*.013,-2e8+.04-index*.027,3e7+.05+index*.031),
         new(Math.Log(2e-5),Math.Log(7e-6),Math.Log(3e-5)),new(.5,.5,-.5,.5),index==0?-double.MaxValue:double.MaxValue,degree,
         Enumerable.Range(0,3*(degree+1)*(degree+1)).Select(n=>(float)((n/3)*.125-.5+(n%3)*.0625)).ToArray());

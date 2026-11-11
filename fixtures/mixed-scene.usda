@@ -1,0 +1,60 @@
+#usda 1.0
+(
+    defaultPrim = "Scene"
+    doc = "CuriousArc / qrost. Offline mixed-scene acceptance fixture: two colored anisotropic GS and one 2-metre-high opaque mesh. No cloud data."
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "Scene"
+{
+    def ParticleField3DGaussianSplat "RedGaussian"
+    {
+        float[] opacities = [0.85]
+        quatf[] orientations = [(1, 0, 0, 0)]
+        point3f[] positions = [(-0.5, 0, 1)]
+        float3[] radiance:sphericalHarmonicsCoefficients = [(1.7724539, -1.7724539, -1.7724539)]
+        uniform int radiance:sphericalHarmonicsDegree = 0
+        float3[] scales = [(0.4, 0.2, 0.35)]
+    }
+
+    def ParticleField3DGaussianSplat "CyanGaussian"
+    {
+        float[] opacities = [0.85]
+        quatf[] orientations = [(1, 0, 0, 0)]
+        point3f[] positions = [(0.5, 0, 1)]
+        float3[] radiance:sphericalHarmonicsCoefficients = [(-1.7724539, 1.7724539, 1.7724539)]
+        uniform int radiance:sphericalHarmonicsDegree = 0
+        float3[] scales = [(0.4, 0.2, 0.35)]
+    }
+
+    def Mesh "BlueBox" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        uniform bool doubleSided = 1
+        float3[] extent = [(-0.3, -0.3, 0), (0.3, 0.3, 2)]
+        int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+        int[] faceVertexIndices = [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+        rel material:binding = </Scene/Materials/Blue>
+        uniform token orientation = "rightHanded"
+        point3f[] points = [(-0.3, -0.3, 0), (0.3, -0.3, 0), (0.3, 0.3, 0), (-0.3, 0.3, 0), (-0.3, -0.3, 2), (0.3, -0.3, 2), (0.3, 0.3, 2), (-0.3, 0.3, 2)]
+        uniform token subdivisionScheme = "none"
+    }
+
+    def "Materials"
+    {
+        def Material "Blue"
+        {
+            token outputs:surface.connect = </Scene/Materials/Blue/PreviewSurface.outputs:surface>
+
+            def Shader "PreviewSurface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.08, 0.2, 0.5)
+                float inputs:roughness = 0.5
+                token outputs:surface
+            }
+        }
+    }
+}

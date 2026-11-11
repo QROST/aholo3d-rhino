@@ -191,11 +191,11 @@ class Integration(unittest.TestCase):
         with self.assertRaisesRegex(bridge.UnsupportedUsd, "Ordinary Points"):
             self.decode(path)
 
-    def test_mixed_mesh_is_explicitly_reported(self):
+    def test_mixed_mesh_requires_complete_scene_import(self):
         path = self.directory / "usd-mixed.usda"
         scene = stage(path); gs(scene, "/Splat"); UsdGeom.Mesh.Define(scene, "/Mesh"); scene.GetRootLayer().Save()
-        manifest, _ = self.decode(path)
-        self.assertTrue(any("/Mesh (Mesh)" in warning for warning in manifest["warnings"]))
+        with self.assertRaisesRegex(bridge.UnsupportedUsd, "AholoImportScene"):
+            self.decode(path)
 
     def test_time_samples_fail_instead_of_importing_wrong_frame(self):
         path = self.directory / "usd-animated.usda"
@@ -226,6 +226,17 @@ class Integration(unittest.TestCase):
         scene = stage(path); gs(scene, "/Splat"); UsdGeom.PointInstancer.Define(scene, "/Instances"); scene.GetRootLayer().Save()
         with self.assertRaisesRegex(bridge.UnsupportedUsd, "PointInstancer"):
             self.decode(path)
+
+    def test_vendor_gaussian_data_on_container_is_not_omitted(self):
+        for field in ("radiance:sphericalHarmonicsCoefficients", "radiance:sphericalHarmonicsCoefficientsh"):
+            with self.subTest(field=field):
+                path = self.directory / ("container-" + field.split(":")[-1] + ".usda")
+                scene = stage(path); gs(scene, "/Splat")
+                prim = UsdGeom.Xform.Define(scene, "/Vendor").GetPrim()
+                prim.CreateAttribute(field, Sdf.ValueTypeNames.Float3Array).Set(Vt.Vec3fArray([Gf.Vec3f(1)]))
+                scene.GetRootLayer().Save()
+                with self.assertRaisesRegex(bridge.UnsupportedUsd, "unsupported Gaussian schema"):
+                    self.decode(path)
 
     def test_vendor_schema_is_not_a_pointcloud(self):
         path = self.directory / "usd-vendor.usda"

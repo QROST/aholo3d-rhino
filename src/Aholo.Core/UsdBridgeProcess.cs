@@ -91,7 +91,7 @@ internal static class UsdBridgeProcess
         {
             string message = ReadError(output) ?? diagnostics.Trim();
             if (message.Length == 0) message = standardOutput.Trim();
-            throw new InvalidDataException("OpenUSD conversion failed: " + (message.Length == 0 ? "the decoder returned no diagnostic." : message));
+            throw new InvalidDataException(UiText.Get("OpenUSD conversion failed: ") + UiText.TranslateKnownMessage(message.Length == 0 ? "the decoder returned no diagnostic." : message));
         }
     }
 

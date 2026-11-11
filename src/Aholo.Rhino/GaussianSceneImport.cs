@@ -60,6 +60,10 @@ internal static partial class GaussianDocument
         // USD composition uses the original resolver context; its root bytes must remain unchanged.
         GaussianScene scene = GaussianSceneReader.Read(usd ? path : original.Path, ct);
         if (usd && Hash(path, ct) != original.Hash) throw new IOException(global::Aholo.Core.UiText.Get("The source scene changed while being read. Import stopped; save the file and retry."));
+        return PrepareFromScene(original,scene,ct,progress);
+    }
+    private static PreparedImport PrepareFromScene(SourceArchive original, GaussianScene scene, CancellationToken ct, IProgress<string>? progress)
+    {
         if (scene.Parts.Count == 0) throw new InvalidDataException(global::Aholo.Core.UiText.Get("The file contains no Gaussian Splat data."));
         GaussianPart[] nonempty = scene.Parts.Where(part => part.Splats.Length > 0).ToArray();
         if (nonempty.Length == 0) throw new InvalidDataException(global::Aholo.Core.UiText.Get("The file contains no Gaussian Splat data."));
@@ -73,7 +77,7 @@ internal static partial class GaussianDocument
             _ = part.Transform.Linear.Inverse();
             progress?.Report(global::Aholo.Core.UiText.Format("Preparing part {0:N0}/{1:N0} · {2:N0} GS…", index + 1, parts.Length, part.Splats.Length));
             string sourceName = System.IO.Path.GetFileNameWithoutExtension(original.Name);
-            string name = usd ? part.Name : scene.Parts.Count == 1 ? sourceName : $"{sourceName} [{index + 1}]";
+            string name = scene.Format.StartsWith("OpenUSD", StringComparison.Ordinal) ? part.Name : scene.Parts.Count == 1 ? sourceName : $"{sourceName} [{index + 1}]";
             parts[index] = new(name, PublishPart(part.Splats, ct), part.Transform, part.Antialiased);
         }
         return new(original, scene, parts);
@@ -97,6 +101,75 @@ internal static partial class GaussianDocument
                 return global::Aholo.Core.UiText.Get("This task already has GS instances; the view is focused on them. Use Rhino Move/Rotate/Scale to adjust them.");
             }
         }
+        var placement=ValidateGsPlacement(prepared,doc,scale,axis,useSourceUnits);
+        var transforms=placement.Transforms;var overall=placement.Bounds;
+        string upAxis=placement.UpAxis;double effectiveScale=placement.Scale;
+        uint undo = doc.BeginUndoRecord(global::Aholo.Core.UiText.Get("Import Aholo Gaussian Splat"));
+        if (undo == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create the import Undo record. The document has not been modified."));
+        var added = new List<(Guid Id, int Definition)>();
+        bool undoEnded;
+        int layer = -1;
+        bool createdLayer = !(doc.Layers.CurrentLayer.IsVisible && !doc.Layers.CurrentLayer.IsLocked);
+        try
+        {
+            layer = VisibleLayer(doc);
+            for (int i = 0; i < prepared.Parts.Length; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                added.Add(AddBlock(doc, prepared.Parts[i], transforms[i], prepared.Source, prepared.Scene,
+                    effectiveScale, upAxis, layer, taskId));
+            }
+            ct.ThrowIfCancellationRequested();
+        }
+        catch (Exception failure)
+        {
+            bool rollbackFailed = false;
+            foreach (var item in added.AsEnumerable().Reverse())
+            {
+                try
+                {
+                    if (!doc.Objects.Delete(item.Id, true)) rollbackFailed = true;
+                    if (!doc.InstanceDefinitions.Delete(item.Definition, false, true)) rollbackFailed = true;
+                }
+                catch (Exception) { rollbackFailed = true; }
+            }
+            if (createdLayer && layer >= 0)
+            {
+                try { if (!doc.Layers.Delete(layer, true)) rollbackFailed = true; }
+                catch (Exception) { rollbackFailed = true; }
+            }
+            if (rollbackFailed) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Import did not finish and Rhino could not fully roll back the new objects. Use Undo to reverse this import. ") + AholoHost.FriendlyError(failure), failure);
+            throw;
+        }
+        finally { undoEnded=doc.EndUndoRecord(undo); }
+        if(!undoEnded)throw new InvalidOperationException(UiText.Get("The imported object exists, but its undo record could not be confirmed. Inspect the document; do not import again."));
+        if (!Documents.TryGetValue(target.Serial, out var assets)) Documents.Add(target.Serial, assets = new());
+        foreach (PreparedPart part in prepared.Parts)
+        {
+            if (assets.TryGetValue(part.Asset.Hash, out var existing)) existing.Cancellation?.Cancel();
+            assets[part.Asset.Hash] = new AssetEntry { Data = part.Asset };
+        }
+        GaussianViewport.ForgetDocument(target.Serial);
+        doc.Objects.UnselectAll(); foreach (var item in added) doc.Objects.Select(item.Id);
+        var messages = new List<string>();
+        long count = prepared.Parts.Sum(part => (long)part.Asset.Splats.Length);
+        messages.Add(global::Aholo.Core.UiText.Format("Imported {0:N0} GS in {1:N0} parts; one Undo reverses the import. Up axis {2}, effective scale {3:G8}.", count, added.Count, upAxis, effectiveScale));
+        messages.Add(global::Aholo.Core.UiText.Get("The original file was archived and the complete local GS cache retained. Bounds are shown during preparation; full GS returns when the view is stationary."));
+        if (prepared.Parts.Any(part => part.Antialiased))
+            messages.Add(global::Aholo.Core.UiText.Get("This scene declares antialiased mode. The viewport does not yet implement its compensation formula, so appearance may differ."));
+        if (prepared.Scene.Warnings is not null) messages.AddRange(prepared.Scene.Warnings.Select(w=>UiText.TranslateKnownMessage(w)));
+        try
+        {
+            doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(overall);
+            GaussianViewport.Activate(doc);
+        }
+        catch (Exception ex) { messages.Add(global::Aholo.Core.UiText.Get("The model is in the document, but the display mode is not ready. Bounds are retained. ") + AholoHost.FriendlyError(ex)); }
+        doc.Views.Redraw();
+        return string.Join(System.Environment.NewLine, messages);
+    }
+    private sealed record GsPlacement(Transform[] Transforms,BoundingBox Bounds,string UpAxis,double Scale);
+    private static GsPlacement ValidateGsPlacement(PreparedImport prepared,RhinoDoc doc,double scale,string axis,bool useSourceUnits)
+    {
         string upAxis = axis == "Auto" ? prepared.Scene.UpAxis ?? "Z" : axis;
         if (upAxis is not ("Y" or "Z")) throw new InvalidDataException(global::Aholo.Core.UiText.Get("The scene up axis is not supported Y or Z. Choose an up axis and retry."));
         double unitScale = 1;
@@ -120,65 +193,7 @@ internal static partial class GaussianDocument
             if (!box.IsValid) throw new InvalidDataException(global::Aholo.Core.UiText.Get("The transformed GS bounds exceed the valid numeric range. The document has not been modified."));
             overall.Union(box);
         }
-        uint undo = doc.BeginUndoRecord(global::Aholo.Core.UiText.Get("Import Aholo Gaussian Splat"));
-        if (undo == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create the import Undo record. The document has not been modified."));
-        var added = new List<(Guid Id, int Definition)>();
-        int layer = -1;
-        bool createdLayer = !(doc.Layers.CurrentLayer.IsVisible && !doc.Layers.CurrentLayer.IsLocked);
-        try
-        {
-            layer = VisibleLayer(doc);
-            for (int i = 0; i < prepared.Parts.Length; i++)
-            {
-                ct.ThrowIfCancellationRequested();
-                added.Add(AddBlock(doc, prepared.Parts[i], transforms[i], prepared.Source, prepared.Scene,
-                    effectiveScale, upAxis, layer, taskId));
-            }
-        }
-        catch (Exception failure)
-        {
-            bool rollbackFailed = false;
-            foreach (var item in added.AsEnumerable().Reverse())
-            {
-                try
-                {
-                    if (!doc.Objects.Delete(item.Id, true)) rollbackFailed = true;
-                    if (!doc.InstanceDefinitions.Delete(item.Definition, false, true)) rollbackFailed = true;
-                }
-                catch (Exception) { rollbackFailed = true; }
-            }
-            if (createdLayer && layer >= 0)
-            {
-                try { if (!doc.Layers.Delete(layer, true)) rollbackFailed = true; }
-                catch (Exception) { rollbackFailed = true; }
-            }
-            if (rollbackFailed) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Import did not finish and Rhino could not fully roll back the new objects. Use Undo to reverse this import. ") + AholoHost.FriendlyError(failure), failure);
-            throw;
-        }
-        finally { doc.EndUndoRecord(undo); }
-        if (!Documents.TryGetValue(target.Serial, out var assets)) Documents.Add(target.Serial, assets = new());
-        foreach (PreparedPart part in prepared.Parts)
-        {
-            if (assets.TryGetValue(part.Asset.Hash, out var existing)) existing.Cancellation?.Cancel();
-            assets[part.Asset.Hash] = new AssetEntry { Data = part.Asset };
-        }
-        GaussianViewport.ForgetDocument(target.Serial);
-        doc.Objects.UnselectAll(); foreach (var item in added) doc.Objects.Select(item.Id);
-        var messages = new List<string>();
-        long count = prepared.Parts.Sum(part => (long)part.Asset.Splats.Length);
-        messages.Add(global::Aholo.Core.UiText.Format("Imported {0:N0} GS in {1:N0} parts; one Undo reverses the import. Up axis {2}, effective scale {3:G8}.", count, added.Count, upAxis, effectiveScale));
-        messages.Add(global::Aholo.Core.UiText.Get("The original file was archived and the complete local GS cache retained. Bounds are shown during preparation; full GS returns when the view is stationary."));
-        if (prepared.Parts.Any(part => part.Antialiased))
-            messages.Add(global::Aholo.Core.UiText.Get("This scene declares antialiased mode. The viewport does not yet implement its compensation formula, so appearance may differ."));
-        if (prepared.Scene.Warnings is not null) messages.AddRange(prepared.Scene.Warnings);
-        try
-        {
-            doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(overall);
-            GaussianViewport.Activate(doc);
-        }
-        catch (Exception ex) { messages.Add(global::Aholo.Core.UiText.Get("The model is in the document, but the display mode is not ready. Bounds are retained. ") + AholoHost.FriendlyError(ex)); }
-        doc.Views.Redraw();
-        return string.Join(System.Environment.NewLine, messages);
+        return new(transforms,overall,upAxis,effectiveScale);
     }
     private static Transform ToRhino(GaussianTransform source)
     {
@@ -249,7 +264,7 @@ internal static partial class GaussianDocument
         return new(source, GaussianPreparedAsset.Prepare(source, ct), bounds, hash, path);
     }
     private static (Guid Id, int Definition) AddBlock(RhinoDoc doc, PreparedPart part, Transform transform,
-        SourceArchive source, GaussianScene scene, double scale, string upAxis, int layer, Guid? taskId)
+        SourceArchive source, GaussianScene scene, double scale, string upAxis, int layer, Guid? taskId, Guid? sceneImportId = null)
     {
         AssetData data = part.Asset;
         var geometry = data.Bounds.GetEdges().Select(line => (GeometryBase)new LineCurve(line)).ToArray();
@@ -264,6 +279,7 @@ internal static partial class GaussianDocument
             using var attrs = new ObjectAttributes { Name = scene.Format.StartsWith("OpenUSD", StringComparison.Ordinal) ? part.Name : "Aholo · " + System.IO.Path.GetFileNameWithoutExtension(source.Name) + " · " + part.Name, LayerIndex = layer };
             attrs.SetUserString(Marker,"1"); attrs.SetUserString(HashKey,data.Hash); attrs.SetUserString(PathKey,data.Path);
             if (taskId.HasValue) attrs.SetUserString("Aholo.TaskId",taskId.Value.ToString("D"));
+            if (sceneImportId.HasValue) attrs.SetUserString("Aholo.Scene.ImportId",sceneImportId.Value.ToString("D"));
             attrs.SetUserString("Aholo.GS.SourceName",source.Name);
             attrs.SetUserString("Aholo.GS.SourceSha256",source.Hash);
             attrs.SetUserString("Aholo.GS.SourceArchivePath",source.Path);

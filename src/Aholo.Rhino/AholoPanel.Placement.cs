@@ -73,6 +73,14 @@ public sealed partial class AholoPanel
         artifact=await MeshTaskSource.AcquireAsync(selection,task,()=>session.Connection,session.Client.DownloadAsync,session.Observe,Validate,token);
         await meshEditor.AddAsync(artifact.LocalPath!,artifact.Sha256,task.Name,task.Id,token,selection.ImportId,revision);
     }
+    private async Task ImportSceneAsync()
+    {
+        using var dialog=AholoImportSceneCommand.FileDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
+        var target=GaussianDocument.CaptureSceneImport(Document());
+        var progress=new Progress<string>(message=>AholoHost.Ui(()=>Report(message)));
+        string message=await GaussianDocument.ImportUsdSceneAsync(dialog.FileName,target,token,progress);
+        AholoHost.Ui(()=>Report(message));
+    }
     private async Task ExportSceneAsync()
     {
         using var dialog=SceneUsdExport.SaveDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
