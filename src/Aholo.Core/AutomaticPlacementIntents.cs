@@ -7,6 +7,7 @@ public sealed class AutomaticPlacementIntents<T>
 {
     private long generation;
     private readonly Dictionary<Guid,AutomaticPlacementIntent<T>> pending=new();
+    public int Count=>pending.Count;
     public AutomaticPlacementIntent<T> Capture(T target,ConnectionState connection)
     {
         if(!connection.Connected||string.IsNullOrEmpty(connection.ConnectionId))throw new InvalidOperationException("Connect before capturing automatic placement.");

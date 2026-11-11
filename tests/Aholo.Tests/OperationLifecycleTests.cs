@@ -34,6 +34,30 @@ public sealed class OperationLifecycleTests
         Assert.True(registry.Cancel(current.Id));await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>current.Completion);
         Assert.Equal("Cancelled",registry.Snapshot().Single(x=>x.Id==current.Id).State);
     }
+    [Fact] public async Task ExactCancellationRequiresOriginalDocumentAndDoesNotCancelOtherWork()
+    {
+        var registry=new OperationRegistry();
+        var first=registry.Start("document:1:export","Export",async ct=>{await Task.Delay(Timeout.Infinite,ct);return 1;});
+        var second=registry.Start("document:1:download","Download",async ct=>{await Task.Delay(Timeout.Infinite,ct);return 2;});
+        var other=registry.Start("document:10:export","Other document",async ct=>{await Task.Delay(Timeout.Infinite,ct);return 3;});
+        try
+        {
+            Assert.False(registry.Cancel(other.Id,"document:1:"));
+            Assert.False(registry.Cancel(first.Id,"document:2:"));
+            Assert.Throws<ArgumentException>(()=>registry.Cancel(first.Id,""));
+            Assert.True(registry.Cancel(first.Id,"document:1:"));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>first.Completion);
+            Assert.False(second.Cancellation.IsCancellationRequested);Assert.False(other.Cancellation.IsCancellationRequested);
+            var replacement=registry.Start("document:1:export","Replacement",_=>Task.FromResult(4));
+            Assert.False(registry.Cancel(first.Id,"document:1:"));Assert.Equal(4,await replacement.Completion);
+        }
+        finally
+        {
+            await registry.StopAsync();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>second.Completion);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>other.Completion);
+        }
+    }
     [Fact] public async Task CancellationDuringStartNotificationDoesNotInvokeWork()
     {
         var registry=new OperationRegistry();bool invoked=false;

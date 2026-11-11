@@ -17,7 +17,7 @@ public sealed partial class AholoPanel
     {
         meshEditor=new(serial,AholoPlugin.Placement,Report,RunAsync,()=>token);
         meshEditor.HeightText=objectHeight.Text;placementConnection=session.Connection;
-        autoPlace.CheckedChanged+=(_,_)=>{if(autoPlace.Checked!=true)RevokePlacements();};
+        autoPlace.CheckedChanged+=(_,_)=>{if(autoPlace.Checked!=true){RevokePlacements();UpdateActions();}};
         placementTimer.Elapsed+=(_,_)=>_=PlaceReadyAsync();
     }
     private AutomaticPlacementIntent<MeshPlacementTarget>? CaptureAutomatic(CreateServiceRequest request)
@@ -36,6 +36,12 @@ public sealed partial class AholoPanel
     }
     private void ForgetPlacement(Guid id){placementIntents.Remove(id);readyPlacements.Remove(id);}
     private void RevokePlacements(){placementIntents.RevokeAll();readyPlacements.Clear();}
+    private void DocumentCancellationRequested(uint documentSerial)
+    {
+        if(disposed||documentSerial!=serial)return;
+        RevokePlacements();UpdateActions();
+        Report(T("Local cancellation requested. Pending automatic placements were removed; remote tasks continue."));
+    }
     private void PlacementConnectionChanged()
     {
         var current=session.Connection;

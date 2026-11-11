@@ -28,6 +28,30 @@ public sealed class MeshPlacementPolicyTests
         Assert.False(intents.Attach(Task(),intent));
     }
     [Fact]
+    public void RevokedPendingTaskCannotRegainPlacementWhenSuccessArrivesAndOtherDocumentIsUnaffected()
+    {
+        var first=new AutomaticPlacementIntents<string>();var other=new AutomaticPlacementIntents<string>();
+        var pending=Task();var otherTask=Task();var intent=first.Capture("first document",Connection);
+        var lateResponse=first.Capture("first document late response",Connection);
+        Assert.True(first.Attach(pending,intent));Assert.True(other.Attach(otherTask,other.Capture("other document",Connection)));
+        Assert.Equal(1,first.Count);first.RevokeAll();
+        Assert.False(first.IsCurrent(pending.Id,intent,Connection));
+        Assert.False(first.Attach(pending with{Status="SUCCEEDED"},intent));
+        Assert.False(first.Attach(Task() with{Status="SUCCEEDED"},lateResponse));Assert.Equal(0,first.Count);
+        Assert.True(other.TryGet(otherTask.Id,Connection,out _));Assert.Equal(1,other.Count);
+        var next=Task();Assert.True(first.Attach(next,first.Capture("new explicit creation",Connection)));
+        Assert.True(first.TryGet(next.Id,Connection,out _));
+    }
+    [Fact]
+    public void RemovingOnePendingPlacementPreservesAnotherIntent()
+    {
+        var intents=new AutomaticPlacementIntents<string>();var first=Task();var second=Task();
+        var a=intents.Capture("first",Connection);var b=intents.Capture("second",Connection);
+        Assert.True(intents.Attach(first,a));Assert.True(intents.Attach(second,b));
+        intents.Remove(first.Id);
+        Assert.False(intents.IsCurrent(first.Id,a,Connection));Assert.True(intents.IsCurrent(second.Id,b,Connection));Assert.Equal(1,intents.Count);
+    }
+    [Fact]
     public void AccountEpochChangeAndExplicitRemovalInvalidateOriginalIntent()
     {
         var intents=new AutomaticPlacementIntents<string>();var task=Task();var intent=intents.Capture("target",Connection);Assert.True(intents.Attach(task,intent));

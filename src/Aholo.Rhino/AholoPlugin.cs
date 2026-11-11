@@ -22,8 +22,24 @@ public sealed class AholoPlugin : PlugIn
     internal static MeshPlacementService Placement => placement ??= new MeshPlacementService(Session,MeshHost);
     internal static IAholoServiceClient CreateClient() => Session.Client;
     internal static string DocumentScope(uint serial) => "document:" + serial.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":";
+    internal static event Action<uint>? DocumentCancellationRequested;
+    internal static void CancelDocumentOperations(uint serial)
+    {
+        // Revoke every live panel's pending placement authority before cancelling active work.
+        // Hidden panels also subscribe; GetPanel alone cannot enumerate every live instance.
+        try
+        {
+            foreach(Action<uint> observer in DocumentCancellationRequested?.GetInvocationList()??Array.Empty<Delegate>())
+                try{observer(serial);}catch(Exception error){global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(error));}
+        }
+        finally
+        {
+            AholoImportMeshCommand.Cancel(serial);
+            if(SharedSession.IsValueCreated)Session.Operations.CancelPrefix(DocumentScope(serial));
+        }
+    }
     private static void OnDocumentClosed(object? sender, global::Rhino.DocumentEventArgs e)
-    { AholoImportMeshCommand.Cancel(e.Document.RuntimeSerialNumber);if(SharedSession.IsValueCreated)Session.Operations.CancelPrefix(DocumentScope(e.Document.RuntimeSerialNumber)); meshHost?.Forget(e.Document.RuntimeSerialNumber); }
+    { CancelDocumentOperations(e.Document.RuntimeSerialNumber); meshHost?.Forget(e.Document.RuntimeSerialNumber); }
     protected override LoadReturnCode OnLoad(ref string errorMessage)
     {
         int? language = null;

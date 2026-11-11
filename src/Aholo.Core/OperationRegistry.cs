@@ -69,9 +69,15 @@ public sealed class OperationRegistry
         Entry? item;lock(gate)active.TryGetValue(scope,out item);
         CancelEntry(item);
     }
-    public bool Cancel(Guid id)
+    public bool Cancel(Guid id)=>CancelMatching(id,null);
+    public bool Cancel(Guid id,string requiredScopePrefix)
     {
-        Entry? item;lock(gate)item=active.Values.FirstOrDefault(x=>x.Value.Id==id);
+        ArgumentException.ThrowIfNullOrEmpty(requiredScopePrefix);
+        return CancelMatching(id,requiredScopePrefix);
+    }
+    private bool CancelMatching(Guid id,string? prefix)
+    {
+        Entry? item;lock(gate)item=active.Values.FirstOrDefault(x=>x.Value.Id==id&&(prefix is null||x.Value.Scope.StartsWith(prefix,StringComparison.Ordinal)));
         CancelEntry(item);return item is not null;
     }
     public void CancelPrefix(string prefix)

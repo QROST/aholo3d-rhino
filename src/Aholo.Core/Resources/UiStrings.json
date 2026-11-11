@@ -4906,5 +4906,29 @@
   {
     "English": "The operation stopped unexpectedly without a local cancellation request. Check the connection and retry the original task; do not resubmit it.",
     "Chinese": "操作意外中止，未收到本地取消请求。请检查连接并查询或继续原任务，不要重新提交生成。"
+  },
+  {
+    "English": "Waiting to place {0} generated meshes",
+    "Chinese": "等待放入 {0} 个生成模型"
+  },
+  {
+    "English": "Local cancellation requested. Pending automatic placements were removed; remote tasks continue.",
+    "Chinese": "已请求本地取消，并撤销待自动放置的模型；远端任务继续运行。"
+  },
+  {
+    "English": "No local operation is running in this document.",
+    "Chinese": "此文档目前没有正在运行的本地操作。"
+  },
+  {
+    "English": "Local operation ID to cancel",
+    "Chinese": "要取消的本地操作 ID"
+  },
+  {
+    "English": "Enter a local operation ID from the list.",
+    "Chinese": "请输入列表中的本地操作 ID。"
+  },
+  {
+    "English": "That operation has ended or belongs to another document. Nothing was cancelled.",
+    "Chinese": "该操作已结束或属于其他文档，未取消任何操作。"
   }
 ]

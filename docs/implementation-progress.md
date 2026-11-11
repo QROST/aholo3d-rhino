@@ -466,3 +466,12 @@ Validation: Release compilation zero warnings/errors; 1,421 .NET tests passed, z
 ## Local candidate alpha.25
 
 Packages the exact GS sorting acceleration from `4ebfd6e`, the reproducible performance notes and raw measurements. Runtime verification has 1,421 passing .NET tests; final metadata and both platform package receipts are checked separately against the clean versioned commit. No native navigation/visual acceptance, Windows execution, installation, push or publication is implied.
+
+
+## Reliable cancellation and Library navigation (after alpha.25)
+
+Unified document cancellation now synchronously revokes pending automatic mesh placements in every live panel, including hidden panels, before cancelling queued imports and active operations. Waiting cloud tasks keep the footer cancellable. A cancelled creation cannot restore placement authority from a late provider response; cancellation during Library loading removes only that creation's attached intent. `AholoCancelOperation` lists current-document operations and cancels one immutable ID, without affecting other documents or replacement operations. Cached images and folders stay available during unrelated work.
+
+Library separates explicit navigation from background loading. Passive refresh inherits an unfinished target, and the page containing it is applied from one snapshot. User selection, paging, search and filtering supersede stale results/errors. The current query and page are retained until the reveal snapshot succeeds, avoiding an old-page selection being lost to a prematurely reset filter. Failed reveals remain retryable without silently choosing another task.
+
+Verification: Release build zero warnings/errors; 1,434 offline tests passed with zero failures/skips (13 new cases for navigation races, a real journal pagination boundary, scoped IDs and revoked placement authority). The final host-only query-binding and checkbox feedback adjustments were recompiled; they do not execute in portable tests. Two local read-only reviews identified those wiring issues and informed the final fixes. Remote output allowance was insufficient for a useful review, so no third-party inference ran in this batch. Parent inspected changes and ran checks. Native Mac/Windows lifecycle, command prompts and layouts remain pending; no Rhino automation, paid calls, installation, push or publication occurred.

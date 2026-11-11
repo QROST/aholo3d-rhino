@@ -165,8 +165,7 @@ public sealed class AholoCancelCommand : Command
     public override string EnglishName => "AholoCancel";
     protected override Result RunCommand(RhinoDoc doc, RunMode mode)
     {
-        AholoImportMeshCommand.Cancel(doc.RuntimeSerialNumber);
-        AholoPlugin.Session.Operations.CancelPrefix(AholoPlugin.DocumentScope(doc.RuntimeSerialNumber));
+        AholoPlugin.CancelDocumentOperations(doc.RuntimeSerialNumber);
         global::Rhino.RhinoApp.WriteLine(UiText.Get("Local cancellation requested. Remote tasks are not cancelled."));
         return Result.Success;
     }
