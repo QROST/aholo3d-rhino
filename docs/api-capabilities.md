@@ -81,7 +81,7 @@ Library exposes World/Lux3D/Spatial cloud history and recovery by existing World
 
 Downloaded files use immutable content-addressed names. Missing remote outputs retain downloaded local references. Rig/animation GLB files can be uploaded/downloaded, but static placement rejects unsupported skins, animations or required glTF extensions before touching the document. This is a format-support boundary, not a geometry-count cap. Generation/articulation URLs without a recognized format extension remain explicit unsupported results. Archives are retained as files and are not extracted automatically.
 
-## Product parity at alpha.10
+## Product parity at alpha.11
 
 The 30 public HTTP routes and 13 create forms are implemented; that is not a claim that every reference-plugin behavior or returned artifact is fully supported in Rhino.
 
