@@ -302,3 +302,10 @@ Two local read-only reviewers checked the official contract, matrix order, indep
 ## Candidate checkpoint — alpha.13
 
 Packages advanced cloud transforms and light controls (`0b29816`) as `0.2.0-alpha.13`. The editor adds XYZ rotation, signed axis scale/shear, world-axis light rotation, exposure, specular, reflection and Rect two-sided options while preserving old defaults. Evidence is 1063 passing offline tests and actual OpenUSD model/light composition and reset checks. Stable assembly/plugin/Yak identities remain unchanged. Native UI, real service mirror/shear/flag interpretation and the broader delivery backlog remain open. Exact local receipts bind clean source and package bytes; no installation or publication is performed.
+
+
+## USD n-gons and material subsets after alpha.13
+
+Extended both standalone and mixed-scene USD import with simple planar n-gon triangulation and valid materialBind face subsets. Exact orientation fallback, simple-boundary checks and deterministic ear clipping preserve source corners/winding; compact offsets keep the existing dense triangle/quad path lean. Material ownership is explicit, inherited bindings use OpenUSD resolution, and original face/corner indexing survives material splits. Source Mesh and actual part/subset paths remain distinct through native metadata. A small self-contained colored sample is included for manual native acceptance.
+
+Independent read-only reviews checked algorithm, binding/provenance and tests. They prompted shared-vertex corner-attribute, translated-instance, competing material-purpose, strict small-area and actual prior-payload atomicity checks. The primary implemented the changes and ran verification. Remote daily allowance was insufficient for meaningful output; no inference or quota increase occurred. Triangles/quads retain their prior route. Subdivision/holes, malformed/nonplanar n-gons, editable hierarchy, general shader graphs, absent-normal smoothness across material parts and native Mac/Windows appearance remain explicit boundaries.

@@ -99,7 +99,7 @@ Run `AholoExportMesh` and the panel action on both platforms. Follow the mesh ch
 
 ### Local ordinary USD import (source after alpha.4)
 
-Use the local mesh loader for USD/USDA/USDC/USDZ. Exercise textured triangles/quads, face-varying seams, nested/mirrored instances, Y/Z axes and normal document units; verify chosen height/CPlane placement and one Block/Undo. Change units/tolerance/color preprocessing during loading: preparation or acceptance must reject the stale snapshot. Close the document/cancel during processing. Clear the candidate’s temporary directory, save/reopen and verify embedded textures and source/derived hashes. Unsupported subdivision/n-gons/animation/subsets/mixed GS must fail with no document mutation. Record Mac and Windows native results separately; the automated OpenUSD checks do not establish this acceptance.
+Use the local mesh loader for USD/USDA/USDC/USDZ. Exercise textured triangles/quads, face-varying seams, nested/mirrored instances, Y/Z axes and normal document units; verify chosen height/CPlane placement and one Block/Undo. Change units/tolerance/color preprocessing during loading: preparation or acceptance must reject the stale snapshot. Close the document/cancel during processing. Clear the candidate’s temporary directory, save/reopen and verify embedded textures and source/derived hashes. Unsupported subdivision/nonplanar or self-intersecting n-gons/animation/invalid or overlapping subsets/mixed GS must fail with no document mutation. Record Mac and Windows native results separately; the automated OpenUSD checks do not establish this acceptance.
 
 
 ### Task mesh recovery and USD routing
@@ -143,3 +143,8 @@ Import the packaged `fixtures/mixed-scene.usda` via `AholoImportScene` and the L
 ## Nested GS viewport references
 
 Follow the [nested-block host checklist](gs-host-acceptance.md#nested-block-display-after-alpha10). Verify full parent transforms, independent repeated/coincident paths, hidden/locked layers, source cache lifetime, ordinary mesh visibility, BlockEdit, Undo/Redo and save/reopen on each platform. Nested proxy bounds intentionally remain; suppressing an ordinary parent block is never an accepted workaround. Source-level graph/projection tests do not accept native callbacks or visual appearance.
+
+
+## USD polygon and material-subset import
+
+On both native platforms import `fixtures/mesh-subsets.usda` with Original size or Preserve scene coordinates, then Zoom Extents. Expect green triangle, concave blue polygon and red quad as three mesh parts in one accepted Block. The blue source has 6 square metres of area and three triangles; its concavity must remain empty. Check source Mesh/subset user strings, material colors, physical units, one Undo/Redo and save/reopen. Repeat through `AholoImportScene` with a mixed GS scene. Use a separate textured fixture with shared vertices and discontinuous UVs/normals; no texture seam may move when faces split by material. No authored normals means host-generated per-part shading, not guaranteed smoothness across the material boundary. Invalid material partitions and nonplanar/self-crossing n-gons must fail before document mutation. Automated numeric/transport checks do not establish native appearance or texture persistence.

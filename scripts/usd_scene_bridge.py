@@ -57,11 +57,11 @@ def convert(input_path, output):
     mesh.require(axis in ('Y','Z') and math.isfinite(units) and units > 0, 'Invalid USD axis or units.')
     cache = UsdGeom.XformCache(Usd.TimeCode.Default())
     mesh_parts, gs_parts, warnings = [], [], []
-    allowed = ('','Xform','Scope','Mesh','Material','Shader','NodeGraph','ParticleField3DGaussianSplat')
+    allowed = ('','Xform','Scope','Mesh','GeomSubset','Material','Shader','NodeGraph','ParticleField3DGaussianSplat')
     for prim in Usd.PrimRange.Stage(stage, Usd.TraverseInstanceProxies()):
         mesh.validate_prim(prim, allowed)
         if prim.IsA(UsdGeom.Mesh):
-            mesh_parts.append(mesh.write_mesh(prim,output,len(mesh_parts),cache,UsdGeom,UsdShade,Ar,Sdf))
+            mesh_parts.extend(mesh.write_mesh(prim,output,len(mesh_parts),cache,UsdGeom,UsdShade,Ar,Sdf))
         elif str(prim.GetTypeName()) == 'ParticleField3DGaussianSplat':
             mesh.require(UsdGeom.Imageable(prim).ComputePurpose() in ('default','render'), str(prim.GetPath())+': guide/proxy GS cannot be silently imported.')
             part = gs.write_part(prim,output,len(gs_parts),cache,UsdGeom,UsdVol,UsdShade)

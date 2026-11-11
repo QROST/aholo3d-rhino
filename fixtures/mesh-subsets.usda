@@ -1,0 +1,88 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    doc = "Static mesh acceptance sample: green triangle, concave blue five-corner face and red quad. Metres, Z-up. Material subsets retain face ownership. Maintainer: CuriousArc / qrost."
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "World"
+{
+    def Mesh "Mesh" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        uniform bool doubleSided = 1
+        int[] faceVertexCounts = [3, 5, 4]
+        int[] faceVertexIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        rel material:binding = </World/Green>
+        normal3f[] normals = [(0, 0, 1), (0, 0, 2), (0, 0, 3)] (
+            interpolation = "uniform"
+        )
+        uniform token orientation = "leftHanded"
+        point3f[] points = [(10, 0, 0), (11, 0, 0), (10, 1, 0), (0, 0, 0), (3, 0, 0), (3, 3, 0), (1.5, 1, 0), (0, 3, 0), (5, 0, 0), (6, 0, 0), (6, 1, 0), (5, 1, 0)]
+        texCoord2f[] primvars:st = [(0, 0), (0.0625, 0.03125), (0.125, 0.0625), (0.1875, 0.09375), (0.25, 0.125), (0.3125, 0.15625), (0.375, 0.1875), (0.4375, 0.21875), (0.5, 0.25), (0.5625, 0.28125), (0.625, 0.3125), (0.6875, 0.34375)] (
+            interpolation = "faceVarying"
+        )
+        int[] primvars:st:indices = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+        uniform token subdivisionScheme = "none"
+        uniform token subsetFamily:materialBind:familyType = "nonOverlapping"
+        uniform token[] xformOpOrder = []
+
+        def GeomSubset "BlueFaces" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            uniform token elementType = "face"
+            uniform token familyName = "materialBind"
+            int[] indices = [1]
+            rel material:binding = </World/Blue>
+        }
+
+        def GeomSubset "RedFaces" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            uniform token elementType = "face"
+            uniform token familyName = "materialBind"
+            int[] indices = [2]
+            rel material:binding = </World/Red>
+        }
+    }
+
+    def Material "Green"
+    {
+        token outputs:surface.connect = </World/Green/Surface.outputs:surface>
+
+        def Shader "Surface"
+        {
+            uniform token info:id = "UsdPreviewSurface"
+            color3f inputs:diffuseColor = (0, 1, 0)
+            token outputs:surface
+        }
+    }
+
+    def Material "Blue"
+    {
+        token outputs:surface.connect = </World/Blue/Surface.outputs:surface>
+
+        def Shader "Surface"
+        {
+            uniform token info:id = "UsdPreviewSurface"
+            color3f inputs:diffuseColor = (0, 0, 1)
+            token outputs:surface
+        }
+    }
+
+    def Material "Red"
+    {
+        token outputs:surface.connect = </World/Red/Surface.outputs:surface>
+
+        def Shader "Surface"
+        {
+            uniform token info:id = "UsdPreviewSurface"
+            color3f inputs:diffuseColor = (1, 0, 0)
+            token outputs:surface
+        }
+    }
+}

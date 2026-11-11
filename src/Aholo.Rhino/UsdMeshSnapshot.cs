@@ -112,7 +112,7 @@ internal sealed class UsdMeshSnapshot : IMeshImportSnapshot
                 pbr.SynchronizeLegacyMaterial();int materialIndex=file.AllMaterials.AddMaterial(material);
                 if(materialIndex<0)throw new InvalidOperationException("Could not create the USD snapshot material.");
                 using var attr=new ObjectAttributes{Name=part.Name,LayerIndex=layerIndex,MaterialSource=ObjectMaterialSource.MaterialFromObject,MaterialIndex=materialIndex};
-                attr.SetUserString("Aholo.Mesh.SourceFormat",sourceFormat);attr.SetUserString("Aholo.Mesh.SourceSha256",scene.SourceSha256);attr.SetUserString("Aholo.Mesh.SourcePrim",part.PrimPath);attr.SetUserString("Aholo.Mesh.SourceDoubleSided",part.DoubleSided?"true":"false");attr.SetUserString("Aholo.Mesh.SourceDependencies",System.Text.Json.JsonSerializer.Serialize(scene.DependencyHashes));
+                attr.SetUserString("Aholo.Mesh.SourceFormat",sourceFormat);attr.SetUserString("Aholo.Mesh.SourceSha256",scene.SourceSha256);attr.SetUserString("Aholo.Mesh.SourcePrim",part.SourcePrimPath);attr.SetUserString("Aholo.Mesh.SourcePart",part.PrimPath);attr.SetUserString("Aholo.Mesh.SourceDoubleSided",part.DoubleSided?"true":"false");attr.SetUserString("Aholo.Mesh.SourceDependencies",System.Text.Json.JsonSerializer.Serialize(scene.DependencyHashes));
                 if(file.Objects.AddMesh(mesh,attr)==Guid.Empty)throw new InvalidOperationException("Could not create the USD snapshot mesh.");
             }
             string path=System.IO.Path.Combine(directory,"asset.3dm");ct.ThrowIfCancellationRequested();

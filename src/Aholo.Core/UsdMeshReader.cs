@@ -5,7 +5,10 @@ namespace Aholo.Core;
 
 /// <summary>Static polygon mesh. Positions and normals remain in the source prim's local frame; UVs use USD's lower-left origin.</summary>
 public sealed record UsdMeshPrimitive(string PrimPath, string Name, float[] Positions, int[] FaceCounts, int[] Indices,
-    float[]? Normals, float[]? TexCoords, GaussianTransform Transform, bool LeftHanded, bool DoubleSided, MeshMaterial Material, MeshTexture? Texture);
+    float[]? Normals, float[]? TexCoords, GaussianTransform Transform, bool LeftHanded, bool DoubleSided, MeshMaterial Material, MeshTexture? Texture)
+{
+    public string SourcePrimPath { get; init; } = PrimPath;
+}
 public sealed record UsdMeshScene(IReadOnlyList<UsdMeshPrimitive> Parts, string UpAxis, double MetersPerUnit,
     string SourceSha256, IReadOnlyList<string> DependencyHashes, IReadOnlyList<string> Warnings)
 {
@@ -62,6 +65,9 @@ public static class UsdMeshReader
             ct.ThrowIfCancellationRequested();
             string name = part.GetProperty("primPath").GetString() ?? "", display = part.GetProperty("name").GetString() ?? "";
             if (!name.StartsWith('/') || !names.Add(name)) throw Invalid("USD prim paths must be distinct absolute paths.");
+            string sourcePrim = part.TryGetProperty("sourcePrimPath",out var sourcePath) ? sourcePath.GetString() ?? "" : name;
+            if (!sourcePrim.StartsWith('/') || (sourcePrim != name && name[..name.LastIndexOf('/')] != sourcePrim))
+                throw Invalid("USD material parts must identify their source mesh prim.");
             string file = part.GetProperty("file").GetString() ?? "";
             if (!Regex.IsMatch(file, @"\Amesh-[0-9]{6,}\.bin\z") || !files.Add(file)) throw Invalid("Invalid USD mesh payload path.");
             int vertices = part.GetProperty("vertices").GetInt32(), faces = part.GetProperty("faces").GetInt32(), count = part.GetProperty("indices").GetInt32();
@@ -78,7 +84,7 @@ public static class UsdMeshReader
                 uv = hasUv ? Floats(reader, checked(vertices * 2), ct) : Array.Empty<float>();
             }
             if (counts.Any(x => x is not (3 or 4)) || counts.Sum(x => (long)x) != count || indices.Any(x => x < 0 || x >= vertices))
-                throw Invalid("USD topology does not match its vertex array; triangulate polygons with more than four corners.");
+                throw Invalid("USD mesh payload topology does not match its triangulated vertex array.");
             for (int i = 0; i < normals.Length; i += 3) _ = new GaussianVector(normals[i], normals[i+1], normals[i+2]).Normalized();
             double[] matrix = Tuple(part.GetProperty("transform"),12);
             var transform = new GaussianTransform(new(matrix[0],matrix[1],matrix[2],matrix[3],matrix[4],matrix[5],matrix[6],matrix[7],matrix[8]),new(matrix[9],matrix[10],matrix[11]));
@@ -102,7 +108,7 @@ public static class UsdMeshReader
                 if (!texture.Sha256.Equals(Path.GetFileNameWithoutExtension(imageFile),StringComparison.OrdinalIgnoreCase) ||
                     (texture.MimeType == "image/png" ? ".png" : ".jpg") != Path.GetExtension(imageFile)) throw Invalid("USD image snapshot hash or media type does not match.");
             }
-            parts.Add(new(name,display,positions,counts,indices,hasNormals ? normals : null,hasUv ? uv : null,transform,part.GetProperty("leftHanded").GetBoolean(),part.GetProperty("doubleSided").GetBoolean(),material,texture));
+            parts.Add(new(name,display,positions,counts,indices,hasNormals ? normals : null,hasUv ? uv : null,transform,part.GetProperty("leftHanded").GetBoolean(),part.GetProperty("doubleSided").GetBoolean(),material,texture){SourcePrimPath=sourcePrim});
         }
         if (parts.Count == 0) throw Invalid("The USD contains no supported meshes.");
         var result = new UsdMeshScene(parts,axis,units,hash,dependencies,root.GetProperty("warnings").EnumerateArray().Select(x => x.GetString() ?? "").ToArray());

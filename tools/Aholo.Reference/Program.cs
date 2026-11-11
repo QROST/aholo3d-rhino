@@ -7,6 +7,7 @@ using Aholo.Core;
 // This portable image oracle does not load Rhino or make network calls.
 if (args.Length == 2 && args[0] == "--scene-import-fixtures") return SceneFixtures.VerifyImports(args[1]);
 if (args.Length == 2 && args[0] == "--scene-fixtures") return SceneFixtures.Run(args[1]);
+if (args.Length == 2 && args[0] == "--mesh-topology-fixture") return MeshTopologyFixtures.Run(args[1]);
 if (args.Length == 2 && args[0] == "--mesh-import-fixture") return MeshImportFixtures.Run(args[1]);
 if (args.Length == 2 && args[0] == "--mesh-fixtures") return MeshFixtures.Run(args[1]);
 if (args.Length == 2 && args[0] == "--render-fixtures") return RenderFixtures.Run(args[1]);

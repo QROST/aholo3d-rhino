@@ -1,6 +1,7 @@
 """Strict local static mesh extraction. Loaded only from the installed bridge directory."""
 import array
 import hashlib
+from fractions import Fraction
 import json
 import math
 import shutil
@@ -106,10 +107,16 @@ def source_input(value, UsdShade):
     return shader, str(result[1])
 
 
-def material_for(prim, output, Ar, Sdf, UsdGeom, UsdShade):
-    material, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()
+def material_for(prim, output, Ar, Sdf, UsdGeom, UsdShade, geometry=None):
+    # Prefer the viewer's preview purpose (which includes allPurpose fallback), then full-only shading.
+    binding_api = UsdShade.MaterialBindingAPI(prim)
+    material, binding = binding_api.ComputeBoundMaterial('preview')
+    require(material or not binding or not binding.GetTargets(), 'Unresolved material binding.')
     if not material:
-        api = UsdGeom.PrimvarsAPI(prim)
+        material, binding = binding_api.ComputeBoundMaterial('full')
+        require(material or not binding or not binding.GetTargets(), 'Unresolved material binding.')
+    if not material:
+        api = UsdGeom.PrimvarsAPI(geometry if geometry is not None else prim)
         color, opacity = [.18, .18, .18], 1.0
         for name in ('displayColor', 'displayOpacity'):
             pv = api.FindPrimvarWithInheritance(name)
@@ -199,16 +206,101 @@ def attribute(prim, name, fallback_attr, fallback_interp, UsdGeom):
     return None, None
 
 
+def orient(a, b, c):
+    """One shared orientation sign; exact binary-rational fallback near cancellation."""
+    left = (a[0]-c[0])*(b[1]-c[1]); right = (a[1]-c[1])*(b[0]-c[0])
+    determinant = left-right
+    if abs(determinant) > (abs(left)+abs(right))*8*sys.float_info.epsilon:
+        return 1 if determinant > 0 else -1
+    ax, ay, bx, by, cx, cy = map(Fraction, (a[0],a[1],b[0],b[1],c[0],c[1]))
+    exact = (ax-cx)*(by-cy)-(ay-cy)*(bx-cx)
+    return (exact > 0)-(exact < 0)
+
+
+def between(p, a, b):
+    return min(a[0],b[0]) <= p[0] <= max(a[0],b[0]) and min(a[1],b[1]) <= p[1] <= max(a[1],b[1])
+
+
+def intersects(a, b, c, d):
+    if max(a[0],b[0]) < min(c[0],d[0]) or max(c[0],d[0]) < min(a[0],b[0]) or max(a[1],b[1]) < min(c[1],d[1]) or max(c[1],d[1]) < min(a[1],b[1]):
+        return False
+    ab_c, ab_d, cd_a, cd_b = orient(a,b,c), orient(a,b,d), orient(c,d,a), orient(c,d,b)
+    return ((ab_c == 0 and between(c,a,b)) or (ab_d == 0 and between(d,a,b)) or
+            (cd_a == 0 and between(a,c,d)) or (cd_b == 0 and between(b,c,d)) or
+            (ab_c*ab_d < 0 and cd_a*cd_b < 0))
+
+
+def triangulate_polygon(points):
+    """Return source-corner triples for a simple planar n-gon; never invent or discard a corner."""
+    points = [values(p,3) for p in points]; count = len(points)
+    require(count >= 3, 'A polygon needs at least three corners.')
+    local = [[p[i]-points[0][i] for i in range(3)] for p in points]
+    extent = max(abs(v) for p in local for v in p)
+    require(math.isfinite(extent) and extent > 0, 'Degenerate polygon extent.')
+    local = [[v/extent for v in p] for p in local]
+    a = max(local, key=lambda p: sum(v*v for v in p))
+    crosses = [(a[1]*p[2]-a[2]*p[1],a[2]*p[0]-a[0]*p[2],a[0]*p[1]-a[1]*p[0]) for p in local]
+    normal = max(crosses,key=lambda p:sum(v*v for v in p)); length = math.hypot(*normal)
+    require(length > 0, 'Collinear polygon has no area.')
+    require(all(abs(sum(normal[i]*p[i] for i in range(3))) <= 1e-6*length for p in local), 'Nonplanar polygons must be tessellated before import.')
+    axis = max(range(3),key=lambda i:abs(normal[i])); axes = [i for i in range(3) if i != axis]
+    projected = [(p[axes[0]],p[axes[1]]) for p in points]
+    require(len(set(projected)) == count, 'Polygon corners repeat or collapse in projection.')
+    for i, point in enumerate(projected):
+        previous, following = projected[(i-1)%count], projected[(i+1)%count]
+        require(orient(previous,point,following) != 0 or between(point,previous,following), 'Polygon boundary doubles back.')
+        for j in range(i+1,count):
+            if j == i+1 or (i == 0 and j == count-1): continue
+            require(not intersects(point,following,projected[j],projected[(j+1)%count]), 'Polygon boundary intersects or touches itself.')
+    extreme = min(range(count),key=lambda i:projected[i])
+    winding = orient(projected[(extreme-1)%count],projected[extreme],projected[(extreme+1)%count])
+    require(winding != 0, 'Polygon has no stable winding.')
+    remaining = list(range(count)); result = []
+    while len(remaining) > 3:
+        for position, b in enumerate(remaining):
+            a, c = remaining[position-1], remaining[(position+1)%len(remaining)]
+            if orient(projected[a],projected[b],projected[c]) != winding: continue
+            blocked = any(all(winding*orient(projected[x],projected[y],projected[p]) >= 0 for x,y in ((a,b),(b,c),(c,a)))
+                          for p in remaining if p not in (a,b,c))
+            if blocked: continue
+            result.append((a,b,c));del remaining[position];break
+        else: raise ValueError('Polygon cannot be triangulated without losing source corners.')
+    require(orient(*(projected[i] for i in remaining)) == winding, 'Polygon triangulation ended with a degenerate face.')
+    result.append(tuple(remaining));return result
+
+
+def material_groups(prim, face_count, UsdGeom, UsdShade):
+    mesh = UsdGeom.Mesh(prim); subsets = sorted(UsdGeom.Subset.GetAllGeomSubsets(mesh),key=lambda s:str(s.GetPath()))
+    if not subsets: return [(prim, range(face_count))]
+    family = UsdShade.MaterialBindingAPI(prim).GetMaterialBindSubsetsFamilyType()
+    require(family in ('partition','nonOverlapping'), str(prim.GetPath())+': materialBind family must be partition or nonOverlapping.')
+    owners = [None]*face_count; groups = []
+    for subset in subsets:
+        validate_prim(subset.GetPrim())
+        indices = subset.GetIndicesAttr().Get()
+        require(indices is not None, str(subset.GetPath())+': missing subset indices.')
+        for face in indices:
+            require(0 <= face < face_count and owners[face] is None, str(subset.GetPath())+': overlapping, duplicate or out-of-range material face.')
+            owners[face] = str(subset.GetPath())
+        if len(indices): groups.append((subset.GetPrim(),sorted(indices)))
+    remaining = [i for i,owner in enumerate(owners) if owner is None]
+    require(family != 'partition' or not remaining, str(prim.GetPath())+': material partition does not cover every face.')
+    valid, reason = UsdGeom.Subset.ValidateFamily(mesh,'face','materialBind')
+    require(valid, str(prim.GetPath())+': invalid material family: '+reason)
+    if remaining: groups.insert(0,(prim,remaining))
+    return groups
+
+
 def write_mesh(prim, output, index, cache, UsdGeom, UsdShade, Ar, Sdf):
     mesh = UsdGeom.Mesh(prim); label = str(prim.GetPath())
     require(mesh.GetSubdivisionSchemeAttr().Get() == 'none', label+': subdivision must be explicitly none; bake the evaluated surface first.')
     require(mesh.ComputeVisibility() != 'invisible' and mesh.ComputePurpose() in ('default','render'), label+': hidden, guide or proxy mesh cannot be silently imported.')
     require(not mesh.GetHoleIndicesAttr().Get(), label+': mesh holes must be baked first.')
-    require(not UsdGeom.Subset.GetAllGeomSubsets(mesh), label+': face subsets are not yet supported; split material parts first.')
     points, counts, indices = mesh.GetPointsAttr().Get(), mesh.GetFaceVertexCountsAttr().Get(), mesh.GetFaceVertexIndicesAttr().Get()
     require(points is not None and len(points)>0 and counts is not None and len(counts)>0 and indices is not None, label+': empty mesh.')
-    require(all(n in (3,4) for n in counts), label+': triangulate polygons with more than four corners first.')
+    require(all(n >= 3 for n in counts), label+': each face needs at least three corners.')
     require(sum(counts) == len(indices) and all(0 <= i < len(points) for i in indices), label+': invalid face topology.')
+    groups = material_groups(prim,len(counts),UsdGeom,UsdShade)
     normals, ni = attribute(prim,'normals',mesh.GetNormalsAttr(),mesh.GetNormalsInterpolation(),UsdGeom)
     uv, ui = attribute(prim,'st',None,None,UsdGeom)
     for data,interp,width in ((normals,ni,3),(uv,ui,2)):
@@ -220,40 +312,61 @@ def write_mesh(prim, output, index, cache, UsdGeom, UsdShade, Ar, Sdf):
             if width == 3: require(math.hypot(*value)>0, label+': zero normal.')
     def attribute_index(interp,face,corner,vertex):
         return {'constant':0,'uniform':face,'vertex':vertex,'varying':vertex,'faceVarying':corner}.get(interp,-1)
-    positions_out, normals_out, uv_out = array.array('f'),array.array('f'),array.array('f')
-    indices_out, mapping = array.array('i'),{}
-    corner = 0
+    # Dense triangle meshes need one compact offset per face, not Python corner tuples.
+    corner_offsets=array.array('q',[0]);triangulated={}
     for face,count in enumerate(counts):
-        for _ in range(count):
-            vertex = indices[corner]; normal_index=attribute_index(ni,face,corner,vertex); uv_index=attribute_index(ui,face,corner,vertex)
-            key=(vertex,normal_index,uv_index)
-            if key not in mapping:
-                mapping[key]=len(positions_out)//3;positions_out.extend(values(points[vertex],3))
-                if normals is not None: normals_out.extend(values(normals[normal_index],3))
-                if uv is not None: uv_out.extend(values(uv[uv_index],2))
-            indices_out.append(mapping[key]);corner+=1
+        corner=corner_offsets[-1]
+        if count > 4:
+            try: triangulated[face]=triangulate_polygon([points[indices[corner+i]] for i in range(count)])
+            except ValueError as error: raise ValueError(label+f': face {face}: '+str(error)) from error
+        corner_offsets.append(corner+count)
     matrix=cache.GetLocalToWorldTransform(prim)
     require(all(math.isfinite(float(matrix[r][c])) for r in range(4) for c in range(4)), label+': non-finite transform.')
     require(all(matrix[r][3]==0 for r in range(3)) and matrix[3][3]==1 and matrix.GetDeterminant()!=0, label+': non-affine or singular transform.')
     transform=[float(matrix[c][r]) for r in range(3) for c in range(3)]+[float(matrix[3][c]) for c in range(3)]
     orientation=str(mesh.GetOrientationAttr().Get());require(orientation in ('leftHanded','rightHanded'),label+': invalid orientation.')
-    material=material_for(prim,output,Ar,Sdf,UsdGeom,UsdShade)
-    require(material['texture'] is None or uv is not None,label+': textured mesh is missing st UVs.')
-    require(all(math.isfinite(v) and 0<=v<=1 for v in material['color']+[material['metallic'],material['roughness']]),label+': invalid material factors.')
-    filename=f'mesh-{index:06d}.bin'
-    with (output/filename).open('wb') as stream:
-        for data in (positions_out,array.array('i',counts),indices_out,normals_out,uv_out):
-            require(data.itemsize==4,'Unsupported platform scalar size.')
-            if sys.byteorder!='little': data.byteswap()
-            data.tofile(stream)
-    return dict(primPath=label,name=prim.GetDisplayName() or str(prim.GetName()),file=filename,vertices=len(positions_out)//3,
-                faces=len(counts),indices=len(indices_out),normals=normals is not None,uv=uv is not None,
-                transform=transform,leftHanded=orientation=='leftHanded',doubleSided=bool(mesh.GetDoubleSidedAttr().Get()),**material)
+    parts=[]
+    for material_prim,faces in groups:
+        material=material_for(material_prim,output,Ar,Sdf,UsdGeom,UsdShade,geometry=prim)
+        require(material['texture'] is None or uv is not None,label+': textured mesh is missing st UVs.')
+        require(all(math.isfinite(v) and 0<=v<=1 for v in material['color']+[material['metallic'],material['roughness']]),label+': invalid material factors.')
+        positions_out,normals_out,uv_out=array.array('f'),array.array('f'),array.array('f')
+        counts_out,indices_out,mapping=array.array('i'),array.array('i'),{}
+        for face in faces:
+            offset=corner_offsets[face]
+            polygons=triangulated.get(face)
+            if polygons is None: polygons=(range(counts[face]),)  # Existing native triangle/quad route.
+            for polygon in polygons:
+                counts_out.append(len(polygon))
+                for source_corner in polygon:
+                    corner=offset+source_corner
+                    vertex=indices[corner];normal_index=attribute_index(ni,face,corner,vertex);uv_index=attribute_index(ui,face,corner,vertex)
+                    key=(vertex,normal_index,uv_index)
+                    if key not in mapping:
+                        mapping[key]=len(positions_out)//3;positions_out.extend(values(points[vertex],3))
+                        if normals is not None:normals_out.extend(values(normals[normal_index],3))
+                        if uv is not None:uv_out.extend(values(uv[uv_index],2))
+                    indices_out.append(mapping[key])
+        filename=f'mesh-{index+len(parts):06d}.bin'
+        with (output/filename).open('wb') as stream:
+            for data in (positions_out,counts_out,indices_out,normals_out,uv_out):
+                require(data.itemsize==4,'Unsupported platform scalar size.')
+                if sys.byteorder!='little':data.byteswap()
+                data.tofile(stream)
+        part_name=prim.GetDisplayName() or str(prim.GetName())
+        if material_prim != prim:part_name+=' / '+(material_prim.GetDisplayName() or str(material_prim.GetName()))
+        parts.append(dict(primPath=str(material_prim.GetPath()),sourcePrimPath=label,name=part_name,file=filename,vertices=len(positions_out)//3,
+                faces=len(counts_out),indices=len(indices_out),normals=normals is not None,uv=uv is not None,
+                transform=transform,leftHanded=orientation=='leftHanded',doubleSided=bool(mesh.GetDoubleSidedAttr().Get()),**material))
+    return parts
 
 
-def validate_prim(prim, allowed=('', 'Xform', 'Scope', 'Mesh', 'Material', 'Shader', 'NodeGraph')):
+def validate_prim(prim, allowed=('', 'Xform', 'Scope', 'Mesh', 'GeomSubset', 'Material', 'Shader', 'NodeGraph')):
     label=str(prim.GetPath());typename=str(prim.GetTypeName())
     require(typename in allowed,label+': unsupported scene primitive '+typename+'; no geometry was silently omitted.')
+    if typename == 'GeomSubset':
+        require(str(prim.GetParent().GetTypeName()) == 'Mesh' and prim.GetAttribute('elementType').Get() == 'face' and prim.GetAttribute('familyName').Get() == 'materialBind',
+                label+': only materialBind face subsets directly under a mesh are supported.')
     if typename != 'ParticleField3DGaussianSplat':
         suspicious = bool(prim.GetAttribute('radiance:sphericalHarmonicsCoefficients')) or bool(prim.GetAttribute('radiance:sphericalHarmonicsCoefficientsh'))
         suspicious = suspicious or any(str(api).startswith('ParticleField') or any(word in str(api).lower() for word in ('gaussian','splat','nurec')) for api in prim.GetAppliedSchemas())
@@ -280,7 +393,7 @@ def convert(input_path, output):
     cache=UsdGeom.XformCache(Usd.TimeCode.Default());parts=[];warnings=[]
     for prim in Usd.PrimRange.Stage(stage,Usd.TraverseInstanceProxies()):
         validate_prim(prim)
-        if prim.IsA(UsdGeom.Mesh): parts.append(write_mesh(prim,output,len(parts),cache,UsdGeom,UsdShade,Ar,Sdf))
+        if prim.IsA(UsdGeom.Mesh): parts.extend(write_mesh(prim,output,len(parts),cache,UsdGeom,UsdShade,Ar,Sdf))
     require(parts,'USD contains no static mesh geometry.')
     if not stage.HasAuthoredMetadata('metersPerUnit'): warnings.append('USD units were unauthored; the OpenUSD 0.01 metre fallback was used.')
     if not stage.HasAuthoredMetadata('upAxis'): warnings.append('USD upAxis was unauthored; the OpenUSD fallback axis was used.')

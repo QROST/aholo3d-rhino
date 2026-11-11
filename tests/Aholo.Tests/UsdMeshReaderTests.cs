@@ -74,6 +74,15 @@ public sealed class UsdMeshReaderTests
         Assert.Throws<OperationCanceledException>(()=>UsdMeshReader.Read("missing.usd",ct:ct.Token));
         Assert.Throws<OperationCanceledException>(()=>UsdMeshReader.ReadBridgeOutput("missing",ct.Token));
     }
+    [Fact]
+    public void MaterialPartKeepsDistinctSubsetAndSourceMeshProvenance()
+    {
+        using var f=new Fixture();f.Manifest();var old=Assert.Single(UsdMeshReader.ReadBridgeOutput(f.Directory).Parts);
+        Assert.Equal(old.PrimPath,old.SourcePrimPath);
+        f.Part["primPath"]="/World/Mesh/Red";f.Part["sourcePrimPath"]="/World/Mesh";f.Manifest();
+        var part=Assert.Single(UsdMeshReader.ReadBridgeOutput(f.Directory).Parts);Assert.Equal("/World/Mesh/Red",part.PrimPath);Assert.Equal("/World/Mesh",part.SourcePrimPath);
+        f.Part["sourcePrimPath"]="/World/Other";f.Manifest();Assert.Throws<InvalidDataException>(()=>UsdMeshReader.ReadBridgeOutput(f.Directory));
+    }
     private sealed class Fixture:IDisposable
     {
         public static double[] Matrix=>new double[]{2,0,0,0,3,0,0,0,-4,10,20,30};
