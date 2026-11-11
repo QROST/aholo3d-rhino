@@ -1,6 +1,6 @@
 # Realtime cloud scene editing
 
-CuriousArc · qrost. Local implementation after alpha.11; native and live service acceptance pending.
+CuriousArc · qrost. Candidate: 0.2.0-alpha.12; native and live service acceptance pending.
 
 ## User flow
 
