@@ -327,3 +327,8 @@ Release compilation passed with zero warnings/errors. **1382 offline .NET tests 
 The standard-library `fixtures/gaussian-antialias-verify.py` passed 35 independent 120-digit Decimal determinant cases and 24 independently calculated affine projection/integral cases. It is now in the Mac/Windows CI definition; no remote CI execution is implied. Actual OpenUSD 26.11 and the public C# writer/reader verified the paired GS USDA fixture, including byte reproducibility, original opacity 0.5, opposing antialias flags, matching source attributes, units and placement.
 
 Two local read-only reviewers supplied analysis; the primary reproduced the reported numerical failure before fixing it and ran all checks. The prepared factor representation adds 24 bytes per Gaussian; CPU allocation evidence is not native frame-rate evidence. Mac/Windows viewport appearance, atlas quantization, attribute-change redraw, nested-object lifecycle and save/reopen remain manual acceptance items. No computer use, Rhino automation, authenticated service call, installation, push or publication occurred; remote allowance was insufficient for new delegation.
+
+
+### Alpha.23 source checkpoint
+
+Candidate `0.2.0-alpha.23` includes `940c3cb` and the antialiasing fixture/acceptance document. Numeric assembly version remains `0.2.0.0`. Final archive verification binds clean source and complete platform payload bytes. Both archives are built on Mac; native Mac/Windows display interaction and service behavior remain pending. No installation or publication is part of this checkpoint.

@@ -431,3 +431,8 @@ The native projection request now captures the actual GS leaf's resolved antiali
 Two local read-only reviewers checked the math and native snapshot/cache chain. The primary reproduced a near-singular valid shear that caused a negative variance in the newly exercised compensation path, then changed both projectors to use a principal-axis Gram factor. The prepared representation adds 24 bytes per GS while retaining zero per-GS projection/sort allocations. Balanced exponents and compensated products retain tiny representable area factors. The independent Decimal/matrix oracle, broad regression and reproducible paired USD sample validate offline behavior; native appearance remains pending.
 
 Remote allowance was still insufficient (135 tokens); no new remote inference ran. The source defaults to classic mode when no antialias flag is declared. No source opacity is baked, no geometry-count ceiling is added, and the existing 256-level display opacity limit remains explicit. See [behavior and native acceptance](gs-antialiasing.md).
+
+
+### Candidate checkpoint — alpha.23
+
+Packages per-instance GS antialiasing and stable Gram projection from `940c3cb`, with 1382 passing offline tests, independent Decimal/matrix oracles, reproducible OpenUSD fixture and zero-warning/error Release compilation. Stable plugin/assembly/Yak identities remain unchanged. The package includes the paired GS fixture and manual checklist. Local Mac/Windows archives do not establish native appearance, performance or live service acceptance and are not installed or published automatically.
