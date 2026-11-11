@@ -237,3 +237,8 @@ Consolidates remembered OAuth sessions (`6a28504`) and the independently verifie
 Implemented International/China routing, separate saved API Key/OAuth sessions, explicit Settings selection, task recovery and original-region realtime cleanup. Global credential admission retains its lock path and migrates to schema 2; unmarked old records remain International. Failed mutations reconcile retained connections with generation guards. Account cancellation bypasses foreground uploads through authenticated private IPC, including cancel-before-begin tombstones and a second dispatch check after startup.
 
 Four remote/gpt-6.1-sol tasks supplied architecture, storage review, UI integration review and final cancellation review. The parent verified and repaired the escaped-token envelope boundary, connection recovery, stale selectors and startup cancellation window. Final local evidence: 982 passing offline tests, both synthetic local-loopback PKCE flows, actual private-pipe cancellation under a held foreground gate, and passing separate-process OAuth storage fixtures. Native UI/OS-store, Windows execution and actual regional services remain pending.
+
+
+## Candidate checkpoint — alpha.8
+
+Packages the regional integration (`097b2b7`) as `0.2.0-alpha.8`, retaining stable assembly/package identities and English-default/Chinese-localized UI. OAuth remains optional and does not grant REST API Key access. The new API credential schema requires closing older plugin instances before upgrading. Exact archive provenance is recorded in the local packaging receipts; native/live acceptance and the broader parity backlog remain open.
