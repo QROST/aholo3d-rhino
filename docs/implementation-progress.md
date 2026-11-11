@@ -363,3 +363,8 @@ Packages effective parent and supported Brep/extrusion face-material capture fro
 Added requested/default/surface channel routing, effective-parent-channel checks and native plane/box/cylinder/sphere baking for private mesh/surface/extrusion snapshots. Mesh surface UVs now use their original surface parameters when present rather than blindly copying the current UV array. Bitmap and mapping UVW operations remain separate, with portable affine and GLB-coordinate evidence. Normals are computed before native seam splitting, and surface calculation checks its actual success result after clearing caches.
 
 Two read-only native reviewers identified surface zero-array failure behavior, normal seam ordering and the unsupported legacy-channel assumption. The primary implemented and verified the fixes. Packed remeshed Brep/extrusion surface mapping, parent mapping precedence, WCS/custom projections and native visual acceptance remain open. Remote allowance was insufficient for useful work; no third-party inference was dispatched.
+
+
+### Candidate checkpoint — alpha.18
+
+Packages supported object bitmap mapping and corrected mesh surface-UV capture from `22546e5`. Native mapping works on owned geometry copies; mapping and bitmap placement are applied once each, with seam normals preserved. Evidence: 1234 passing offline tests and zero-warning/error Release compilation. The four-corner bitmap checklist explicitly leaves native orientation, seams and image persistence pending. Stable plugin/assembly/Yak identities remain unchanged; local packaging does not install or publish.

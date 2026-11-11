@@ -263,3 +263,8 @@ Candidate `0.2.0-alpha.17` contains the verified portable material-binding chang
 Release compilation passed with zero warnings/errors. **1234 offline .NET tests passed**, zero failed/skipped. Thirty-three new cases cover requested/default/surface selection, relevant versus unrelated parent channels, legacy-channel refusal, independent noncommuting repeat/rotation/offset oracles, one V conversion, affine matrix restrictions, finite/float-range failure, cancellation and production GLB UV/vertex correspondence. The existing packaged 2×2 RGBA bitmap was locally decoded to confirm the manual checklist's corner colors and alpha values.
 
 Two local read-only reviews verified fixed RhinoCommon 8.32 interfaces and official 8.x implementation details. Surface failure detection now uses the boolean API after cache invalidation; source normal computation precedes seam duplication. The primary inspected changes, built the adapter and ran all stated tests. No Rhino execution, native visual validation, Windows runtime, authenticated API call, installation, push or publication occurred. The native implementation is compiled and reviewed, not visually accepted.
+
+
+### Alpha.18 source checkpoint
+
+Candidate `0.2.0-alpha.18` contains the reviewed bitmap mapping changes from `22546e5`, supported by 1234 passing offline tests. Version metadata preserves assembly version `0.2.0.0`. Archive verification binds the clean source and all payload bytes for both platforms; a Windows archive produced on Mac does not establish Windows execution. Native mapping appearance, source UV parity, seam smoothing, Undo/persistence and real render ingestion remain unaccepted.
