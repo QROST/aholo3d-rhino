@@ -351,3 +351,8 @@ Packages the USD flat-normal and planar concave-quad correction from `469625c`, 
 Separated effective native material binding from scalar/bitmap snapshot decoding. Top-level ByParent now uses layer semantics; nested instances retain their actual parent base, including face-channel lookup. Brep overrides use explicit original faces; extrusion components map only against the unsplit Brep form. Unsupported or missing bindings fail before export/upload instead of flattening to one appearance. All owned geometry copies are cleaned on failure. Ordinary mesh objects retain object-level material support.
 
 Cloud and local export now share native quad triangulation on double-precision copies, with checks against silent corner collapse. Two read-only reviewers identified unassigned-parent, renderer-reference and default-material cases; these were corrected, together with a triangle-count integrity check. Native host appearance and the component behavior are still unaccepted; surface textures and general shader graphs remain separate gaps. Remote allowance remained insufficient; no new third-party call was made.
+
+
+### Candidate checkpoint — alpha.17
+
+Packages effective parent and supported Brep/extrusion face-material capture from `72857e3`, plus shared native quad triangulation. Evidence: 1201 passing offline tests and zero-warning/error compilation against the pinned Rhino SDK. Existing IDs and the Yak slug are unchanged. Face-material and new native component behavior remain pending manual Mac/Windows acceptance; complex shaders and surface bitmap mapping remain outside this change. Local candidate packaging does not install or publish.
