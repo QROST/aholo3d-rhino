@@ -4714,5 +4714,13 @@
   {
     "English": "Texture mapping did not preserve vertex normals. Repair the mapping or disable bitmap export.",
     "Chinese": "纹理映射未保留顶点法线。请修复映射或关闭位图导出。"
+  },
+  {
+    "English": "This extrusion has different face materials and surface UVs. Convert it to a polysurface, use explicit object mapping, or disable bitmap export.",
+    "Chinese": "此拉伸体包含不同的面材质和曲面 UV。请将它转换为多重曲面、改用显式对象映射，或关闭位图导出。"
+  },
+  {
+    "English": "Rhino could not prepare complete original render meshes. Repair the object or regenerate its render meshes before exporting surface textures.",
+    "Chinese": "Rhino 未能准备完整的原始渲染网格。请修复对象或重新生成渲染网格后再导出曲面贴图。"
   }
 ]

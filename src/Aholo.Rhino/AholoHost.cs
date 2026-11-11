@@ -166,18 +166,18 @@ internal static partial class AholoHost
                 continue;
             }
             var objectChannels=obj.GetTextureChannels();
-            var generated = CaptureMeshParts(obj,binding,doc);
+            var generated = CaptureMeshParts(obj,binding,doc,includeTextures,objectChannels,parentChannels);
             try
             {
                 if (generated.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("A selected object cannot be converted to a mesh. Nothing has been uploaded."));
                 foreach (var part in generated)
                 {
                     Mesh mesh=part.Mesh;
-                    var appearance=CaptureMaterial(part.Binding,doc,includeTextures);
+                    var appearance=part.Appearance;
                     // Compute smooth source normals before UV seam splitting; native duplication preserves them.
                     if (mesh.Normals.Count != mesh.Vertices.Count && !mesh.Normals.ComputeNormals())
                         throw new InvalidOperationException(UiText.Get("Cannot compute valid mesh normals. Repair the selected mesh before rendering."));
-                    float[]? uv = appearance.Texture is { } bitmap ? CaptureTextureCoordinates(obj, mesh, bitmap, objectChannels, parentChannels) : null;
+                    float[]? uv = appearance.Texture is { } bitmap ? CaptureTextureCoordinates(obj, mesh, bitmap, objectChannels, parentChannels,part.SurfaceUv) : null;
                     if (appearance.Texture is not null) textures.Add(meshes.Count, appearance.Texture.Source);
                     // Read attributes after seam duplication. Never recompute smoothing on split adjacency.
                     if(mesh.Normals.Count!=mesh.Vertices.Count)

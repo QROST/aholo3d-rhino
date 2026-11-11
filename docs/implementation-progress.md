@@ -368,3 +368,10 @@ Two read-only native reviewers identified surface zero-array failure behavior, n
 ### Candidate checkpoint — alpha.18
 
 Packages supported object bitmap mapping and corrected mesh surface-UV capture from `22546e5`. Native mapping works on owned geometry copies; mapping and bitmap placement are applied once each, with seam normals preserved. Evidence: 1234 passing offline tests and zero-warning/error Release compilation. The four-corner bitmap checklist explicitly leaves native orientation, seams and image persistence pending. Stable plugin/assembly/Yak identities remain unchanged; local packaging does not install or publish.
+
+
+## Original surface UV capture after alpha.18
+
+Added original per-face render-mesh capture for surface-textured Breps and a whole-cache route for extrusions whose effective face material identities and supported appearances agree. All consumed materials are decoded first. Missing caches receive one whole-object preparation with per-object/document parameters, followed by actual per-face completeness checks and fresh geometry lookup. Copies retain source packing; no face-order guess or remeshing fallback can silently move the bitmap.
+
+Capture distinguishes authored meshes, original render meshes and newly tessellated meshes. Only authored meshes may derive missing surface parameters from their current UVs; original caches must retain their own parameters and packing. Runtime rendering caches may be populated, but source geometry/assignments are not edited and failed capture never clears existing caches. Two independent local read-only reviews checked SDK ownership, face association, extrusion limitations and failure handling. A review finding moved mapping-type/UVW/object-transform validation ahead of expensive native cache preparation. Remote allowance remains insufficient; no new third-party inference was dispatched. Native cache/UV and both-platform visual behavior remain pending.

@@ -268,3 +268,10 @@ Two local read-only reviews verified fixed RhinoCommon 8.32 interfaces and offic
 ### Alpha.18 source checkpoint
 
 Candidate `0.2.0-alpha.18` contains the reviewed bitmap mapping changes from `22546e5`, supported by 1234 passing offline tests. Version metadata preserves assembly version `0.2.0.0`. Archive verification binds the clean source and all payload bytes for both platforms; a Windows archive produced on Mac does not establish Windows execution. Native mapping appearance, source UV parity, seam smoothing, Undo/persistence and real render ingestion remain unaccepted.
+
+
+## Original surface cache adapter (2026-11-11 UTC)
+
+The native adapter compiles against fixed RhinoCommon 8.32 with zero warnings/errors. The complete existing offline suite passed **1234 tests**, zero failed/skipped, including material/UV writer and bilingual resource regressions. The new original-cache branch is host code: these tests do not execute Rhino's cache generation, packed UV computation or extrusion meshing. No additional native execution is claimed.
+
+Two independent read-only reviews checked the official borrowed-mesh, duplicate packing, whole-object cache preparation and component material contracts. The primary implemented the adapter, corrected a compile-time variable-name conflict, retained original-material identity when considering extrusion aggregation, and moved mapping-type/transform rejection before cache preparation following review. The final native adapter was rebuilt after that ordering fix. Detailed missing/partial cache, mixed material, stale UV and source-preservation cases were added to the manual checklist. No Rhino automation, Windows runtime, authenticated service call, installation, push or publication occurred.

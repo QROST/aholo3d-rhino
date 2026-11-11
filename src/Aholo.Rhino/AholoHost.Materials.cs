@@ -10,7 +10,8 @@ internal static partial class AholoHost
 {
     // Borrowed document material references live only inside synchronous UI capture.
     private sealed record MaterialBinding(Material? Material,Color FallbackColor);
-    private sealed record CapturedMeshPart(Mesh Mesh,MaterialBinding Binding);
+    private enum SurfaceUvSource { AuthoredMesh, OriginalRenderMesh, Remeshed }
+    private sealed record CapturedMeshPart(Mesh Mesh,MaterialSnapshot Appearance,SurfaceUvSource SurfaceUv);
 
     private static MaterialBinding CaptureMaterialBinding(RhinoObject obj,RhinoDoc doc,Lazy<MaterialBinding>? parent)
     {
@@ -37,13 +38,26 @@ internal static partial class AholoHost
     private static InvalidOperationException MissingFaceMaterial()=>new(UiText.Get("A face material is missing. Repair its material assignment before export."));
     private static InvalidOperationException UnsupportedFaceMaterial()=>new(UiText.Get("A sub-object material cannot be resolved. Convert the object to separate material parts before export."));
 
-    private static CapturedMeshPart[] CaptureMeshParts(RhinoObject obj,MaterialBinding basis,RhinoDoc doc)
+    private static CapturedMeshPart[] CaptureMeshParts(RhinoObject obj,MaterialBinding basis,RhinoDoc doc,bool includeTextures,IReadOnlyCollection<int> objectChannels,IReadOnlyCollection<int> parentChannels)
     {
         var result=new List<CapturedMeshPart>();
-        void Add(Mesh[]? meshes,MaterialBinding material)
+        var prepared=new Dictionary<MaterialBinding,(MaterialSnapshot Appearance,bool Surface)>();
+        (MaterialSnapshot Appearance,bool Surface) Prepare(MaterialBinding binding)
+        {
+            if(prepared.TryGetValue(binding,out var existing))return existing;
+            var appearance=CaptureMaterial(binding,doc,includeTextures);
+            bool surface=false;
+            if(appearance.Texture is { } bitmap)
+            {
+                using var mapping=ResolveTextureMapping(obj,bitmap,objectChannels,parentChannels,out _);
+                surface=mapping.MappingType==global::Rhino.Render.TextureMappingType.SurfaceParameters;
+            }
+            var value=(appearance,surface);prepared.Add(binding,value);return value;
+        }
+        void Add(Mesh[]? meshes,MaterialSnapshot appearance,SurfaceUvSource source=SurfaceUvSource.Remeshed)
         {
             if(meshes is null||meshes.Length==0)throw new InvalidOperationException(UiText.Get("A selected object cannot be converted to a mesh. Nothing has been uploaded."));
-            foreach(var mesh in meshes)result.Add(new(mesh,material));
+            foreach(var mesh in meshes)result.Add(new(mesh,appearance,source));
         }
         MaterialBinding[] FaceBindings(Brep brep)=>FaceMaterialBindings.Resolve(brep.Faces.Select(f=>f.MaterialChannelIndex).ToArray(),basis,
             (material,channel)=>material.Material?.MaterialChannelIdFromIndex(channel)??Guid.Empty,
@@ -75,15 +89,45 @@ internal static partial class AholoHost
                 mapped[face.Index]=new(material,basis.FallbackColor);
             }
         }
-        void BrepParts(Brep brep,MaterialBinding[] bindings,bool separate)
+        void BrepParts(Brep brep,MaterialBinding[] bindings,bool separate,bool originalBrep)
         {
-            if(!separate){Add(Mesh.CreateFromBrep(brep,MeshingParameters.Default),basis);return;}
+            if(bindings.Length==0)throw UnsupportedFaceMaterial();
+            var appearances=bindings.Select(Prepare).ToArray();
+            if(appearances.Any(a=>a.Surface))
+            {
+                // Keep both source material identity and the entire supported appearance when merging an extrusion.
+                if(!originalBrep&&(bindings.Any(b=>b.Material?.Id!=bindings[0].Material?.Id)||appearances.Any(a=>a.Appearance!=appearances[0].Appearance)))
+                    throw new InvalidOperationException(UiText.Get("This extrusion has different face materials and surface UVs. Convert it to a polysurface, use explicit object mapping, or disable bitmap export."));
+                // Generate a missing whole-object cache once; never repack individual faces.
+                EnsureOriginalRenderMeshes(obj);
+                if(originalBrep)
+                {
+                    if(obj.Geometry is not Brep current||current.Faces.Count!=bindings.Length)throw OriginalRenderMeshMissing();
+                    for(int face=0;face<current.Faces.Count;face++)
+                    {
+                        using var cached=current.Faces[face].GetMesh(MeshType.Render);
+                        if(cached is null)throw OriginalRenderMeshMissing();
+                        Add(new[]{cached.DuplicateMesh()},appearances[face].Appearance,SurfaceUvSource.OriginalRenderMesh);
+                    }
+                }
+                else
+                {
+                    // An extrusion cache has no public original-component-to-mesh-face correspondence.
+                    var appearance=appearances[0].Appearance;
+                    if(obj.Geometry is not Extrusion current)throw OriginalRenderMeshMissing();
+                    using var cached=current.GetMesh(MeshType.Render);
+                    if(cached is null)throw OriginalRenderMeshMissing();
+                    Add(new[]{cached.DuplicateMesh()},appearance,SurfaceUvSource.OriginalRenderMesh);
+                }
+                return;
+            }
+            if(!separate){Add(Mesh.CreateFromBrep(brep,MeshingParameters.Default),appearances[0].Appearance);return;}
             // A whole-brep mesh array has no documented face correspondence. Keep each source face explicit.
             for(int face=0;face<brep.Faces.Count;face++)
             {
                 using var single=brep.Faces[face].DuplicateFace(false);
                 if(single is null)throw UnsupportedFaceMaterial();
-                Add(Mesh.CreateFromBrep(single,MeshingParameters.Default),bindings[face]);
+                Add(Mesh.CreateFromBrep(single,MeshingParameters.Default),appearances[face].Appearance);
             }
         }
         try
@@ -92,11 +136,12 @@ internal static partial class AholoHost
             {
                 case Mesh mesh:
                     if(obj.HasSubobjectMaterials)throw UnsupportedFaceMaterial();
-                    Add(new[]{mesh.DuplicateMesh()},basis);break;
+                    var appearance=Prepare(basis).Appearance;
+                    Add(new[]{mesh.DuplicateMesh()},appearance,SurfaceUvSource.AuthoredMesh);break;
                 case Brep brep:
                     var bindings=FaceBindings(brep);
                     ComponentBindings(bindings,component=>component);
-                    BrepParts(brep,bindings,brep.Faces.Any(f=>f.MaterialChannelIndex!=0)||obj.SubobjectMaterialComponents.Length!=0||obj.HasSubobjectMaterials);break;
+                    BrepParts(brep,bindings,brep.Faces.Any(f=>f.MaterialChannelIndex!=0)||obj.SubobjectMaterialComponents.Length!=0||obj.HasSubobjectMaterials,true);break;
                 case Extrusion extrusion:
                     // Component mapping is defined only for the unsplit Brep form.
                     using(var converted=extrusion.ToBrep(false))
@@ -108,7 +153,7 @@ internal static partial class AholoHost
                             if(component.ComponentIndexType is not (ComponentIndexType.ExtrusionWallSurface or ComponentIndexType.ExtrusionCapSurface))throw UnsupportedFaceMaterial();
                             return extrusion.GetBrepFormComponentIndex(component);
                         });
-                        BrepParts(converted,mapped,components.Length!=0||converted.Faces.Any(f=>f.MaterialChannelIndex!=0));
+                        BrepParts(converted,mapped,components.Length!=0||converted.Faces.Any(f=>f.MaterialChannelIndex!=0),false);
                     }
                     break;
                 default:throw UnsupportedFaceMaterial();
@@ -116,5 +161,37 @@ internal static partial class AholoHost
             return result.ToArray();
         }
         catch{foreach(var part in result)part.Mesh.Dispose();throw;}
+    }
+
+    private static InvalidOperationException OriginalRenderMeshMissing()=>new(UiText.Get("Rhino could not prepare complete original render meshes. Repair the object or regenerate its render meshes before exporting surface textures."));
+    private static void EnsureOriginalRenderMeshes(RhinoObject obj)
+    {
+        var document=obj.Document;
+        if(document is null||obj.IsDeleted)throw OriginalRenderMeshMissing();
+        uint documentSerial=document.RuntimeSerialNumber;
+        bool Complete()
+        {
+            if(obj.IsDeleted||obj.Document?.RuntimeSerialNumber!=documentSerial)return false;
+            switch(obj.Geometry)
+            {
+                case Brep brep:
+                    if(brep.Faces.Count==0)return false;
+                    foreach(var face in brep.Faces)
+                    {
+                        using var mesh=face.GetMesh(MeshType.Render);
+                        if(mesh is null||mesh.Vertices.Count==0||mesh.Faces.Count==0)return false;
+                    }
+                    return true;
+                case Extrusion extrusion:
+                    using(var mesh=extrusion.GetMesh(MeshType.Render))
+                        return mesh is not null&&mesh.Vertices.Count>0&&mesh.Faces.Count>0;
+                default:return false;
+            }
+        }
+        if(Complete())return;
+        using var parameters=obj.GetRenderMeshParameters();
+        if(parameters is null)throw OriginalRenderMeshMissing();
+        _=obj.CreateMeshes(MeshType.Render,parameters,false);
+        if(!Complete())throw OriginalRenderMeshMissing();
     }
 }

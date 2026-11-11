@@ -43,22 +43,31 @@ internal static partial class AholoHost
         try{return TextureUvTransform.FromMatrix(new[]{m.M00,m.M01,m.M02,m.M03,m.M10,m.M11,m.M12,m.M13,m.M20,m.M21,m.M22,m.M23,m.M30,m.M31,m.M32,m.M33});}
         catch(ArgumentException){throw TextureUnsupported();}
     }
-    private static float[] CaptureTextureCoordinates(RhinoObject obj,Mesh mesh,TextureSnapshot bitmap,IReadOnlyCollection<int> objectChannels,IReadOnlyCollection<int> parentChannels)
+    private static TextureMapping ResolveTextureMapping(RhinoObject obj,TextureSnapshot bitmap,IReadOnlyCollection<int> objectChannels,IReadOnlyCollection<int> parentChannels,out Transform mappingTransform)
     {
         int? channel=TextureMappingSelection.Select(bitmap.Channel,bitmap.SurfaceParameters,objectChannels,parentChannels);
-        Transform mappingTransform=Transform.Identity;
-        using var mapping=channel is { } selected?obj.GetTextureMapping(selected,out mappingTransform):TextureMapping.CreateSurfaceParameterMapping();
-        if(mapping is null||!mapping.IsValid)throw TextureUnsupported();
-        _=ReadTextureUvTransform(mapping.UvwTransform); // Native mapping applies it; validation must not apply it again.
+        mappingTransform=Transform.Identity;
+        var mapping=channel is { } selected?obj.GetTextureMapping(selected,out mappingTransform):TextureMapping.CreateSurfaceParameterMapping();
+        if(mapping is null)throw TextureUnsupported();
+        try
+        {
+            if(!mapping.IsValid||mapping.MappingType is not (TextureMappingType.SurfaceParameters or TextureMappingType.PlaneMapping or TextureMappingType.BoxMapping or TextureMappingType.CylinderMapping or TextureMappingType.SphereMapping))throw TextureUnsupported();
+            _=ReadTextureUvTransform(mapping.UvwTransform); // Native mapping applies it; never apply it twice.
+            if(!mappingTransform.IsValid||mappingTransform.M30!=0||mappingTransform.M31!=0||mappingTransform.M32!=0||mappingTransform.M33!=1||!mappingTransform.TryGetInverse(out _))throw TextureUnsupported();
+            return mapping;
+        }
+        catch{mapping.Dispose();throw;}
+    }
+    private static float[] CaptureTextureCoordinates(RhinoObject obj,Mesh mesh,TextureSnapshot bitmap,IReadOnlyCollection<int> objectChannels,IReadOnlyCollection<int> parentChannels,SurfaceUvSource surfaceSource)
+    {
+        using var mapping=ResolveTextureMapping(obj,bitmap,objectChannels,parentChannels,out var mappingTransform);
         if(mapping.MappingType==TextureMappingType.SurfaceParameters)
         {
-            // Freshly remeshed individual Brep faces do not retain the original packed surface domains.
-            if(obj.Geometry is not Mesh)throw new InvalidOperationException(UiText.Get("Surface-parameter textures on surfaces need their original packed UVs. Use an explicit object mapping or a textured mesh, or disable bitmap export."));
-            // Preserve existing surface parameters. If absent, derive them from authored mesh UVs when possible.
-            _=mesh.SetSurfaceParametersFromTextureCoordinates();
+            if(surfaceSource==SurfaceUvSource.Remeshed)throw new InvalidOperationException(UiText.Get("Surface-parameter textures on surfaces need their original packed UVs. Use an explicit object mapping or a textured mesh, or disable bitmap export."));
+            // Only authored meshes can derive missing surface parameters from their current UVs.
+            // Original render-cache UVs may belong to another mapping; their m_S and packing are authoritative.
+            if(surfaceSource==SurfaceUvSource.AuthoredMesh)_=mesh.SetSurfaceParametersFromTextureCoordinates();
         }
-        else if(mapping.MappingType is not (TextureMappingType.PlaneMapping or TextureMappingType.BoxMapping or TextureMappingType.CylinderMapping or TextureMappingType.SphereMapping))throw TextureUnsupported();
-        if(!mappingTransform.IsValid||mappingTransform.M30!=0||mappingTransform.M31!=0||mappingTransform.M32!=0||mappingTransform.M33!=1||!mappingTransform.TryGetInverse(out _))throw TextureUnsupported();
         mesh.InvalidateCachedTextureCoordinates(false);
         mesh.TextureCoordinates.Destroy();
         if(mapping.MappingType==TextureMappingType.SurfaceParameters)
