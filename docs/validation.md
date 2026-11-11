@@ -1,6 +1,10 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.24. Earlier entries below retain their original scope.
+Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.25. Earlier entries below retain their original scope.
+
+## Integrated candidate alpha.25 — 2026-11-11 UTC
+
+GS sorting source `4ebfd6e` passes **1,421 .NET tests**, zero failures/skips, and Release compilation with zero warnings/errors. The exact 64-bit depth fast path keeps every visible GS and the existing equal-depth compositing order; small/arbitrary-order inputs retain merge sorting. A fixed 20-case CPU benchmark compares five paired samples against the frozen alpha.24 implementation and independently checks every index against stable LINQ ordering. The recorded 1,048,576-value random-depth median is 83.23 ms versus 228.48 ms; this is not native navigation FPS or Windows evidence. [Raw measurements, source hashes and scope](gs-sort-performance.md). Final version metadata and archive validation are separate; native/service acceptance, installation and publication remain pending.
 
 ## Integrated candidate alpha.24 — 2026-11-11 UTC
 
@@ -36,7 +40,7 @@ An independent local OpenUSD check parsed a production-generated scene with Rect
 
 Packaging verifies both platform-tagged archives against the allowlisted files and records commit/dirty state, SHA-256 and pending host/service acceptance in `artifacts/latest-package-{mac,win}.json`. Those receipts are the authority for whether an archive was produced; source compilation on a Mac does not prove Windows execution. No GUI automation, installation, push or publication is part of this candidate preparation.
 
-The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha24) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
+The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha25) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
 
 ## Integrated development candidate — 2026-11-09
 
