@@ -4950,5 +4950,21 @@
   {
     "English": "GS display and diagnostics",
     "Chinese": "GS 显示与诊断"
+  },
+  {
+    "English": "Restore the connection before preparing a render.",
+    "Chinese": "请先恢复连接，再准备渲染。"
+  },
+  {
+    "English": "This service client cannot submit a render bound to its original connection.",
+    "Chinese": "当前服务客户端无法使用原始连接授权提交渲染。"
+  },
+  {
+    "English": "Another export is writing this destination. Wait for it to finish or choose a different filename.",
+    "Chinese": "另一个导出操作正在写入此文件。请等待完成，或选择其他文件名。"
+  },
+  {
+    "English": "The background request timed out. Recover the original task from history; do not resubmit an unconfirmed operation.",
+    "Chinese": "后台请求超时。请从历史记录恢复原任务，不要重新提交结果尚未确认的操作。"
   }
 ]

@@ -89,6 +89,36 @@ public sealed class AholoSession : IAsyncDisposable
             if(expected==generation && task.Status=="MeshProcessing"&&!ct.IsCancellationRequested&&!paused.ContainsKey(task.Id)&&!revoked.Contains(task.Id))renderIntents.TryAdd(task.Id,0);
         Observe(task);return task;
     }
+    /// <summary>Bind a render to the connection before local preparation, including work performed by another document.</summary>
+    public async Task<LocalTask> RenderPreparedAsync(Func<CancellationToken,Task<RenderRequest>> prepare,CancellationToken ct=default)
+    {
+        ArgumentNullException.ThrowIfNull(prepare);
+        long expected;ConnectionState original;CancellationToken authorityToken;
+        lock(intentGate)
+        {
+            expected=generation;original=connection;authorityToken=authority.Token;
+            if(!original.Connected||string.IsNullOrWhiteSpace(original.ConnectionId)||string.IsNullOrWhiteSpace(original.CredentialEpoch))
+                throw new InvalidOperationException("Restore the connection before preparing a render.");
+        }
+        using var preparation=CancellationTokenSource.CreateLinkedTokenSource(ct,authorityToken);
+        LocalTask task;
+        try
+        {
+            preparation.Token.ThrowIfCancellationRequested();
+            // Begin on the caller context so native capture can run on Rhino's UI thread.
+            var request=await prepare(preparation.Token).ConfigureAwait(false);
+            preparation.Token.ThrowIfCancellationRequested();
+            lock(intentGate)
+                if(expected!=generation)throw new LocalOperationCanceledException();
+            // The epoch also closes the gap between this check and transport admission.
+            task=await Client.RenderWithEpochAsync(request,original.CredentialEpoch!,preparation.Token).ConfigureAwait(false);
+        }
+        catch(OperationCanceledException) when(authorityToken.IsCancellationRequested){throw new LocalOperationCanceledException();}
+        lock(intentGate)
+            if(expected==generation&&task.Status=="MeshProcessing"&&!ct.IsCancellationRequested&&!paused.ContainsKey(task.Id)&&!revoked.Contains(task.Id))renderIntents.TryAdd(task.Id,0);
+        // A reply may already represent a submitted task. Retain it even when continuation was revoked.
+        Observe(task);return task;
+    }
     public void PauseTask(Guid id)
     {
         lock(intentGate){paused[id]=0;revoked.Add(id);taskVersions[id]=taskVersions.GetValueOrDefault(id)+1;renderIntents.TryRemove(id,out _);}

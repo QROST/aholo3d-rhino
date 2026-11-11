@@ -18,6 +18,7 @@ public static class UsdGaussianWriter
         string destination = Path.GetFullPath(path), extension = Path.GetExtension(destination).ToLowerInvariant();
         if (extension is not (".usd" or ".usda" or ".usdc" or ".usdz")) throw new NotSupportedException("Choose a USD, USDA, USDC or USDZ export filename.");
         if (!Directory.Exists(Path.GetDirectoryName(destination))) throw new DirectoryNotFoundException("The USD export directory does not exist.");
+        using var destinationLease=OutputFileLease.Acquire(destination,ct);
         Validate(scene, ct);
         string workspace = UsdBridgeProcess.CreateWorkspace();
         string pending = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";

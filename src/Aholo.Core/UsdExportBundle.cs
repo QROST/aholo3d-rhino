@@ -12,6 +12,7 @@ internal static class UsdExportBundle
         if (extension is not (".usd" or ".usda" or ".usdc" or ".usdz")) throw new ArgumentException(UiText.Get("Use a .usd, .usda, .usdc or .usdz file extension."));
         string parent = Path.GetDirectoryName(destination)!;
         if (!Directory.Exists(parent)) throw new DirectoryNotFoundException(parent);
+        using var destinationLease=OutputFileLease.Acquire(destination,ct);
         string id = Guid.NewGuid().ToString("N"), assets = "usd-assets-" + id;
         string workspace = UsdBridgeProcess.CreateWorkspace();
         string pending = destination + "." + id + ".tmp", pendingAssets = Path.Combine(parent, assets + ".tmp"), finalAssets = Path.Combine(parent, assets);

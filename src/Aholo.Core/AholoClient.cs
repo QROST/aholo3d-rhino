@@ -15,6 +15,9 @@ public interface IAholoServiceClient : IAsyncDisposable
     Task<TaskPage> GetTaskPageAsync(TaskPageRequest request,CancellationToken ct=default);
     Task<LocalTask> GenerateWorldAsync(GenerateWorldRequest request,CancellationToken ct=default);
     Task<LocalTask> RenderAsync(RenderRequest request,CancellationToken ct=default);
+    // A prepared render must retain its original connection authority; never fall back to current credentials.
+    Task<LocalTask> RenderWithEpochAsync(RenderRequest request,string expectedEpoch,CancellationToken ct=default)
+        =>Task.FromException<LocalTask>(new NotSupportedException("This service client cannot submit a render bound to its original connection."));
     Task<LocalTask> CreateServiceAsync(CreateServiceRequest request,CancellationToken ct=default);
     Task<LocalTask> RefreshAsync(Guid id,CancellationToken ct=default);
     Task<LocalTask> ContinueRenderAsync(Guid id,CancellationToken ct=default);
@@ -32,6 +35,7 @@ public sealed partial class AholoClient : IAholoServiceClient
     private readonly SemaphoreSlim _gate = new(1);
     private Process? _process;
     private bool _disposed;
+    private readonly TimeSpan _requestTimeout=TimeSpan.FromMinutes(16);
     private string? _credentialEpoch;
     public AholoClient(string sidecarDirectory) { _directory = Path.GetFullPath(sidecarDirectory); }
 
@@ -43,6 +47,13 @@ public sealed partial class AholoClient : IAholoServiceClient
     public Task<LocalTask> GenerateWorldAsync(GenerateWorldRequest request, CancellationToken ct = default) => Call<LocalTask>("generate", request, ct);
     public Task<LocalTask> CreateServiceAsync(CreateServiceRequest request, CancellationToken ct = default) => Call<LocalTask>("createService", request, ct);
     public Task<LocalTask> RenderAsync(RenderRequest request, CancellationToken ct = default) => Call<LocalTask>("render", request, ct);
+    public Task<LocalTask> RenderWithEpochAsync(RenderRequest request,string expectedEpoch,CancellationToken ct=default)
+    {
+        if(string.IsNullOrWhiteSpace(expectedEpoch))throw new ArgumentException("A render requires its original connection epoch.",nameof(expectedEpoch));
+        ct.ThrowIfCancellationRequested();
+        // Serialize before entering the pipe queue: camera/light arrays cannot change a queued intent.
+        return Call<LocalTask>("render",AholoJson.Element(request),ct,requiredEpoch:expectedEpoch);
+    }
     public Task<LocalTask> RefreshAsync(Guid id, CancellationToken ct = default) => Call<LocalTask>("refresh", new { id }, ct);
     public Task<TaskPage> GetTaskPageAsync(TaskPageRequest request, CancellationToken ct = default) => Call<TaskPage>("page", request, ct);
     public Task<LocalTask> ContinueRenderAsync(Guid id, CancellationToken ct = default) => Call<LocalTask>("continueRender", new { id }, ct);
@@ -52,15 +63,15 @@ public sealed partial class AholoClient : IAholoServiceClient
     public Task<CloudHistoryPage> CloudHistoryAsync(CloudHistoryRequest request,CancellationToken ct=default) => Call<CloudHistoryPage>("cloudHistory",request,ct);
     public Task<LocalTask> RestoreRemoteAsync(RestoreRemoteRequest request,CancellationToken ct=default) => Call<LocalTask>("restoreRemote",request,ct);
 
-    private async Task<T> Call<T>(string method, object payload, CancellationToken ct, Action? beforeSend=null)
+    private async Task<T> Call<T>(string method, object payload, CancellationToken ct, Action? beforeSend=null,string? requiredEpoch=null)
     {
-        string? expectedEpoch = _credentialEpoch;
+        string? expectedEpoch = requiredEpoch ?? _credentialEpoch;
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             if (_disposed) throw new ObjectDisposedException(nameof(AholoClient));
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeout.CancelAfter(TimeSpan.FromMinutes(16));
+            timeout.CancelAfter(_requestTimeout);
             timeout.Token.ThrowIfCancellationRequested();
             beforeSend?.Invoke();
             EnsureProcess();
@@ -84,6 +95,12 @@ public sealed partial class AholoClient : IAholoServiceClient
                 _credentialEpoch = state.CredentialEpoch;
             }
             return response.Result!.Value.Deserialize<T>(AholoJson.Options) ?? throw new IOException("The background response is empty.");
+        }
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            // Reset revokes session authority synchronously. Preserve timeout identity before it can look like user cancellation.
+            StopProcess();
+            throw new TimeoutException("The background request timed out. Recover the original task from history; do not resubmit an unconfirmed operation.",ex);
         }
         catch (Exception ex) when (ex is OperationCanceledException or IOException or JsonException)
         {

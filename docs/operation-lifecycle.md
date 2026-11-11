@@ -14,6 +14,14 @@ Pausing a task or revoking its connection authority stops the affected local que
 
 Session shutdown rejects new registered work, requests cancellation, waits for its cleanup and the polling gate, then disposes the shared client. Disposal is idempotent. A failing cancellation callback or cleanup step does not skip the remaining cleanup; accumulated shutdown errors are reported after cleanup. It is cooperative: a worker that ignores cancellation can delay shutdown. There is no blocking wait on the Rhino UI thread and no forced process termination.
 
+## Render authority and output coordination
+
+A render captures its connection epoch before native scene capture or local GLB/texture preparation. Account, region, reconnect, transport reset and caller cancellation revoke that intent. Preparation that ignores cancellation is checked again before submission. The actual pipe request carries the original epoch, and the child checks it again at HTTP admission. Camera/light arrays and upload options are captured before the request waits in the pipe queue. A late task reply is retained, but a revoked intent cannot authorize its paid continuation. Internal pipe timeouts remain failures even though cleanup resets the connection; they are not reported as local cancellation.
+
+Mesh, GS and mixed-scene USD writers share process-local destination admission through preparation, atomic replacement and cleanup. Concurrent exports to the same normalized destination fail immediately without replacing the existing output; choose a different filename or explicitly export again after completion. Standard Windows drive/UNC device prefixes are normalized only for admission, following [Microsoft path formats](https://learn.microsoft.com/en-us/dotnet/standard/io/file-path-formats#dos-device-paths). Parent-directory symlinks share admission; the final file symlink is a distinct replacement entry. On Mac/Windows, case-only and Unicode-equivalent names conservatively share admission even on case-sensitive volumes. This does not lock external programs, protect against parent-directory redirection during an export, or establish every filesystem-specific alias as identical. Native Windows filesystem behavior remains unaccepted.
+
+The panel still admits one foreground action at a time. Removing that constraint requires explicit per-operation UI context and shared candidate/document resources; these guards alone do not establish general parallel editing support.
+
 ## Evidence and manual acceptance
 
 Portable regression tests cover scope replacement during cancellation, exact IDs, queued signal cancellation/unsubscription, duplicate signals, notification reentry, successful commit preservation, cleanup ordering, callback/client disposal failures, task pause, connection changes and unexpected timeouts. They do not run Rhino or prove host shutdown/event/layout behavior.
@@ -29,5 +37,8 @@ On both supported hosts, manually check:
 
 7. While a generation is pending, cancel all local work from the command, footer and Settings in separate runs. The task may still finish remotely, but it must not later insert a mesh. Repeat with the panel hidden and with a second document open. A later deliberate creation must still work. Use `AholoCancelOperation` to cancel one active operation while unrelated work continues; an old ID must not affect a replacement.
 8. Create or restore a task while automatic polling refreshes Library. The original result must remain selected. Start from a filtered second page, reveal a task, then select an old visible row or click Next before loading finishes. The existing query/page must remain intact and the newer user choice must win. Repeat for search/filter changes. Open already cached files while other local work is running. Check both host languages.
+
+9. In document A, start local scene preparation for rendering, then change the account or region from document B before submission. The old click must not submit using the new connection. Keep any task already acknowledged by the service and recover it from Library instead of resubmitting. Test only in the authorized live-service scope.
+10. Start two USD exports to the same destination from separate panels/commands. The second should report that the destination is busy. Cancel the first and verify the original output is intact; a deliberate later export should work. Repeat with parent-folder aliases where supported.
 
 These native checks have not been executed for this candidate. No package installation, cloud submission or publication is implied by local test results.

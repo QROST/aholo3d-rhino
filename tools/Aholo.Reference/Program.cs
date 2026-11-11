@@ -5,6 +5,7 @@ using System.Text.Json;
 using Aholo.Core;
 
 // This portable image oracle does not load Rhino or make network calls.
+if (args.Length == 1 && args[0] is "--rpc-render-echo" or "--rpc-render-stall") return await RenderRpcFixture.RunAsync(args[0]=="--rpc-render-stall");
 if (args.Length == 2 && args[0] == "--antialias-fixtures") return AntialiasFixtures.Run(args[1]);
 if (args.Length == 2 && args[0] == "--antialias-scene-fixture") return AntialiasFixtures.WriteScene(args[1]);
 if (args.Length == 2 && args[0] == "--png-alpha-fixtures") return PngAlphaFixtures.Run(args[1]);

@@ -235,12 +235,76 @@ public sealed class ApplicationTests : IDisposable
         await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>handle.Completion);
         Assert.NotNull(stopped);await stopped.WaitAsync(TimeSpan.FromSeconds(5));Assert.False(invoked);Assert.Equal(1,client.DisposeCalls);
     }
+    [Theory][InlineData("disconnect")][InlineData("connect")][InlineData("region")][InlineData("epoch")][InlineData("reset")][InlineData("caller")]
+    public async Task PreparedRenderNeverSubmitsAfterAuthorityChangesDuringLocalWork(string change)
+    {
+        var store=Store;var client=new FakeClient(store);await using var session=new AholoSession(client,store);
+        await session.ReadConnectionAsync();using var cancel=new CancellationTokenSource();
+        var ready=new TaskCompletionSource<RenderRequest>(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationToken observed=default;
+        var render=session.RenderPreparedAsync(ct=>{observed=ct;return ready.Task;},cancel.Token);
+        switch(change)
+        {
+            case "disconnect":await session.DisconnectAsync();break;
+            case "connect":await session.ConnectAsync(new("fixture-key",false));break;
+            case "region":await session.SwitchRegionAsync("china");break;
+            case "epoch":client.Epoch="replacement";await session.ReadConnectionAsync();break;
+            case "reset":client.Reset();break;
+            case "caller":cancel.Cancel();break;
+        }
+        Assert.True(observed.IsCancellationRequested);
+        ready.SetResult(Request); // An uncooperative preparer must not bypass the final authority check.
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>render);
+        Assert.Equal(0,client.PinnedRenders);Assert.Empty(store.List());
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public async Task PreparedRenderNeedsACompleteConnectionBeforeDoingAnyLocalWork(bool missingEpoch)
+    {
+        var store=Store;var client=new FakeClient(store);await using var session=new AholoSession(client,store);
+        if(missingEpoch){client.Epoch="";await session.ReadConnectionAsync();}
+        int preparations=0;
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>session.RenderPreparedAsync(_=>{preparations++;return Task.FromResult(Request);}));
+        Assert.Equal(0,preparations);Assert.Equal(0,client.PinnedRenders);
+    }
+    [Fact] public async Task PreparedRenderCapturesEpochAndContinuesItsOriginalIntentExactlyOnce()
+    {
+        var store=Store;var client=new FakeClient(store);await using var session=new AholoSession(client,store);await session.ReadConnectionAsync();
+        int preparations=0;
+        await session.RenderPreparedAsync(_=>{preparations++;return Task.FromResult(Request);});
+        await session.PollOnceAsync();await session.PollOnceAsync();
+        Assert.Equal(1,preparations);Assert.Equal(1,client.PinnedRenders);Assert.Equal("initial",client.PinnedEpoch);Assert.Equal(1,client.Continuations);
+    }
+    [Fact] public async Task LatePreparedRenderReplyIsRetainedWithoutGrantingRevokedContinuation()
+    {
+        var store=Store;var client=new FakeClient(store){RenderCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously)};
+        await using var session=new AholoSession(client,store);await session.ReadConnectionAsync();
+        LocalTask? observed=null;session.TaskChanged+=task=>observed=task;
+        var rendering=session.RenderPreparedAsync(_=>Task.FromResult(Request));
+        Assert.Equal(1,client.PinnedRenders);await session.DisconnectAsync();
+        client.RenderCompletion.SetResult(client.Task);
+        Assert.Equal(client.Task.Id,(await rendering).Id);Assert.Equal(client.Task.Id,observed!.Id);
+        await session.ReadConnectionAsync();await session.PollOnceAsync();
+        Assert.Equal("MeshReady",store.Get(client.Task.Id).Status);Assert.Equal(0,client.Continuations);
+    }
+    [Fact] public async Task PreparationFailureAndServiceTimeoutAreNotReportedAsLocalCancellation()
+    {
+        var store=Store;var client=new FakeClient(store);await using var session=new AholoSession(client,store);await session.ReadConnectionAsync();
+        var failure=new IOException("fixture preparation");
+        Assert.Same(failure,await Assert.ThrowsAsync<IOException>(()=>session.RenderPreparedAsync(_=>Task.FromException<RenderRequest>(failure))));
+        Assert.Equal(0,client.PinnedRenders);
+        client.RenderCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var rendering=session.RenderPreparedAsync(_=>Task.FromResult(Request));var timeout=new OperationCanceledException("fixture transport timeout");
+        client.RenderCompletion.SetException(timeout);
+        Assert.Same(timeout,await Assert.ThrowsAsync<OperationCanceledException>(()=>rendering));
+    }
+
     private sealed class FakeClient(TaskStore store) : IAholoServiceClient
     {
         public event Action? TransportReset;
         public void Reset()=>TransportReset?.Invoke();
         public LocalTask Task {get;private set;}=new(){Kind="render",ConnectionId="account",Status="MeshProcessing",MeshTaskId="mesh-task",Render=Request};
-        public int Continuations,Queries,DisposeCalls;
+        public int Continuations,Queries,DisposeCalls,PinnedRenders;
+        public string? PinnedEpoch;
         public TaskCompletionSource<LocalTask>? RefreshCompletion;
         public TaskCompletionSource RefreshStarted=new(TaskCreationOptions.RunContinuationsAsynchronously);
         public bool FailConnection,FailMutation,ThrowOnConnectionCancellation,CancellationCallbackRan,ThrowOnDispose;
@@ -259,6 +323,8 @@ public sealed class ApplicationTests : IDisposable
         public Task<ConnectionState> SwitchRegionAsync(string region,CancellationToken ct=default)=>FailMutation?System.Threading.Tasks.Task.FromException<ConnectionState>(new InvalidOperationException("Fixture rejected")):System.Threading.Tasks.Task.FromResult(new ConnectionState(false,null,false,Guid.NewGuid().ToString("N"),region));
         public Task<ConnectionState> DisconnectAsync(CancellationToken ct=default)=>FailMutation?System.Threading.Tasks.Task.FromException<ConnectionState>(new InvalidOperationException("Fixture rejected")):System.Threading.Tasks.Task.FromResult(new ConnectionState(false,null,false));
         public Task<LocalTask> RenderAsync(RenderRequest request,CancellationToken ct=default){store.Save(Task);return RenderCompletion?.Task??System.Threading.Tasks.Task.FromResult(Task);}
+        public Task<LocalTask> RenderWithEpochAsync(RenderRequest request,string expectedEpoch,CancellationToken ct=default)
+        {PinnedRenders++;PinnedEpoch=expectedEpoch;return RenderAsync(request,ct);}
         public async Task<LocalTask> RefreshAsync(Guid id,CancellationToken ct=default)
         {Queries++;RefreshStarted.TrySetResult();if(RefreshCompletion is not null)return await RefreshCompletion.Task.WaitAsync(ct);Task=store.Get(id);if(Task.Status=="MeshProcessing")Task=Task with{Status="MeshReady",MeshId="mesh"};store.Save(Task);return Task;}
         public async Task<LocalTask> ContinueRenderAsync(Guid id,CancellationToken ct=default)

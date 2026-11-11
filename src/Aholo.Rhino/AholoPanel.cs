@@ -349,19 +349,24 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         int width=resolution.SelectedIndex==1?1920:1280,height=resolution.SelectedIndex==1?1080:720;
         double ParseLightValue(string text)
         {if(!double.TryParse(text,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.CurrentCulture,out double value)||!double.IsFinite(value)||value<=0)throw new ArgumentException(T("Light radius and intensity multiplier must be positive numbers."));return value;}
-        var snapshot=AholoHost.CaptureRender(Document(),width,height,renderLights.Checked==true,renderLights.Checked==true?ParseLightValue(lightRadius.Text):50,renderLights.Checked==true?ParseLightValue(lightMultiplier.Text):1,renderTextures.Checked==true);string path=Path.Combine(session.Store.Root,"exports",Guid.NewGuid().ToString("N")+".glb");
-        await Task.Run(()=>
+        var upload=uploadOptions;var operationToken=token;
+        var task=await session.RenderPreparedAsync(async renderToken=>
         {
-            var meshes=snapshot.Meshes.ToArray();var loaded=new Dictionary<MeshTextureSource,MeshTexture>();
-            foreach(var pair in snapshot.Textures)
+            var snapshot=AholoHost.CaptureRender(Document(),width,height,renderLights.Checked==true,renderLights.Checked==true?ParseLightValue(lightRadius.Text):50,renderLights.Checked==true?ParseLightValue(lightMultiplier.Text):1,renderTextures.Checked==true);
+            string path=Path.Combine(session.Store.Root,"exports",Guid.NewGuid().ToString("N")+".glb");
+            await Task.Run(()=>
             {
-                token.ThrowIfCancellationRequested();
-                if(!loaded.TryGetValue(pair.Value,out var bitmap)){bitmap=pair.Value.Load(token);loaded.Add(pair.Value,bitmap);}
-                meshes[pair.Key]=meshes[pair.Key] with{BaseColorTexture=bitmap};
-            }
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);GlbWriter.Write(path,meshes,token);
-        },token);
-        var task=await session.RenderAsync(new(snapshot.Name,path,snapshot.Camera,width,height,Upload:uploadOptions,Lights:snapshot.Lights),token);await RevealAsync(task);
+                var meshes=snapshot.Meshes.ToArray();var loaded=new Dictionary<MeshTextureSource,MeshTexture>();
+                foreach(var pair in snapshot.Textures)
+                {
+                    renderToken.ThrowIfCancellationRequested();
+                    if(!loaded.TryGetValue(pair.Value,out var bitmap)){bitmap=pair.Value.Load(renderToken);loaded.Add(pair.Value,bitmap);}
+                    meshes[pair.Key]=meshes[pair.Key] with{BaseColorTexture=bitmap};
+                }
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);GlbWriter.Write(path,meshes,renderToken);
+            },renderToken);
+            return new(snapshot.Name,path,snapshot.Camera,width,height,Upload:upload,Lights:snapshot.Lights);
+        },operationToken);await RevealAsync(task);
     }
     private string ConnectionLabel()=>AholoRegions.Label(session.Connection.Region)+" · "+T(session.Connection.Connected?"Connected":"Not connected");
     private void ShowSettings()
