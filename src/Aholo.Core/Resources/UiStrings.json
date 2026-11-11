@@ -3954,5 +3954,21 @@
   {
     "English": "{0}: renderer hints differ from the viewport camera projection and center-z sorting.",
     "Chinese": "{0}：渲染提示与视窗的相机投影及中心深度排序方式不同。"
+  },
+  {
+    "English": "Nested GS reference objects: {0}. Nested proxy bounds remain visible to preserve ordinary block geometry.\n",
+    "Chinese": "嵌套 GS 引用对象：{0}。嵌套代理框仍显示，以保留普通块中的其他几何。\n"
+  },
+  {
+    "English": "GS hierarchy: {0} cyclic definitions, {1} missing definitions; affected native bounds are retained.\n",
+    "Chinese": "GS 层级：{0} 个循环定义、{1} 个缺失定义；相关原生边界框保留。\n"
+  },
+  {
+    "English": "GS reference objects: {0}; assets are not loaded yet.",
+    "Chinese": "GS 引用对象：{0}；资源尚未加载。"
+  },
+  {
+    "English": "GS reference objects: {0}; loaded assets: {1}; loading: {2}; asset errors: {3}.",
+    "Chinese": "GS 引用对象：{0}；已加载资产：{1}；加载中：{2}；资产错误：{3}。"
   }
 ]

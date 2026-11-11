@@ -276,7 +276,7 @@ internal sealed class GaussianViewport : DisplayConduit
         {
             foreach(var placement in GaussianDocument.Placements(e.RhinoDoc,e.Viewport))
             {
-                BoundingBox box=placement.Asset.Bounds;box.Transform(placement.Object.InstanceXform);
+                BoundingBox box=placement.Asset.Bounds;box.Transform(placement.WorldTransform);
                 if(box.IsValid)e.IncludeBoundingBox(box);
             }
         }
@@ -335,7 +335,7 @@ internal sealed class GaussianViewport : DisplayConduit
             else
             {
                 // Capture only immutable data and value transforms. The worker never reads RhinoObject/RhinoDoc state.
-                var snapshot=placements.Select(p=>new GaussianNativePlacement(p.Object.Id,p.Asset.Hash,p.Asset.Prepared,p.Transform)).ToArray();
+                var snapshot=placements.Select(p=>new GaussianNativePlacement(p.Instance,p.Asset.Hash,p.Asset.Prepared)).ToArray();
                 var request=new GaussianNativeRequest(e.RhinoDoc.RuntimeSerialNumber,e.Viewport.Id,0,camera,key,snapshot);
                 _candidates[e.Viewport.Id]=new ViewCandidate(request,DateTime.UtcNow,reason);
             }
@@ -349,7 +349,7 @@ internal sealed class GaussianViewport : DisplayConduit
         if(!Supported(e)||!_views.TryGetValue(e.Viewport.Id,out var state)||!state.DrawAccepted||!state.Complete||state.Error is not null)return;
         RhinoObject? top=e.Display.ActiveTopLevelObject;
         foreach(var placement in state.Request.Placements)
-            if(placement.Id==e.RhinoObject.Id||placement.Id==top?.Id){e.DrawObject=false;return;}
+            if(GaussianInstanceGraph.CanSuppressWholeRoot(placement.Instance,e.RhinoObject.Id,top?.Id)){e.DrawObject=false;return;}
     }
     protected override void PostDrawObjects(DrawEventArgs e)
     {
@@ -573,7 +573,7 @@ internal sealed class GaussianViewport : DisplayConduit
         var key=new StringBuilder();
         foreach(var p in placements)
         {
-            key.Append(p.Object.Id).Append(':').Append(p.Asset.Hash).Append(':');Transform t=p.Object.InstanceXform;
+            key.Append(p.Instance.Path).Append(':').Append(p.Asset.Hash).Append(':');Transform t=p.WorldTransform;
             for(int row=0;row<3;row++)for(int col=0;col<4;col++)key.Append(t[row,col].ToString("R",CultureInfo.InvariantCulture)).Append(',');key.Append(';');
         }
         return key.ToString();
@@ -584,7 +584,7 @@ internal sealed class GaussianViewport : DisplayConduit
         return GaussianDisplayStatus.Evaluate(new GaussianDisplayFacts
         {
             DocumentInstances=document.Instances,LoadedResources=document.Loaded,LoadingResources=document.Loading,ResourceErrors=document.Errors,
-            VisibleInstances=viewport is null?0:GaussianDocument.Instances(doc,viewport).Count(),
+            VisibleInstances=viewport is null?0:GaussianDocument.Occurrences(doc,viewport).Count,
             ReadyPlacements=viewport is null?0:GaussianDocument.Placements(doc,viewport).Count,
             IsModelView=modelView,IsGsMode=gsMode,HasCandidate=candidate,HasFrame=frame is not null,
             FrameComplete=frame?.Complete==true,UploadPending=frame?.Pending is not null,FrameFailed=frame?.Error is not null,

@@ -73,3 +73,18 @@ Record each actual host/service result with version, device and scene before cha
 ## USD exchange preview
 
 Version 0.1.1-beta.1 adds local USD-family GS import/export. Follow the separate [USD exchange acceptance](usd-exchange.md#manual-acceptance) before treating this new UI as host-verified. The prior 0.1.0 startup/display acceptance does not automatically cover these operations.
+
+
+## Nested block display after alpha.10
+
+Malformed cyclic block components are isolated before rendering and reported by Diagnostics; their native proxies remain. No attempt is made to interpret geometry inside a cyclic component.
+
+New implementation, **native acceptance pending on both Mac and Windows**. Earlier Mac reports above apply to the prior top-level renderer only. No cloud request is needed.
+
+1. Import `fixtures/mixed-scene.usda` with `AholoImportScene`. Select its two GS references and mesh, then create an ordinary Rhino Block. Create a second nested Block and repeat it at different positions. Both GS and the blue mesh must remain visible in GS mode; nested proxy wire boxes intentionally remain.
+2. Move, rotate, mirror and nonuniformly scale the outer block. Compare GS positions and boundaries to the ordinary mesh; orbit and Zoom Extents. The old parent transform must not remain in the prepared frame. Repeat with coincident copies and two paths that reuse the same inner definition.
+3. Hide/show the outer instance, hide an inner GS in BlockEdit, hide a child layer/ancestor layer and change per-view/model visibility. Check each occurrence independently. Locked but visible geometry must still render. BlockEdit presentation itself must be recorded explicitly; it is not accepted by the layer arithmetic tests.
+4. Delete all outer instances, Undo, Redo and Undo again. Save/reopen the 3dm with its GS source/cache present; run Diagnostics and Reload if necessary. Check asset counts, nested reference counts (shared definition objects are counted once), missing-source fallback and world transforms. Check that ordinary mesh siblings never disappear because a GS frame finishes.
+5. In an ordinary document without GS, exercise deeply repeated shared blocks and keep Rhino idle in non-GS mode. Definition scanning should not expand a GS-free subtree once per implied copy. Offline coverage includes a 60-level binary shared definition graph and a 20,000-level chain; those are algorithm checks, not a native performance measurement.
+
+Record Rhino version, OS/device, scene, observed visual/lifecycle behavior and any limitations. Do not mark host acceptance from build or offline tests. / 请记录实际版本、设备、场景及显示和生命周期结果；编译和离线测试不能替代实机验收。

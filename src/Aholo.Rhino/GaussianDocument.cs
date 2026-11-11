@@ -26,7 +26,7 @@ internal static partial class GaussianDocument
         internal CancellationTokenSource? Cancellation;
         internal HashSet<string> AttemptedSources = new(StringComparer.Ordinal);
     }
-    internal sealed record Placement(InstanceObject Object, AssetData Asset, GaussianTransform Transform);
+    internal sealed record Placement(InstanceObject Object, AssetData Asset, GaussianTransform Transform, Transform WorldTransform, GaussianInstanceOccurrence Instance);
     private static string CacheRoot => System.IO.Path.Combine(AholoPlugin.Session.Store.Root, "assets", "gaussians");
 
     internal static void Initialize()
@@ -63,7 +63,7 @@ internal static partial class GaussianDocument
         {
             if (doc.IsClosing) continue;
             GaussianViewport.PruneViews(doc);
-            InstanceObject[] instances = Instances(doc, null, includeHidden: true).ToArray();
+            InstanceObject[] instances = ResourceInstances(doc);
             // Undo restores the native reference and reloads the immutable asset on the next idle pass.
             // Deleted assets need not retain all splats in managed memory until document close.
             if (Documents.TryGetValue(doc.RuntimeSerialNumber, out var assets))
@@ -102,26 +102,21 @@ internal static partial class GaussianDocument
     internal static List<Placement> Placements(RhinoDoc doc, global::Rhino.Display.RhinoViewport viewport)
     {
         var result = new List<Placement>();
-        foreach (InstanceObject obj in Instances(doc, viewport))
+        foreach (var occurrence in Occurrences(doc, viewport))
         {
-            AssetData? asset = Ready(doc, obj);
-            if (asset is null) continue;
-            Transform t = obj.InstanceXform;
-            var linear = new GaussianMatrix(t.M00,t.M01,t.M02,t.M10,t.M11,t.M12,t.M20,t.M21,t.M22);
-            // Singular placement cannot represent an ellipsoid; keep its native proxy visible.
-            try { _ = linear.Inverse(); }
-            catch (ArgumentException) { continue; }
-            result.Add(new Placement(obj, asset, new GaussianTransform(linear, new GaussianVector(t.M03,t.M13,t.M23))));
+            AssetData? asset = Ready(doc, occurrence.Object);
+            if (asset is null || occurrence.Instance.World is not GaussianTransform world) continue;
+            result.Add(new(occurrence.Object,asset,world,ToRhino(world),occurrence.Instance));
         }
-        // Rhino's object enumeration order is not a stable scene identity or transparency tie-break order.
-        result.Sort((a,b)=>a.Object.Id.CompareTo(b.Object.Id));
+        // The complete path keeps repeated definition members distinct and tie-break ordering stable.
+        result.Sort((a,b)=>StringComparer.Ordinal.Compare(a.Instance.Path,b.Instance.Path));
         return result;
     }
     internal static void Reload(RhinoDoc doc)
     {
         if (Documents.TryGetValue(doc.RuntimeSerialNumber, out var assets))
             foreach (string key in assets.Where(p => p.Value.Error is not null).Select(p => p.Key).ToArray()) assets.Remove(key);
-        foreach (InstanceObject obj in Instances(doc, null, includeHidden: true)) EnsureLoaded(doc, obj);
+        foreach (var instance in ResourceInstances(doc)) EnsureLoaded(doc, instance);
         GaussianViewport.ForgetDocument(doc.RuntimeSerialNumber);
     }
     private static void EnsureLoaded(RhinoDoc doc, InstanceObject obj)
@@ -324,15 +319,17 @@ internal static partial class GaussianDocument
     internal static DocumentStatus Status(RhinoDoc doc)
     {
         Documents.TryGetValue(doc.RuntimeSerialNumber, out var assets);
-        return new(Instances(doc, null, true).Count(), assets?.Values.Count(a => a.Data is not null) ?? 0,
+        return new(ResourceInstances(doc).Length, assets?.Values.Count(a => a.Data is not null) ?? 0,
             assets?.Values.Count(a => a.Loading) ?? 0, assets?.Values.Count(a => a.Error is not null) ?? 0);
     }
     internal static string Diagnostics(RhinoDoc doc)
     {
-        var objects=Instances(doc,null,true).ToArray();
+        var snapshot=CaptureResources(doc);var objects=snapshot.Objects;
         int compatible=objects.Count(obj=>Reference(obj)?.IsNative==false);
-        string locations=UiText.Format("Compatible GS references: {0}. Source metadata is retained.\nGS cache: {1}\nOriginal files: {2}", compatible, CacheRoot, System.IO.Path.Combine(AholoPlugin.Session.Store.Root,"sources"));
-        if(!Documents.TryGetValue(doc.RuntimeSerialNumber,out var assets)) return UiText.Format("GS block instances: {0}; assets are not loaded yet.", objects.Length)+"\n"+locations;
-        return UiText.Format("GS block instances: {0}; loaded assets: {1}; loading: {2}; asset errors: {3}.", objects.Length, assets.Values.Count(a=>a.Data is not null), assets.Values.Count(a=>a.Loading), assets.Values.Count(a=>a.Error is not null))+"\n"+locations;
+        string nested=UiText.Format("Nested GS reference objects: {0}. Nested proxy bounds remain visible to preserve ordinary block geometry.\n",objects.Count(o=>o.Attributes.IsInstanceDefinitionObject));
+        string issues=UiText.Format("GS hierarchy: {0} cyclic definitions, {1} missing definitions; affected native bounds are retained.\n",snapshot.CyclicDefinitions,snapshot.MissingDefinitions);
+        string locations=nested+issues+UiText.Format("Compatible GS references: {0}. Source metadata is retained.\nGS cache: {1}\nOriginal files: {2}", compatible, CacheRoot, System.IO.Path.Combine(AholoPlugin.Session.Store.Root,"sources"));
+        if(!Documents.TryGetValue(doc.RuntimeSerialNumber,out var assets)) return UiText.Format("GS reference objects: {0}; assets are not loaded yet.", objects.Length)+"\n"+locations;
+        return UiText.Format("GS reference objects: {0}; loaded assets: {1}; loading: {2}; asset errors: {3}.", objects.Length, assets.Values.Count(a=>a.Data is not null), assets.Values.Count(a=>a.Loading), assets.Values.Count(a=>a.Error is not null))+"\n"+locations;
     }
 }

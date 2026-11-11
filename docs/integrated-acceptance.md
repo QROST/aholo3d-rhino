@@ -138,3 +138,8 @@ Use `AholoExportScene` and Library → Export selected scene USD with mixed and 
 ## Combined GS + mesh import
 
 Import the packaged `fixtures/mixed-scene.usda` via `AholoImportScene` and the Library action. Expect two red/cyan GS siblings and one blue mesh block, with a 2-metre-high box converted to document units. Check GS display, opaque occlusion, source positions, one Undo/Redo and save/reopen. Repeat with textured external dependencies, native USD instances, mirrors/nonuniform scale and both axes. While a scene loads, cancel, close the original document or change units/gamma; there must be no stale or partial commit. Exercise a failure during the final GS append after mesh native import, including preexisting material-name conflicts; inspect material/resource rollback and any explicit unconfirmed-state warning. Repeat separately on Mac and Windows. Automated parsing and fixed-SDK compilation do not accept native Undo or resource persistence.
+
+
+## Nested GS viewport references
+
+Follow the [nested-block host checklist](gs-host-acceptance.md#nested-block-display-after-alpha10). Verify full parent transforms, independent repeated/coincident paths, hidden/locked layers, source cache lifetime, ordinary mesh visibility, BlockEdit, Undo/Redo and save/reopen on each platform. Nested proxy bounds intentionally remain; suppressing an ordinary parent block is never an accepted workaround. Source-level graph/projection tests do not accept native callbacks or visual appearance.
