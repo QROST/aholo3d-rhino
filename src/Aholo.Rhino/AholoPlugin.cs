@@ -23,7 +23,7 @@ public sealed class AholoPlugin : PlugIn
     internal static IAholoServiceClient CreateClient() => Session.Client;
     internal static string DocumentScope(uint serial) => "document:" + serial.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":";
     private static void OnDocumentClosed(object? sender, global::Rhino.DocumentEventArgs e)
-    { if(SharedSession.IsValueCreated)Session.Operations.CancelPrefix(DocumentScope(e.Document.RuntimeSerialNumber)); meshHost?.Forget(e.Document.RuntimeSerialNumber); }
+    { AholoImportMeshCommand.Cancel(e.Document.RuntimeSerialNumber);if(SharedSession.IsValueCreated)Session.Operations.CancelPrefix(DocumentScope(e.Document.RuntimeSerialNumber)); meshHost?.Forget(e.Document.RuntimeSerialNumber); }
     protected override LoadReturnCode OnLoad(ref string errorMessage)
     {
         int? language = null;
@@ -39,6 +39,7 @@ public sealed class AholoPlugin : PlugIn
     protected override void OnShutdown()
     {
         global::Rhino.RhinoDoc.CloseDocument -= OnDocumentClosed;
+        AholoImportMeshCommand.Cancel();
         if(SharedSession.IsValueCreated)_ = Session.DisposeAsync().AsTask();
         meshHost?.Dispose();meshHost=null;
         GaussianViewport.Shutdown();

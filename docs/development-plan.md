@@ -147,7 +147,8 @@ Aholo                         [连接状态 / 设置]
 | `AholoGsDiagnostics` / `AholoGsProbe` | 已有，放高级入口 | 状态诊断与离线验收；probe 明示会新增测试几何 |
 | `AholoImportPly` | 已有，保留兼容 | 仅点中心诊断，退出正常 GS 主流程，不能成为失败后的静默降级 |
 | `AholoWorld` / `AholoModel` / `AholoRender` / `AholoTasks` | 拟新增 | 导航到对应页、保留草稿；执行命令本身不发起收费 |
-| `AholoPlaceTask` | 拟新增 | 以本地 task ID、明确目标与放置选项操作，默认定位已有放置；命令退出后在安全 Idle 阶段提交，避免 Undo 冲突 |
+| `AholoPlaceTask` | 已有 | 以本地 task ID 恢复原任务的静态模型，使用稳定结果标识定位已有放置；不重新生成 |
+| `AholoImportMesh` | 已有 | 本地网格进入原文档资产库候选，命令结束后准备；在面板选择高度、原尺寸或场景坐标模式后确认 |
 | `AholoCancel` | 拟新增 | 选择/指定本地 operation ID，取消同一操作服务中的工作；不能含糊地表示云端任务取消 |
 
 面板和命令不得保有各自独立的取消、busy、重复放置判定。异步 command 返回“已启动”时输出 operation ID，最终完成/失败通过同一记录和命令行反馈；Rhino 宿主的即时 `Result.Success` 不作为业务完成证据。凭据不作为可记录在命令历史中的明文参数。

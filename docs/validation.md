@@ -127,3 +127,10 @@ Both platform staging checks passed for **48 allowlisted files**. Two completed 
 ## Task-linked mesh USD workflow (2026-11-11 UTC)
 
 **910 offline tests passed**, zero failed/skipped; Release build has zero warnings/errors. The 32 new cases cover all eight mesh format routes, World GS exclusion, pinned identity/hash/slot after reordered downloads, offline caches, original-account epochs, cancellation, receipt-before-acquisition and exactly-once prepared-asset release on success/failure/duplicate/deferral. Fixed-SDK compilation also checks UI-thread host integration; it does not establish native USD visuals, panel event timing or Mac/Windows acceptance. No authenticated request, installation, push or publication was performed.
+
+
+## Local mesh command and placement modes (2026-11-11 UTC)
+
+**921 offline .NET tests passed**, zero failed/skipped; Release compilation has zero warnings/errors. Eleven additional transform cases cover captured tilted planes, 90-degree rotation, default anchoring, original-size planar geometry, preserved scene coordinates, ignored inactive numeric fields, invalid bounds/planes, tiny positive heights and representable results with extreme coordinate intermediates. Fixed RhinoCommon compilation validates the new command API and cancellation wiring.
+
+Remote `gpt-6.1-sol` supplied the mode design, regression candidates and implementation reviews; primary code inspection and local tests verified/adapted them. A local read-only SDK/lifecycle review found missing candidate-accept cancellation, now wired through native commit guards. These are not native event/visual tests: interactive/scripted command timing, panel layout, canceled native import rollback, physical unit placement, texture persistence and both-platform behavior still require the explicit host checklist. No live account request, desktop automation, installation or publication occurred.

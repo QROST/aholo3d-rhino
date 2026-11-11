@@ -12,9 +12,12 @@ internal sealed class MeshPlacementEditor : IDisposable
     private readonly uint serial;
     private readonly MeshPlacementService placement;
     private readonly Action<string> report;
+    private readonly Func<CancellationToken> currentToken;
     private readonly CandidatePreview preview=new();
     private readonly List<Candidate> candidates=new();
     private readonly DropDown selected=new();
+    private readonly DropDown mode=new(){DataStore=new[]{UiText.Get("Fit height on construction plane"),UiText.Get("Original size on construction plane"),UiText.Get("Preserve scene coordinates")},SelectedIndex=0};
+    private readonly Button pick,constructionPlane;
     private readonly TextBox height=new(),rotation=new(){Text="0"};
     private readonly Label position=new(){Wrap=WrapMode.Word};
     private readonly UITimer timer=new(){Interval=.08};
@@ -25,23 +28,25 @@ internal sealed class MeshPlacementEditor : IDisposable
     internal long Revision=>revision;
     internal Control View{get;}
     internal string HeightText{get=>height.Text;set=>height.Text=value;}
-    internal MeshPlacementEditor(uint serial,MeshPlacementService placement,Action<string> report,Func<string,Func<Task>,Task> run)
+    internal MeshPlacementEditor(uint serial,MeshPlacementService placement,Action<string> report,Func<string,Func<Task>,Task> run,Func<CancellationToken> currentToken)
     {
-        this.serial=serial;this.placement=placement;this.report=report;
+        this.serial=serial;this.placement=placement;this.report=report;this.currentToken=currentToken;
         var doc=Document();var initial=MeshPlacementService.DefaultPlacement(doc);plane=initial.Plane;point=initial.Point;height.Text=initial.Height.ToString("R",CultureInfo.InvariantCulture);
         Button Button(string title,Action work)
         {
             var button=new Button{Text=UiText.Get(title)};
             button.Click+=(_,_)=>_=run(title,()=>{work();return Task.CompletedTask;});return button;
         }
+        pick=Button("Pick placement point",Pick);constructionPlane=Button("Use current construction plane",UsePlane);
+        mode.SelectedIndexChanged+=(_,_)=>{UpdateMode();Schedule();};
         selected.SelectedIndexChanged+=(_,_)=>Schedule();height.TextChanged+=(_,_)=>Schedule();rotation.TextChanged+=(_,_)=>Schedule();
         timer.Elapsed+=(_,_)=>ShowPreview();
         View=new StackLayout{Spacing=6,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
-            new Label{Text=UiText.Get("Mesh placement and candidates")},
+            new Label{Text=UiText.Get("Mesh placement and candidates")},mode,
             new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={new Label{Text=UiText.Get("Height (document units)")},height,new Label{Text=UiText.Get("Rotation (degrees)")},rotation}},
-            new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={Button("Pick placement point",Pick),Button("Use current construction plane",UsePlane)}},position,
+            new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={pick,constructionPlane}},position,
             selected,new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={Button("Accept candidate",Accept),Button("Remove candidate",Remove),Button("Clear candidates",Clear)}}}};
-        Describe();
+        UpdateMode();
     }
     private RhinoDoc Document()=>RhinoDoc.FromRuntimeSerialNumber(serial)??throw new InvalidOperationException(UiText.Get("The target document has closed."));
     internal PlacementIntent Intent()
@@ -52,8 +57,18 @@ internal sealed class MeshPlacementEditor : IDisposable
                 throw new ArgumentException(UiText.Get("Enter a valid height and rotation."));
             return value;
         }
-        double size=Value(height.Text);if(size<=0)throw new ArgumentException(UiText.Get("Enter a positive model height in document units."));
-        return new(plane,point,size,Math.IEEERemainder(Value(rotation.Text),360));
+        var selectedMode=Mode;
+        if(selectedMode==MeshPlacementMode.SourceCoordinates)return new(Plane.WorldXY,Point3d.Origin,1,0,selectedMode);
+        double size=selectedMode==MeshPlacementMode.FitHeight?Value(height.Text):1;
+        if(size<=0)throw new ArgumentException(UiText.Get("Enter a positive model height in document units."));
+        return new(plane,point,size,Math.IEEERemainder(Value(rotation.Text),360),selectedMode);
+    }
+    private MeshPlacementMode Mode=>mode.SelectedIndex switch{1=>MeshPlacementMode.SourceSizeOnPlane,2=>MeshPlacementMode.SourceCoordinates,_=>MeshPlacementMode.FitHeight};
+    private void UpdateMode()
+    {
+        height.Enabled=Mode==MeshPlacementMode.FitHeight;
+        rotation.Enabled=pick.Enabled=constructionPlane.Enabled=Mode!=MeshPlacementMode.SourceCoordinates;
+        Describe();
     }
     internal MeshPlacementTarget Capture()=>placement.Capture(Document(),Intent());
     internal void SetBusy(bool busy){if(!disposed)View.Enabled=!busy;}
@@ -91,7 +106,7 @@ internal sealed class MeshPlacementEditor : IDisposable
         _=AholoHost.CaptureTarget(doc);point=input.Point();plane=doc.Views.ActiveView?.ActiveViewport.ConstructionPlane()??Plane.WorldXY;Describe();Schedule();
     }
     private void UsePlane(){var doc=Document();_=AholoHost.CaptureTarget(doc);plane=doc.Views.ActiveView?.ActiveViewport.ConstructionPlane()??Plane.WorldXY;point=plane.Origin;Describe();Schedule();}
-    private void Describe()=>position.Text=UiText.Format("Position ({0:G5}, {1:G5}, {2:G5}) on the captured construction plane",point.X,point.Y,point.Z);
+    private void Describe()=>position.Text=Mode==MeshPlacementMode.SourceCoordinates?UiText.Get("Source units and axes are resolved into this document; scene positions are preserved."):UiText.Format("Position ({0:G5}, {1:G5}, {2:G5}) on the captured construction plane",point.X,point.Y,point.Z);
     private void Schedule(){if(disposed||!visible)return;timer.Stop();timer.Start();}
     private void ShowPreview()
     {
@@ -104,7 +119,8 @@ internal sealed class MeshPlacementEditor : IDisposable
     private void Accept()
     {
         int index=selected.SelectedIndex;if(index<0||index>=candidates.Count)throw new InvalidOperationException(UiText.Get("Load and select a candidate first."));
-        var candidate=candidates[index];var result=placement.Commit(candidate.Asset,candidate.Target with{Placement=Intent()},candidate.ImportId,candidate.TaskId);
+        var candidate=candidates[index];long expected=revision;
+        var result=placement.Commit(candidate.Asset,candidate.Target with{Placement=Intent()},candidate.ImportId,candidate.TaskId,ct:currentToken(),allowed:()=>!disposed&&visible&&revision==expected);
         try{Clear();}catch{report(result.Message+"\n"+UiText.Get("Preview cleanup did not finish. The imported block is retained."));return;}
         report(result.Message);
     }

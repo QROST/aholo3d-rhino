@@ -11,20 +11,19 @@ using RhinoDoc = global::Rhino.RhinoDoc;
 
 namespace Aholo.Rhino;
 
-public sealed record PlacementIntent(Plane Plane, Point3d Point, double Height, double RotationDegrees)
+public sealed record PlacementIntent(Plane Plane, Point3d Point, double Height, double RotationDegrees, MeshPlacementMode Mode=MeshPlacementMode.FitHeight)
 {
     public Transform ToTransform(BoundingBox bounds)
     {
-        double sourceHeight = bounds.Max.Z - bounds.Min.Z;
-        if (!bounds.IsValid || !Plane.IsValid || !Point.IsValid || !double.IsFinite(Height) ||
-            Height <= 0 || !double.IsFinite(RotationDegrees) || !double.IsFinite(sourceHeight) || sourceHeight <= 1e-12)
-            throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Invalid placement plane, point, reference height or source model height."));
-        Point3d anchor = new((bounds.Min.X + bounds.Max.X) / 2, (bounds.Min.Y + bounds.Max.Y) / 2, bounds.Min.Z);
-        Plane target = new(Point, Plane.XAxis, Plane.YAxis);
-        return Transform.PlaneToPlane(Plane.WorldXY, target) *
-               Transform.Rotation(RotationDegrees * Math.PI / 180, Vector3d.ZAxis, Point3d.Origin) *
-               Transform.Scale(Point3d.Origin, Height / sourceHeight) *
-               Transform.Translation(Point3d.Origin - anchor);
+        if(!bounds.IsValid||Mode!=MeshPlacementMode.SourceCoordinates&&(!Plane.IsValid||!Point.IsValid))
+            throw new InvalidOperationException(UiText.Get("The placement bounds, plane, point or scale exceed valid numeric coordinates."));
+        var basis=new GaussianMatrix(Plane.XAxis.X,Plane.YAxis.X,Plane.ZAxis.X,Plane.XAxis.Y,Plane.YAxis.Y,Plane.ZAxis.Y,Plane.XAxis.Z,Plane.YAxis.Z,Plane.ZAxis.Z);
+        var result=MeshPlacementTransform.Create(Mode,new(bounds.Min.X,bounds.Min.Y,bounds.Min.Z),new(bounds.Max.X,bounds.Max.Y,bounds.Max.Z),basis,new(Point.X,Point.Y,Point.Z),Height,RotationDegrees);
+        var m=result.Linear;var t=result.Translation;var transform=Transform.Identity;
+        transform.M00=m.M11;transform.M01=m.M12;transform.M02=m.M13;transform.M03=t.X;
+        transform.M10=m.M21;transform.M11=m.M22;transform.M12=m.M23;transform.M13=t.Y;
+        transform.M20=m.M31;transform.M21=m.M32;transform.M22=m.M33;transform.M23=t.Z;
+        return transform;
     }
 }
 

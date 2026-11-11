@@ -15,7 +15,7 @@ public sealed partial class AholoPanel
     private readonly CheckBox meshExportTextures=new(){Text=T("Include direct base-color bitmaps in mesh USD"),Checked=true};
     private void InitializePlacement()
     {
-        meshEditor=new(serial,AholoPlugin.Placement,Report,RunAsync);
+        meshEditor=new(serial,AholoPlugin.Placement,Report,RunAsync,()=>token);
         meshEditor.HeightText=objectHeight.Text;placementConnection=session.Connection;
         autoPlace.CheckedChanged+=(_,_)=>{if(autoPlace.Checked!=true)RevokePlacements();};
         placementTimer.Elapsed+=(_,_)=>_=PlaceReadyAsync();
@@ -80,9 +80,17 @@ public sealed partial class AholoPanel
         string message=await MeshUsdExport.ExportAsync(GaussianExportDialogs.NormalizePath(dialog),snapshot,token);
         AholoHost.Ui(()=>Report(message));
     }
+    internal Task ImportMeshCandidateAsync(string path)
+    {
+        if(disposed||!shown)throw new InvalidOperationException(T("Open Aholo3D Library before loading a mesh candidate."));
+        _=AholoHost.CaptureTarget(Document());
+        if(busy||autoBusy)throw new InvalidOperationException(T("The panel is busy. Wait for the current operation or cancel it, then load the mesh."));
+        tabs.SelectedIndex=1;
+        return RunAsync("Load local mesh",()=>meshEditor.AddAsync(path,null,Path.GetFileName(path),null,token));
+    }
     private async Task LoadLocalMeshAsync()
     {
-        using var dialog=new OpenFileDialog{Title=T("Load local mesh"),MultiSelect=false};dialog.Filters.Add(new FileFilter(T("Static mesh"),".glb",".ply",".stl",".3mf",".usd",".usda",".usdc",".usdz"));
+        using var dialog=AholoImportMeshCommand.FileDialog();
         if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
         await meshEditor.AddAsync(dialog.FileName,null,Path.GetFileName(dialog.FileName),null,token);
     }

@@ -3690,5 +3690,57 @@
   {
     "English": "This result is already loaded as a candidate.",
     "Chinese": "该结果已载入候选。"
+  },
+  {
+    "English": "Fit height on construction plane",
+    "Chinese": "按高度放到构造平面"
+  },
+  {
+    "English": "Original size on construction plane",
+    "Chinese": "原尺寸放到构造平面"
+  },
+  {
+    "English": "Preserve scene coordinates",
+    "Chinese": "保留场景坐标"
+  },
+  {
+    "English": "Source units and axes are resolved into this document; scene positions are preserved.",
+    "Chinese": "源单位与坐标轴已换算到当前文档，保留场景中的位置。"
+  },
+  {
+    "English": "Fit height needs a model with positive height. For a planar mesh, choose original size or scene coordinates.",
+    "Chinese": "按高度放置要求模型高度大于零，平面网格请选择原尺寸或保留场景坐标。"
+  },
+  {
+    "English": "The placement bounds, plane, point or scale exceed valid numeric coordinates.",
+    "Chinese": "放置包围盒、构造平面、位置或缩放超出有效坐标范围。"
+  },
+  {
+    "English": "A mesh import is already waiting. Use AholoCancel to stop it.",
+    "Chinese": "已有网格导入正在等待启动，可使用 AholoCancel 取消。"
+  },
+  {
+    "English": "Local mesh file",
+    "Chinese": "本地网格文件"
+  },
+  {
+    "English": "Select an existing supported static mesh file.",
+    "Chinese": "请选择已存在且受支持的静态网格文件。"
+  },
+  {
+    "English": "Opening a local mesh candidate in Library. Review placement and accept it there. No cloud request is made.",
+    "Chinese": "正在资产库载入本地网格候选，请检查放置设置后接受，不调用云服务。"
+  },
+  {
+    "English": "The mesh import could not start. Finish the current command and run AholoImportMesh again.",
+    "Chinese": "网格导入未能启动，请结束当前命令后重新运行 AholoImportMesh。"
+  },
+  {
+    "English": "Open Aholo3D Library before loading a mesh candidate.",
+    "Chinese": "请先打开 Aholo3D 资产库，再载入网格候选。"
+  },
+  {
+    "English": "The panel is busy. Wait for the current operation or cancel it, then load the mesh.",
+    "Chinese": "面板正在处理，请等待当前操作完成或取消后再载入网格。"
   }
 ]

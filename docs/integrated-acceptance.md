@@ -52,7 +52,7 @@ Start a download or refresh for task A, then select task B and one of its result
 - Load three local/result static GLBs. Compare candidate colors; adjust height and rotation repeatedly, use current CPlane and pick a point. Acceptance creates only the chosen Block. Clear/hide/close removes preview geometry without removing an accepted model. Clearing during preparation must not restore the candidate later.
 - Start from a hidden/locked current layer or an invisible ancestor layer. Accept, Undo and Redo; both the Block and any created visible layer belong to one operation, and the original current layer is restored.
 - Generate with automatic placement enabled. While waiting, change the active document, close the target, change units, pause the task, turn the option off or disconnect. No stale automatic placement is allowed. Restoring history and restarting Rhino never grants automatic placement.
-- Use `AholoPlaceTask` with the full local task GUID from Library. It may query/download the original static GLB; it must never generate. Repeat after success, delete and Undo: no duplicate is inserted. Cached static GLB placement works without a cloud connection.
+- Use `AholoPlaceTask` with the full local task GUID from Library. It may query/download the original supported static mesh; it must never generate. Repeat after success, delete and Undo: no duplicate is inserted. Cached static mesh placement works without a cloud connection.
 
 ## Native mesh formats
 
@@ -105,3 +105,10 @@ Use the local mesh loader for USD/USDA/USDC/USDZ. Exercise textured triangles/qu
 ### Task mesh recovery and USD routing
 
 For the same GLB/3MF/USD result, preview then accept, and invoke direct placement: only the original block is selected, never duplicated. Repeat after clearing the downloaded cache and disconnecting: existing placement/Redo guidance must work without network. For a missing unplaced cache, reconnect to the original account and recover only the selected output; a reordered response must not change the choice. Cancel, switch account, close/hide the panel or change the target document while downloading/converting: no late unwanted placement/candidate. Confirm the source task is not regenerated. Repeat in both native hosts.
+
+
+### Mesh import command and placement modes
+
+Run `AholoImportMesh` interactively and with a scripted quoted path, including spaces/non-ASCII characters. Confirm Library opens with a candidate only, no document object until acceptance. Repeat with a busy panel, an active command/Undo cycle, document switch/closure and `AholoCancel`; no request may silently land in another document.
+
+Use a zero-height quad and a far-translated, physically sized USD. Original-size/CPlane must preserve scale while moving its base midpoint to the chosen point, with captured tilted plane/rotation. Scene-coordinate mode must preserve prepared world positions and ignore invalid text in disabled height/rotation controls. Fit-height remains the default and reports a clear alternative for planar meshes. Change candidates, clear, accept and reload: the mode is retained. Cancel or close/hide the panel during acceptance's native import: no final block should survive the canceled operation; verify one Undo/Redo on a successful import. These checks require both native platforms.
