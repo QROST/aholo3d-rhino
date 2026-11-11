@@ -175,3 +175,8 @@ Independent OpenUSD parsing discovered that the earlier camera patch's same-line
 ### Core 3MF placement
 
 Added local and downloaded core 3MF results to candidate preview and native Block placement, retaining source SHA-256 and the existing import/Undo receipt. OPC references and model extension boundaries are checked before Rhino. UTF-8 package paths have positive regression coverage. Extended material/production/vendor 3MF remains an explicit boundary; no geometry-count limit was added. The 853-test offline suite and both staged payloads pass. See `mesh-formats.md` for native acceptance and remaining format gaps.
+
+
+## Candidate checkpoint — alpha.4
+
+The post-alpha.3 fidelity, realtime scene and core 3MF commits are consolidated as `0.2.0-alpha.4`. Source validation at `a85b04e`: 853 offline tests passed, clean Release compilation, Khronos GLB validation and actual OpenUSD patch composition. Both platform payloads include the OPC dependency, license and native acceptance sample. The product parity table continues to list open implementation and contract gates; this checkpoint does not mark the plugin complete or publish/install it.

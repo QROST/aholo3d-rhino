@@ -1,6 +1,12 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.3. Earlier entries below retain their original scope.
+Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.4. Earlier entries below retain their original scope.
+
+## Integrated candidate alpha.4 — 2026-11-11 UTC
+
+This candidate includes smooth/custom normals, self-contained direct base-color PNG/JPEG export, ordered realtime model/environment/light-intensity controls, actual OpenUSD camera/scene patch verification and core 3MF placement. Runtime code at `a85b04e` passes **853 offline tests**, with zero failures/skips and a clean Release build. Official glTF validation and real OpenUSD parsing are recorded below. Package metadata and final archive checks are performed separately after this checkpoint. No new native Rhino or authenticated service acceptance is implied, and the earlier alpha.3 packages do not contain these changes.
+
+The detailed remaining format, renderer, account, native-host and service gates are tracked in [capabilities](api-capabilities.md), [mesh formats](mesh-formats.md) and [integrated acceptance](integrated-acceptance.md). Candidate packaging is local; installation, pushing and publication are separate actions.
 
 ## Integrated development candidate alpha.3 — 2026-11-10 UTC
 
@@ -10,7 +16,7 @@ An independent local OpenUSD check parsed a production-generated scene with Rect
 
 Packaging verifies both platform-tagged archives against the allowlisted files and records commit/dirty state, SHA-256 and pending host/service acceptance in `artifacts/latest-package-{mac,win}.json`. Those receipts are the authority for whether an archive was produced; source compilation on a Mac does not prove Windows execution. No GUI automation, installation, push or publication is part of this candidate preparation.
 
-The current product is not full end-user parity solely because all HTTP routes exist. See the [alpha.3 parity table](api-capabilities.md#product-parity-at-alpha3) and [manual acceptance checklist](integrated-acceptance.md). Native cloud depth composition, World GS ingestion and progressive LOD retain contract gates; textures/normals/complex materials, additional mesh formats/animation, realtime model/light controls, remembered OAuth and China-region parity remain development work.
+The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha4) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
 
 ## Integrated development candidate — 2026-11-09
 
