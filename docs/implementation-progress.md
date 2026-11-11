@@ -447,3 +447,8 @@ Task placement is registered before Rhino Idle. Diagnostic PLY import and the GS
 Normal pause/connection-authority revocation is distinguished from unexpected transport cancellation/timeouts. The entire poll/automatic continuation binds to its original authority through one cancellation chain, avoiding callback-order misclassification. Explicit local intent/choice revocation has its own cancellation type. A failing or unknown remote submission is never replayed by these changes.
 
 Validation: Release build with zero warnings/errors; 1,404 .NET tests passed on this Mac (22 more than alpha.23), including deterministic scope replacement, queue unsubscribe, notification reentry, delayed cleanup, throwing callbacks/disposal, pause, connection change and unexpected timeout cases. Two local read-only reviews informed fixes; the remote allowance remained insufficient for a useful new review, so no remote inference was made in this batch. Parent inspected and tested the actual changes. No Rhino automation, real service call, installation, push or publication occurred. [Behavior and pending native checks](operation-lifecycle.md).
+
+
+## Local candidate alpha.24
+
+Packages the operation lifecycle changes from `ed3302b`, without changing saved-document, command or Yak identities. Versioned metadata and both platform archive receipts are verified separately from the 1,404-test runtime check. The payload now includes the operation lifecycle behavior/acceptance document; native and service acceptance remain pending. The candidate is not installed, pushed or published.

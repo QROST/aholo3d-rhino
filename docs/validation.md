@@ -1,6 +1,10 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.8. Earlier entries below retain their original scope.
+Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.24. Earlier entries below retain their original scope.
+
+## Integrated candidate alpha.24 — 2026-11-11 UTC
+
+Operation lifecycle source `ed3302b` passes **1,404 .NET tests**, zero failures/skips, and Release compilation with zero warnings/errors. Added exact cancellation identity, queued placement cancellation, shared command feedback/Scripted path input, normal-cancellation versus timeout classification and idempotent shared-client cleanup. The 22 new lifecycle regression cases use deterministic signals rather than native Rhino automation. Prior GS/PNG/OpenUSD evidence retains its recorded scope; those data paths were not changed in this checkpoint. Current metadata and archive checks run separately and bind receipts to the clean versioned commit. Native Mac/Windows command interaction, shutdown and real services remain pending. No installation, push or publication is included. [Behavior and manual checks](operation-lifecycle.md).
 
 ## Integrated candidate alpha.8 — 2026-11-11 UTC
 
@@ -32,7 +36,7 @@ An independent local OpenUSD check parsed a production-generated scene with Rect
 
 Packaging verifies both platform-tagged archives against the allowlisted files and records commit/dirty state, SHA-256 and pending host/service acceptance in `artifacts/latest-package-{mac,win}.json`. Those receipts are the authority for whether an archive was produced; source compilation on a Mac does not prove Windows execution. No GUI automation, installation, push or publication is part of this candidate preparation.
 
-The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha8) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
+The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha24) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
 
 ## Integrated development candidate — 2026-11-09
 
