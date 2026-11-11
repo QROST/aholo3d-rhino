@@ -67,7 +67,7 @@ public sealed partial class AholoPanel
         Task Validate(CancellationToken ct)=>AholoHost.OnUi(()=>
         {
             ct.ThrowIfCancellationRequested();AholoPlugin.Placement.Validate(target);
-            if(disposed||!shown||meshEditor.Revision!=revision)throw new OperationCanceledException(ct);
+            if(disposed||!shown||meshEditor.Revision!=revision)throw new LocalOperationCanceledException();
             return true;
         });
         artifact=await MeshTaskSource.AcquireAsync(selection,task,()=>session.Connection,session.Client.DownloadAsync,session.Observe,Validate,token);
@@ -77,7 +77,7 @@ public sealed partial class AholoPanel
     {
         using var dialog=AholoImportSceneCommand.FileDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
         var target=GaussianDocument.CaptureSceneImport(Document());
-        var progress=new Progress<string>(message=>AholoHost.Ui(()=>Report(message)));
+        var progress=StageProgress();
         string message=await GaussianDocument.ImportUsdSceneAsync(dialog.FileName,target,token,progress);
         AholoHost.Ui(()=>Report(message));
     }
@@ -85,7 +85,7 @@ public sealed partial class AholoPanel
     {
         using var dialog=SceneUsdExport.SaveDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
         var snapshot=AholoHost.CaptureSceneExport(Document(),meshExportTextures.Checked==true);
-        var progress=new Progress<string>(message=>AholoHost.Ui(()=>Report(message)));
+        var progress=StageProgress();
         string message=await SceneUsdExport.ExportAsync(GaussianExportDialogs.NormalizePath(dialog),snapshot,token,progress);
         AholoHost.Ui(()=>Report(message));
     }

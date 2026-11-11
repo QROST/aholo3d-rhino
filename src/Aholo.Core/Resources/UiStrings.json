@@ -4862,5 +4862,49 @@
   {
     "English": "Time since recorded: {0}",
     "Chinese": "任务记录已等待：{0}"
+  },
+  {
+    "English": "Operation {0} · document {1} · {2}: started. Use AholoCancel to stop locally.",
+    "Chinese": "操作 {0} · 文档 {1} · {2}：已开始。使用 AholoCancel 在本机取消。"
+  },
+  {
+    "English": "Operation {0}: completed. {1}",
+    "Chinese": "操作 {0}：已完成。{1}"
+  },
+  {
+    "English": "Operation {0}: cancelled locally. Remote tasks are not cancelled; already committed objects remain available for Undo.",
+    "Chinese": "操作 {0}：已在本机取消。远程任务未取消；已放入的对象可使用撤销移除。"
+  },
+  {
+    "English": "Operation {0}: failed. {1}",
+    "Chinese": "操作 {0}：失败。{1}"
+  },
+  {
+    "English": "Local PLY file",
+    "Chinese": "本机 PLY 文件"
+  },
+  {
+    "English": "Local Gaussian scene file",
+    "Chinese": "本机高斯场景文件"
+  },
+  {
+    "English": "Import PLY centers",
+    "Chinese": "导入 PLY 中心点"
+  },
+  {
+    "English": "Create GS probe",
+    "Chinese": "创建 GS 测试场景"
+  },
+  {
+    "English": "Place original task",
+    "Chinese": "放入原任务模型"
+  },
+  {
+    "English": "OBJ placement requires explicit units, up axis and archive entry. Run AholoPlaceTask interactively or use Library to review the OBJ candidate.",
+    "Chinese": "放入 OBJ 前须明确单位、向上轴和压缩包条目。请交互运行 AholoPlaceTask，或在资产库中检查 OBJ 候选模型。"
+  },
+  {
+    "English": "The operation stopped unexpectedly without a local cancellation request. Check the connection and retry the original task; do not resubmit it.",
+    "Chinese": "操作意外中止，未收到本地取消请求。请检查连接并查询或继续原任务，不要重新提交生成。"
   }
 ]

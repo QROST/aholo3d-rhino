@@ -81,7 +81,7 @@ internal sealed class MeshPlacementEditor : IDisposable
         var request=await AholoHost.OnUi(()=>
         {
             ct.ThrowIfCancellationRequested();
-            if(disposed||expectedRevision is not null&&expectedRevision!=revision)throw new OperationCanceledException(ct);
+            if(disposed||expectedRevision is not null&&expectedRevision!=revision)throw new LocalOperationCanceledException();
             int duplicate=importId.HasValue?candidates.FindIndex(c=>c.ImportId==importId.Value):-1;
             if(duplicate>=0){Select(duplicate);report(UiText.Get("This result is already loaded as a candidate."));return (revision,(MeshPlacementTarget?)null);}
             if(candidates.Count>=3)throw new InvalidOperationException(UiText.Get("Up to 3 candidates per group. Remove an unwanted candidate first."));

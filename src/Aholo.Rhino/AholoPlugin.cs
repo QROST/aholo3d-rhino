@@ -64,21 +64,26 @@ public sealed class AholoImportPlyCommand : Command
     public override string EnglishName => "AholoImportPly";
     protected override Result RunCommand(global::Rhino.RhinoDoc doc, RunMode mode)
     {
-        using var dialog = new Eto.Forms.OpenFileDialog { Title = global::Aholo.Core.UiText.Get("Diagnostic: import PLY centers (Z-up, 1 PLY unit = 1 document unit)"), MultiSelect = false };
-        dialog.Filters.Add(new Eto.Forms.FileFilter(global::Aholo.Core.UiText.Get("PLY point cloud"), ".ply"));
-        if (dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc)) != Eto.Forms.DialogResult.Ok) return Result.Cancel;
-        var target = AholoHost.CaptureTarget(doc);
-        _ = ImportAsync(dialog.FileName, target);
-        global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("Reading the PLY point cloud. This command previews centers and colors; use AholoImportGs or AholoPanel for complete GS."));
-        return Result.Success;
-    }
-    private static async Task ImportAsync(string path, ImportTarget target)
-    {
         try
         {
-            var result = await AholoHost.ImportAsync(path, target, 1, "Z", null, CancellationToken.None);
-            AholoHost.Ui(() => global::Rhino.RhinoApp.WriteLine(result));
+            string path;
+            if(mode==RunMode.Scripted)
+            {
+                path="";var result=global::Rhino.Input.RhinoGet.GetString(UiText.Get("Local PLY file"),false,ref path);
+                if(result!=Result.Success)return result;path=Path.GetFullPath(path);
+            }
+            else
+            {
+                using var dialog = new Eto.Forms.OpenFileDialog { Title = UiText.Get("Diagnostic: import PLY centers (Z-up, 1 PLY unit = 1 document unit)"), MultiSelect = false };
+                dialog.Filters.Add(new Eto.Forms.FileFilter(UiText.Get("PLY point cloud"), ".ply"));
+                if (dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc)) != Eto.Forms.DialogResult.Ok) return Result.Cancel;
+                path=dialog.FileName;
+            }
+            var target = AholoHost.CaptureTarget(doc);
+            CommandOperation.Start(target.Serial,"ply-centers","Import PLY centers",ct=>AholoHost.ImportAsync(path,target,1,"Z",null,ct));
+            global::Rhino.RhinoApp.WriteLine(UiText.Get("Reading the PLY point cloud. This command previews centers and colors; use AholoImportGs or AholoPanel for complete GS."));
+            return Result.Success;
         }
-        catch (Exception ex) { AholoHost.Ui(() => global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("Aholo import did not finish: ") + AholoHost.FriendlyError(ex))); }
+        catch(Exception error){global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(error));return Result.Failure;}
     }
 }

@@ -436,3 +436,14 @@ Remote allowance was still insufficient (135 tokens); no new remote inference ra
 ### Candidate checkpoint — alpha.23
 
 Packages per-instance GS antialiasing and stable Gram projection from `940c3cb`, with 1382 passing offline tests, independent Decimal/matrix oracles, reproducible OpenUSD fixture and zero-warning/error Release compilation. Stable plugin/assembly/Yak identities remain unchanged. The package includes the paired GS fixture and manual checklist. Local Mac/Windows archives do not establish native appearance, performance or live service acceptance and are not installed or published automatically.
+
+
+## Local operation identity, cancellation and shutdown (after alpha.23)
+
+Document cancellation now snapshots exact operations rather than reusable scope strings, preventing cancellation of a later replacement. Added immutable command handles, exact-ID cancellation, a stop-and-drain barrier and a cancellable host-readiness wait. The registry retains the outcome of a successful commit after a late cancellation and isolates failing cancellation observers. Session shutdown is idempotent, rejects new registered work, waits for registered cleanup/manual polling and disposes remaining resources even if one cleanup phase fails.
+
+Task placement is registered before Rhino Idle. Diagnostic PLY import and the GS occlusion probe now share document cancellation. GS/PLY import, probe, original-task placement and GS/mesh/scene USD commands print matching start/final IDs; the panel footer shows active command work. Scripted GS/PLY paths use command-line input; scripted OBJ placement explicitly requires the interactive units/axis/entry choices. Scene stage feedback uses the current panel operation generation.
+
+Normal pause/connection-authority revocation is distinguished from unexpected transport cancellation/timeouts. The entire poll/automatic continuation binds to its original authority through one cancellation chain, avoiding callback-order misclassification. Explicit local intent/choice revocation has its own cancellation type. A failing or unknown remote submission is never replayed by these changes.
+
+Validation: Release build with zero warnings/errors; 1,404 .NET tests passed on this Mac (22 more than alpha.23), including deterministic scope replacement, queue unsubscribe, notification reentry, delayed cleanup, throwing callbacks/disposal, pause, connection change and unexpected timeout cases. Two local read-only reviews informed fixes; the remote allowance remained insufficient for a useful new review, so no remote inference was made in this batch. Parent inspected and tested the actual changes. No Rhino automation, real service call, installation, push or publication occurred. [Behavior and pending native checks](operation-lifecycle.md).

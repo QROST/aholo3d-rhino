@@ -60,20 +60,10 @@ public sealed class AholoExportMeshCommand : global::Rhino.Commands.Command
                 path=GaussianExportDialogs.NormalizePath(dialog);
             }
             var snapshot=AholoHost.CaptureMeshExport(doc);
-            _=ExportAsync(path,snapshot,doc.RuntimeSerialNumber);
+            CommandOperation.Start(doc.RuntimeSerialNumber,"mesh-export","Export selected mesh USD",ct=>MeshUsdExport.ExportAsync(path,snapshot,ct));
             global::Rhino.RhinoApp.WriteLine(UiText.Get("Exporting the captured selection locally. Use AholoCancel to stop. No cloud request is made."));
             return Result.Success;
         }
         catch(Exception ex){global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(ex));return Result.Failure;}
-    }
-    private static async Task ExportAsync(string path,GeometrySnapshot snapshot,uint serial)
-    {
-        try
-        {
-            string result=await AholoPlugin.Session.Operations.RunAsync(AholoPlugin.DocumentScope(serial)+"mesh-export","Export selected mesh USD",ct=>MeshUsdExport.ExportAsync(path,snapshot,ct)).ConfigureAwait(false);
-            AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(result));
-        }
-        catch(OperationCanceledException){AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(UiText.Get("Local export cancelled. The previous output was preserved.")));}
-        catch(Exception ex){AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(ex)));}
     }
 }

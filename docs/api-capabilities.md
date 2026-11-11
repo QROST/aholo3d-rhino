@@ -103,3 +103,6 @@ China-region public contracts were independently fetched and compared on 2026-11
 
 
 GLB preparation now supports ignored PNG texture alpha together with partial material opacity using a private RGB payload. This closes that specific export limitation; it does not add arbitrary material graphs, glass transmission or native visual acceptance. [Pixel validation and boundaries](png-alpha-export.md).
+
+
+Local operation lifecycle now includes exact identity cancellation, cancel-before-Idle placement, shared GS/PLY/probe and USD command feedback, Scripted GS/PLY paths and orderly shared-client shutdown. Interactive mesh-candidate acceptance and native shutdown/UI tests remain separate: [behavior and acceptance](operation-lifecycle.md).

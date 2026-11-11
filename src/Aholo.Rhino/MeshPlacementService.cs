@@ -27,9 +27,9 @@ internal sealed class MeshPlacementService
         if(doc.ModelUnitSystem!=target.Document.Units||host.Session(doc)!=target.Session)throw new InvalidOperationException(UiText.Get("The target document changed. Retry placement in the intended document."));
         return doc;
     }
-    internal async Task<PreparedAsset> PrepareAsync(string path,string? hash,MeshPlacementTarget target,CancellationToken ct,HostImportTrace? trace=null,Func<bool>? allowed=null)
+    internal async Task<PreparedAsset> PrepareAsync(string path,string? hash,MeshPlacementTarget target,CancellationToken ct,HostImportTrace? trace=null,Func<bool>? allowed=null,bool interactive=true)
     {
-        void ValidateIntent(){ct.ThrowIfCancellationRequested();Resolve(target);if(allowed is not null&&!allowed())throw new OperationCanceledException(ct);}
+        void ValidateIntent(){ct.ThrowIfCancellationRequested();Resolve(target);if(allowed is not null&&!allowed())throw new LocalOperationCanceledException();}
         await AholoHost.OnUi(()=>{ValidateIntent();return true;}).ConfigureAwait(false);
         IMeshImportSnapshot snapshot;
         string extension=Path.GetExtension(path).ToLowerInvariant();
@@ -50,6 +50,7 @@ internal sealed class MeshPlacementService
             UsdMeshScene scene;
             if(extension is ".obj" or ".zip")
             {
+                if(!interactive)throw new InvalidOperationException(UiText.Get("OBJ placement requires explicit units, up axis and archive entry. Run AholoPlaceTask interactively or use Library to review the OBJ candidate."));
                 using var source=await Task.Run(()=>ObjSourceSnapshot.OpenForSelection(path,hash,ct),ct).ConfigureAwait(false);
                 var options=await AholoHost.OnUi(()=>
                 {
@@ -76,12 +77,12 @@ internal sealed class MeshPlacementService
         }
         catch{snapshot.Dispose();throw;}
     }
-    internal async Task<MeshPlacementResult> PlaceTaskAsync(Guid id,string? artifactKey,MeshPlacementTarget target,CancellationToken ct,Func<bool>? allowed=null)
+    internal async Task<MeshPlacementResult> PlaceTaskAsync(Guid id,string? artifactKey,MeshPlacementTarget target,CancellationToken ct,Func<bool>? allowed=null,bool interactive=true)
     {
         async Task Validate(CancellationToken token)=>await AholoHost.OnUi(()=>
         {
             token.ThrowIfCancellationRequested();Resolve(target);
-            if(allowed is not null&&!allowed())throw new OperationCanceledException(token);
+            if(allowed is not null&&!allowed())throw new LocalOperationCanceledException();
             return true;
         }).ConfigureAwait(false);
         var task=await Task.Run(()=>session.Store.Get(id),ct).ConfigureAwait(false);
@@ -90,7 +91,7 @@ internal sealed class MeshPlacementService
         Task<MeshPlacementResult?> Check(CancellationToken token)=>AholoHost.OnUi(()=>
         {
             token.ThrowIfCancellationRequested();var doc=Resolve(target);
-            if(allowed is not null&&!allowed())throw new OperationCanceledException(token);
+            if(allowed is not null&&!allowed())throw new LocalOperationCanceledException();
             if(doc.IsCommandRunning||doc.UndoRecordingIsActive)return new MeshPlacementResult("Deferred",UiText.Get("Finish the current Rhino command before accepting a candidate."));
             return Existing(doc,selection.ImportId);
         });
@@ -99,7 +100,7 @@ internal sealed class MeshPlacementService
         {
             var result=await MeshTaskPlacement.ExecuteAsync(Check,
                 token=>MeshTaskSource.AcquireAsync(selection,task,()=>session.Connection,session.Client.DownloadAsync,session.Observe,Validate,token),
-                (artifact,token)=>PrepareAsync(artifact.LocalPath!,artifact.Sha256,target,token,trace,allowed),
+                (artifact,token)=>PrepareAsync(artifact.LocalPath!,artifact.Sha256,target,token,trace,allowed,interactive),
                 (asset,token)=>AholoHost.OnUi(()=>Commit(asset,target,selection.ImportId,id,trace,token,allowed)),asset=>AholoHost.OnUi(()=>{asset.Dispose();return true;}),ct).ConfigureAwait(false);
             trace.Complete(result.State);return result;
         }
@@ -107,7 +108,7 @@ internal sealed class MeshPlacementService
     }
     internal MeshPlacementResult Commit(PreparedAsset asset,MeshPlacementTarget target,Guid importId,Guid? taskId=null,HostImportTrace? trace=null,CancellationToken ct=default,Func<bool>? allowed=null)
     {
-        void ValidateCommit(){ct.ThrowIfCancellationRequested();Resolve(target);if(allowed is not null&&!allowed())throw new OperationCanceledException(ct);}
+        void ValidateCommit(){ct.ThrowIfCancellationRequested();Resolve(target);if(allowed is not null&&!allowed())throw new LocalOperationCanceledException();}
         ValidateCommit();var doc=Resolve(target);
         if(doc.IsCommandRunning||doc.UndoRecordingIsActive)throw new InvalidOperationException(UiText.Get("Finish the current Rhino command before accepting a candidate."));
         var prior=Existing(doc,importId);if(prior is not null)return prior;

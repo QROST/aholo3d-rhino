@@ -16,16 +16,16 @@ public sealed class AholoPlaceTaskCommand : Command
         MeshPlacementTarget target;
         try{target=AholoPlugin.Placement.Capture(doc,MeshPlacementService.DefaultPlacement(doc));}
         catch(Exception error){global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(error));return Result.Failure;}
-        EventHandler? idle=null;idle=(_,_)=>{global::Rhino.RhinoApp.Idle-=idle;_=PlaceAsync(id,target);};global::Rhino.RhinoApp.Idle+=idle;
-        return Result.Success;
-    }
-    private static async Task PlaceAsync(Guid id,MeshPlacementTarget target)
-    {
         try
         {
-            var result=await AholoPlugin.Session.Operations.RunAsync(AholoPlugin.DocumentScope(target.Document.Serial)+"mesh-placement","Place original task",ct=>AholoPlugin.Placement.PlaceTaskAsync(id,null,target,ct)).ConfigureAwait(false);
-            AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(result.Message));
+            CommandOperation.Start(target.Document.Serial,"mesh-placement","Place original task",async ct=>
+            {
+                await CommandOperation.WaitForIdleAsync(ct).ConfigureAwait(false);
+                var result=await AholoPlugin.Placement.PlaceTaskAsync(id,null,target,ct,interactive:mode!=RunMode.Scripted).ConfigureAwait(false);
+                return result.Message;
+            });
+            return Result.Success;
         }
-        catch(Exception error){AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(error)));}
+        catch(Exception error){global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(error));return Result.Failure;}
     }
 }

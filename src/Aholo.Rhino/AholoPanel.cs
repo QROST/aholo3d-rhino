@@ -163,7 +163,9 @@ public sealed partial class AholoPanel : Panel,IPanel
         download.ToolTip=place.ToolTip=previewResult.ToolTip=access.NextStep;
         continueRender.Enabled=!working&&connected&&sameAccount&&capability?.CanContinueRender==true;
         continueRender.Visible=task?.Kind=="render"&&capability?.CanContinueRender==true;
-        cancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
+        var active=session.Operations.Snapshot().Where(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal)).ToArray();
+        cancel.Enabled=active.Length>0;
+        if(!busy)operation.Text=active.Length==0?T("Ready"):string.Join(" · ",active.Select(x=>T(x.Name)));
     }
     private long historyRevision;
     private bool reloadingHistory;

@@ -17,23 +17,24 @@ public sealed class AholoImportGsCommand : Command
     {
         try
         {
-            using var dialog=new Eto.Forms.OpenFileDialog { Title=global::Aholo.Core.UiText.Get("Import complete GS · PLY / SPLAT / SPZ / USD / USDZ (automatic units and up axis)"),MultiSelect=false };
-            dialog.Filters.Add(new Eto.Forms.FileFilter(global::Aholo.Core.UiText.Get("Gaussian Splat scene"),".ply",".splat",".spz",".usd",".usda",".usdc",".usdz"));
-            if(dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc))!=Eto.Forms.DialogResult.Ok)return Result.Cancel;
+            string path;
+            if(mode==RunMode.Scripted)
+            {
+                path="";var result=global::Rhino.Input.RhinoGet.GetString(UiText.Get("Local Gaussian scene file"),false,ref path);
+                if(result!=Result.Success)return result;path=Path.GetFullPath(path);
+            }
+            else
+            {
+                using var dialog=new Eto.Forms.OpenFileDialog { Title=UiText.Get("Import complete GS · PLY / SPLAT / SPZ / USD / USDZ (automatic units and up axis)"),MultiSelect=false };
+                dialog.Filters.Add(new Eto.Forms.FileFilter(UiText.Get("Gaussian Splat scene"),".ply",".splat",".spz",".usd",".usda",".usdc",".usdz"));
+                if(dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc))!=Eto.Forms.DialogResult.Ok)return Result.Cancel;
+                path=dialog.FileName;
+            }
             ImportTarget target=AholoHost.CaptureTarget(doc);
             global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("The experimental GS viewport prepares all Gaussians in the background and shows bounds while loading. Keep the target document units unchanged."));
-            _=ImportAsync(dialog.FileName,target); return Result.Success;
+            CommandOperation.Start(target.Serial,"gs","Import GS",ct=>GaussianDocument.ImportSceneAsync(path,target,1,"Auto",true,ct)); return Result.Success;
         }
         catch (Exception ex) { global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(ex)); return Result.Failure; }
-    }
-    private static async Task ImportAsync(string path,ImportTarget target)
-    {
-        try
-        {
-            string result=await AholoPlugin.Session.Operations.RunAsync(AholoPlugin.DocumentScope(target.Serial)+"gs", "Import GS", token => GaussianDocument.ImportSceneAsync(path,target,1,"Auto",true,token)).ConfigureAwait(false);
-            AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(result));
-        }
-        catch(Exception ex){AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("GS import did not finish: ")+AholoHost.FriendlyError(ex)));}
     }
 }
 
@@ -71,46 +72,46 @@ public sealed class AholoGsProbeCommand : Command
     public override string EnglishName=>"AholoGsProbe";
     protected override Result RunCommand(RhinoDoc doc,RunMode mode)
     {
-        ImportTarget target=AholoHost.CaptureTarget(doc);
-        global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("Creating an offline GS occlusion probe: two complete Gaussian groups, one opaque Brep cube and one Mesh. This adds local test objects without cloud access and supports Undo. Orbit the camera to check occlusion and soft transparent edges."));
-        _=CreateAsync(target); return Result.Success;
-    }
-    private static async Task CreateAsync(ImportTarget target)
-    {
         try
         {
-            string path=await Task.Run(WriteFixture).ConfigureAwait(false);
-            string result=await GaussianDocument.ImportAsync(path,target,1,"Z",null,CancellationToken.None).ConfigureAwait(false);
-            await AholoHost.OnUi(()=>
-            {
-                RhinoDoc doc=RhinoDoc.FromRuntimeSerialNumber(target.Serial)??throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The probe target document has closed."));
-                if(RhinoDoc.ActiveDoc?.RuntimeSerialNumber!=target.Serial||doc.ModelUnitSystem!=target.Units||doc.IsClosing||doc.IsReadOnly||doc.IsCommandRunning||doc.UndoRecordingIsActive)
-                    throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The target document changed. GS was imported, but occlusion test geometry was not added."));
-                uint undo=doc.BeginUndoRecord(global::Aholo.Core.UiText.Get("Add GS occlusion test geometry"));
-                if(undo==0)throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create the test geometry Undo record."));
-                try
-                {
-                    using Brep cube=new BoundingBox(new Point3d(-.35,-.8,-1.5),new Point3d(.35,.8,1.5)).ToBrep();
-                    using var attrs=new ObjectAttributes{LayerIndex=GaussianDocument.VisibleLayer(doc),Name="Aholo GS probe · opaque Brep",ObjectColor=Color.FromArgb(65,95,160),ColorSource=ObjectColorSource.ColorFromObject};
-                    if(doc.Objects.AddBrep(cube,attrs)==Guid.Empty) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot add the Brep occlusion test geometry."));
-                    using var mesh=Mesh.CreateFromBox(new BoundingBox(new Point3d(1.2,-1.0,-.25),new Point3d(2.3,1.0,.25)),1,1,1);
-                    attrs.Name="Aholo GS probe · opaque Mesh";attrs.ObjectColor=Color.FromArgb(170,140,65);
-                    if(doc.Objects.AddMesh(mesh,attrs)==Guid.Empty) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot add the Mesh occlusion test geometry. Use Undo to remove geometry already added."));
-                }
-                finally{doc.EndUndoRecord(undo);}
-                var viewport=doc.Views.ActiveView?.ActiveViewport;
-                if(viewport is not null)
-                {
-                    viewport.ChangeToPerspectiveProjection(true,50);
-                    viewport.SetCameraLocations(Point3d.Origin,new Point3d(5,-12,4));
-                    viewport.ZoomBoundingBox(new BoundingBox(new Point3d(-3,-2,-2.5),new Point3d(3,2,2.5)));
-                }
-                doc.Objects.UnselectAll();doc.Views.Redraw();global::Rhino.RhinoApp.WriteLine(result);
-                global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("Use Undo twice: first remove the occlusion geometry, then the GS blocks. Visual acceptance is not automatic; run AholoGsDiagnostics for status."));
-                return true;
-            }).ConfigureAwait(false);
+            ImportTarget target=AholoHost.CaptureTarget(doc);
+            global::Rhino.RhinoApp.WriteLine(UiText.Get("Creating an offline GS occlusion probe: two complete Gaussian groups, one opaque Brep cube and one Mesh. This adds local test objects without cloud access and supports Undo. Orbit the camera to check occlusion and soft transparent edges."));
+            CommandOperation.Start(target.Serial,"gs","Create GS probe",ct=>CreateAsync(target,ct));return Result.Success;
         }
-        catch(Exception ex){AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("GS probe did not finish: ")+AholoHost.FriendlyError(ex)));}
+        catch(Exception error){global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(error));return Result.Failure;}
+    }
+    private static async Task<string> CreateAsync(ImportTarget target,CancellationToken ct)
+    {
+        string path=await Task.Run(WriteFixture,ct).ConfigureAwait(false);
+        string result=await GaussianDocument.ImportAsync(path,target,1,"Z",null,ct).ConfigureAwait(false);
+        return await AholoHost.OnUi(()=>
+        {
+            ct.ThrowIfCancellationRequested();
+            RhinoDoc doc=RhinoDoc.FromRuntimeSerialNumber(target.Serial)??throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The probe target document has closed."));
+            if(RhinoDoc.ActiveDoc?.RuntimeSerialNumber!=target.Serial||doc.ModelUnitSystem!=target.Units||doc.IsClosing||doc.IsReadOnly||doc.IsCommandRunning||doc.UndoRecordingIsActive)
+                throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The target document changed. GS was imported, but occlusion test geometry was not added."));
+            uint undo=doc.BeginUndoRecord(global::Aholo.Core.UiText.Get("Add GS occlusion test geometry"));
+            if(undo==0)throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create the test geometry Undo record."));
+            try
+            {
+                using Brep cube=new BoundingBox(new Point3d(-.35,-.8,-1.5),new Point3d(.35,.8,1.5)).ToBrep();
+                using var attrs=new ObjectAttributes{LayerIndex=GaussianDocument.VisibleLayer(doc),Name="Aholo GS probe · opaque Brep",ObjectColor=Color.FromArgb(65,95,160),ColorSource=ObjectColorSource.ColorFromObject};
+                if(doc.Objects.AddBrep(cube,attrs)==Guid.Empty) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot add the Brep occlusion test geometry."));
+                using var mesh=Mesh.CreateFromBox(new BoundingBox(new Point3d(1.2,-1.0,-.25),new Point3d(2.3,1.0,.25)),1,1,1);
+                attrs.Name="Aholo GS probe · opaque Mesh";attrs.ObjectColor=Color.FromArgb(170,140,65);
+                if(doc.Objects.AddMesh(mesh,attrs)==Guid.Empty) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot add the Mesh occlusion test geometry. Use Undo to remove geometry already added."));
+            }
+            finally{doc.EndUndoRecord(undo);}
+            var viewport=doc.Views.ActiveView?.ActiveViewport;
+            if(viewport is not null)
+            {
+                viewport.ChangeToPerspectiveProjection(true,50);
+                viewport.SetCameraLocations(Point3d.Origin,new Point3d(5,-12,4));
+                viewport.ZoomBoundingBox(new BoundingBox(new Point3d(-3,-2,-2.5),new Point3d(3,2,2.5)));
+            }
+            doc.Objects.UnselectAll();doc.Views.Redraw();
+            return result+"\n"+UiText.Get("Use Undo twice: first remove the occlusion geometry, then the GS blocks. Visual acceptance is not automatic; run AholoGsDiagnostics for status.");
+        }).ConfigureAwait(false);
     }
     private static string WriteFixture()
     {
@@ -138,22 +139,23 @@ public sealed class AholoExportGsCommand : Command
         try
         {
             GaussianDocument.ExportSnapshot snapshot = GaussianDocument.CaptureExport(doc, selectedOnly: true);
-            using var dialog = GaussianExportDialogs.CreateSaveDialog();
-            if (dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc)) != Eto.Forms.DialogResult.Ok) return Result.Cancel;
-            global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("Exporting selected GS in the background using current document coordinates and units. Use AholoPanel to export all GS or to cancel."));
-            _ = ExportAsync(GaussianExportDialogs.NormalizePath(dialog), snapshot, doc.RuntimeSerialNumber);
+            string path;
+            if(mode==RunMode.Scripted)
+            {
+                path="";var result=global::Rhino.Input.RhinoGet.GetString(UiText.Get("USD output file"),false,ref path);
+                if(result!=Result.Success)return result;path=Path.GetFullPath(path);
+            }
+            else
+            {
+                using var dialog = GaussianExportDialogs.CreateSaveDialog();
+                if(dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc))!=Eto.Forms.DialogResult.Ok)return Result.Cancel;
+                path=GaussianExportDialogs.NormalizePath(dialog);
+            }
+            global::Rhino.RhinoApp.WriteLine(UiText.Get("Exporting selected GS in the background using current document coordinates and units. Use AholoPanel to export all GS or to cancel."));
+            CommandOperation.Start(doc.RuntimeSerialNumber,"gs","Export GS",ct=>GaussianDocument.ExportAsync(path,snapshot,ct));
             return Result.Success;
         }
         catch (Exception ex) { global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(ex)); return Result.Failure; }
-    }
-    private static async Task ExportAsync(string path, GaussianDocument.ExportSnapshot snapshot, uint serial)
-    {
-        try
-        {
-            string result = await AholoPlugin.Session.Operations.RunAsync(AholoPlugin.DocumentScope(serial)+"gs", "Export GS", token => GaussianDocument.ExportAsync(path, snapshot, token)).ConfigureAwait(false);
-            AholoHost.Ui(() => global::Rhino.RhinoApp.WriteLine(result));
-        }
-        catch (Exception ex) { AholoHost.Ui(() => global::Rhino.RhinoApp.WriteLine(global::Aholo.Core.UiText.Get("GS export did not finish: ") + AholoHost.FriendlyError(ex))); }
     }
 }
 

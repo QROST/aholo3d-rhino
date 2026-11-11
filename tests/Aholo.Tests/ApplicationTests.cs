@@ -161,25 +161,109 @@ public sealed class ApplicationTests : IDisposable
         client.ConnectionReadCompletion.SetResult(new(true,"account",false,"old","international"));
         await Assert.ThrowsAsync<InvalidOperationException>(()=>failed);Assert.Equal("china",session.Connection.Region);Assert.Null(session.LastError);
     }
+    [Fact] public async Task PausingInFlightRefreshDoesNotReportConnectionFailure()
+    {
+        var store=Store;var client=new FakeClient(store){RefreshCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously)};
+        await using var session=new AholoSession(client,store);await session.ReadConnectionAsync();await session.RenderAsync(Request);
+        var poll=session.PollOnceAsync();await client.RefreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        session.PauseTask(client.Task.Id);await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>poll);
+        Assert.Null(session.LastError);Assert.Equal(0,client.Continuations);
+    }
+    [Fact] public async Task ActualRefreshFailureStillReportsRecoveryAdvice()
+    {
+        var store=Store;var client=new FakeClient(store){RefreshCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously)};
+        await using var session=new AholoSession(client,store);await session.ReadConnectionAsync();await session.RenderAsync(Request);
+        var poll=session.PollOnceAsync();await client.RefreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        client.RefreshCompletion.SetException(new IOException("fixture unavailable"));await Assert.ThrowsAsync<IOException>(()=>poll);
+        Assert.Contains("Background refresh failed",session.LastError);Assert.Equal(0,client.Continuations);
+    }
+    [Fact] public async Task UnexpectedRefreshTimeoutStillReportsFailure()
+    {
+        var store=Store;var client=new FakeClient(store){RefreshCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously)};
+        await using var session=new AholoSession(client,store);await session.ReadConnectionAsync();await session.RenderAsync(Request);
+        var poll=session.PollOnceAsync();await client.RefreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        client.RefreshCompletion.SetException(new TaskCanceledException("fixture transport timeout"));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>poll);Assert.Contains("Background refresh failed",session.LastError);
+        var operation=Assert.Single(session.Operations.Snapshot());Assert.Equal("Failed",operation.State);Assert.NotNull(operation.Error);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public async Task ConnectionChangeCancelsAutomaticContinuationWithoutRefreshFailure(bool reset)
+    {
+        var store=Store;var client=new FakeClient(store){WaitBeforeContinue=new(TaskCreationOptions.RunContinuationsAsynchronously)};
+        await using var session=new AholoSession(client,store);await session.ReadConnectionAsync();await session.RenderAsync(Request);
+        var poll=session.PollOnceAsync();await client.ContinueStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        if(reset)client.Reset();else await session.ConnectAsync(new("fixture",false));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>poll);
+        Assert.DoesNotContain("Background refresh failed",session.LastError??"");Assert.Equal(0,client.Continuations);
+        Assert.Equal("Cancelled",Assert.Single(session.Operations.Snapshot()).State);
+    }
+    [Fact] public async Task DisposalWaitsForRegisteredCleanupBeforeDisposingClient()
+    {
+        var store=Store;var client=new FakeClient(store);var session=new AholoSession(client,store);
+        var cleaning=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var work=session.Operations.RunAsync("document:1:work","Cleanup",async ct=>
+        {try{await System.Threading.Tasks.Task.Delay(Timeout.Infinite,ct);}finally{cleaning.SetResult();await release.Task;Assert.Equal(0,client.DisposeCalls);}});
+        var disposal=session.DisposeAsync().AsTask();await cleaning.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(disposal.IsCompleted);Assert.Same(disposal,session.DisposeAsync().AsTask());
+        Assert.Throws<ObjectDisposedException>(()=>session.Start());
+        await Assert.ThrowsAsync<ObjectDisposedException>(()=>session.Operations.RunAsync("new","New",_=>System.Threading.Tasks.Task.CompletedTask));
+        release.SetResult();await disposal;await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>work);Assert.Equal(1,client.DisposeCalls);
+    }
+    [Fact] public async Task DisposalCancelsManualPollWithoutDisposingItsGateEarly()
+    {
+        var store=Store;var client=new FakeClient(store){RefreshCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously)};
+        var session=new AholoSession(client,store);await session.ReadConnectionAsync();await session.RenderAsync(Request);
+        var poll=session.PollOnceAsync();await client.RefreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await session.DisposeAsync();await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>poll);Assert.Equal(1,client.DisposeCalls);Assert.Null(session.LastError);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public async Task DisposalCompletesRemainingCleanupAfterCallbackOrClientFailure(bool clientFailure)
+    {
+        var store=Store;var client=new FakeClient(store){ThrowOnConnectionCancellation=true,ThrowOnDispose=clientFailure};
+        var session=new AholoSession(client,store);session.Start();await client.ConnectionStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var disposal=session.DisposeAsync().AsTask();await Assert.ThrowsAsync<AggregateException>(()=>disposal);
+        Assert.Equal(1,client.DisposeCalls);Assert.True(client.CancellationCallbackRan);Assert.Same(disposal,session.DisposeAsync().AsTask());
+        Assert.Throws<ObjectDisposedException>(()=>session.Start());
+        await Assert.ThrowsAsync<ObjectDisposedException>(()=>session.Operations.RunAsync("new","New",_=>System.Threading.Tasks.Task.CompletedTask));
+    }
+    [Fact] public async Task DisposalDuringOperationNotificationDoesNotStartWork()
+    {
+        var client=new FakeClient(Store);var session=new AholoSession(client,Store);Task? stopped=null;bool invoked=false;
+        session.Operations.Changed+=()=>stopped=session.DisposeAsync().AsTask();
+        var handle=session.Operations.Start("scope","Work",_=>{invoked=true;return System.Threading.Tasks.Task.FromResult(1);});
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>handle.Completion);
+        Assert.NotNull(stopped);await stopped.WaitAsync(TimeSpan.FromSeconds(5));Assert.False(invoked);Assert.Equal(1,client.DisposeCalls);
+    }
     private sealed class FakeClient(TaskStore store) : IAholoServiceClient
     {
         public event Action? TransportReset;
         public void Reset()=>TransportReset?.Invoke();
         public LocalTask Task {get;private set;}=new(){Kind="render",ConnectionId="account",Status="MeshProcessing",MeshTaskId="mesh-task",Render=Request};
-        public int Continuations,Queries;
-        public bool FailConnection,FailMutation;public string Epoch="initial";
+        public int Continuations,Queries,DisposeCalls;
+        public TaskCompletionSource<LocalTask>? RefreshCompletion;
+        public TaskCompletionSource RefreshStarted=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public bool FailConnection,FailMutation,ThrowOnConnectionCancellation,CancellationCallbackRan,ThrowOnDispose;
+        public TaskCompletionSource ConnectionStarted=new(TaskCreationOptions.RunContinuationsAsynchronously);public string Epoch="initial";
         public TaskCompletionSource<LocalTask>? RenderCompletion,ContinueCompletion;
         public TaskCompletionSource? WaitBeforeContinue;
+        public TaskCompletionSource ContinueStarted=new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource<ConnectionState>? ConnectCompletion,ConnectionReadCompletion;
-        public Task<ConnectionState> GetConnectionAsync(CancellationToken ct=default)=>ConnectionReadCompletion?.Task??(FailConnection?System.Threading.Tasks.Task.FromException<ConnectionState>(new IOException("Fixture unavailable")):System.Threading.Tasks.Task.FromResult(new ConnectionState(true,"account",false,Epoch)));
+        public Task<ConnectionState> GetConnectionAsync(CancellationToken ct=default)
+        {
+            if(ThrowOnConnectionCancellation)ct.Register(()=>{CancellationCallbackRan=true;throw new InvalidOperationException("fixture callback");});
+            ConnectionStarted.TrySetResult();
+            return ConnectionReadCompletion?.Task??(FailConnection?System.Threading.Tasks.Task.FromException<ConnectionState>(new IOException("Fixture unavailable")):System.Threading.Tasks.Task.FromResult(new ConnectionState(true,"account",false,Epoch)));
+        }
         public Task<ConnectionState> ConnectAsync(ConnectRequest request,CancellationToken ct=default)=>FailMutation?System.Threading.Tasks.Task.FromException<ConnectionState>(new InvalidOperationException("Fixture rejected")):ConnectCompletion?.Task??GetConnectionAsync(ct);
         public Task<ConnectionState> SwitchRegionAsync(string region,CancellationToken ct=default)=>FailMutation?System.Threading.Tasks.Task.FromException<ConnectionState>(new InvalidOperationException("Fixture rejected")):System.Threading.Tasks.Task.FromResult(new ConnectionState(false,null,false,Guid.NewGuid().ToString("N"),region));
         public Task<ConnectionState> DisconnectAsync(CancellationToken ct=default)=>FailMutation?System.Threading.Tasks.Task.FromException<ConnectionState>(new InvalidOperationException("Fixture rejected")):System.Threading.Tasks.Task.FromResult(new ConnectionState(false,null,false));
         public Task<LocalTask> RenderAsync(RenderRequest request,CancellationToken ct=default){store.Save(Task);return RenderCompletion?.Task??System.Threading.Tasks.Task.FromResult(Task);}
-        public Task<LocalTask> RefreshAsync(Guid id,CancellationToken ct=default)
-        {Queries++;Task=store.Get(id);if(Task.Status=="MeshProcessing")Task=Task with{Status="MeshReady",MeshId="mesh"};store.Save(Task);return System.Threading.Tasks.Task.FromResult(Task);}
+        public async Task<LocalTask> RefreshAsync(Guid id,CancellationToken ct=default)
+        {Queries++;RefreshStarted.TrySetResult();if(RefreshCompletion is not null)return await RefreshCompletion.Task.WaitAsync(ct);Task=store.Get(id);if(Task.Status=="MeshProcessing")Task=Task with{Status="MeshReady",MeshId="mesh"};store.Save(Task);return Task;}
         public async Task<LocalTask> ContinueRenderAsync(Guid id,CancellationToken ct=default)
         {
+            ContinueStarted.TrySetResult();
             if(WaitBeforeContinue is not null)await WaitBeforeContinue.Task.WaitAsync(ct);
             ct.ThrowIfCancellationRequested();Continuations++;
             if(ContinueCompletion is not null)return await ContinueCompletion.Task;
@@ -193,6 +277,6 @@ public sealed class ApplicationTests : IDisposable
         public Task<LocalTask> ImportWorldAsync(string worldId,CancellationToken ct=default)=>throw new NotSupportedException();
         public Task<CloudHistoryPage> CloudHistoryAsync(CloudHistoryRequest request,CancellationToken ct=default)=>throw new NotSupportedException();
         public Task<LocalTask> RestoreRemoteAsync(RestoreRemoteRequest request,CancellationToken ct=default)=>throw new NotSupportedException();
-        public ValueTask DisposeAsync()=>ValueTask.CompletedTask;
+        public ValueTask DisposeAsync(){DisposeCalls++;if(ThrowOnDispose)throw new IOException("fixture dispose");return ValueTask.CompletedTask;}
     }
 }

@@ -49,20 +49,10 @@ public sealed class AholoExportSceneCommand : global::Rhino.Commands.Command
                 path=GaussianExportDialogs.NormalizePath(dialog);
             }
             var snapshot=AholoHost.CaptureSceneExport(doc);
-            _=ExportAsync(path,snapshot);
+            CommandOperation.Start(snapshot.Gaussians.Serial,"scene-export","Export selected scene USD",ct=>SceneUsdExport.ExportAsync(path,snapshot,ct));
             global::Rhino.RhinoApp.WriteLine(UiText.Get("Exporting the captured selection locally. Use AholoCancel to stop. No cloud request is made."));
             return Result.Success;
         }
         catch(Exception ex){global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(ex));return Result.Failure;}
-    }
-    private static async Task ExportAsync(string path,SceneExportSnapshot snapshot)
-    {
-        try
-        {
-            string result=await AholoPlugin.Session.Operations.RunAsync(AholoPlugin.DocumentScope(snapshot.Gaussians.Serial)+"scene-export","Export selected scene USD",ct=>SceneUsdExport.ExportAsync(path,snapshot,ct)).ConfigureAwait(false);
-            AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(result));
-        }
-        catch(OperationCanceledException){AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(UiText.Get("Local export cancelled. The previous output was preserved.")));}
-        catch(Exception ex){AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(ex)));}
     }
 }

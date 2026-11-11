@@ -79,7 +79,7 @@ public static class MeshTaskSource
     private static void RequireEpoch(ConnectionState expected, ConnectionState current)
     {
         if (!current.Connected || current.Region != expected.Region || current.ConnectionId != expected.ConnectionId || current.CredentialEpoch != expected.CredentialEpoch)
-            throw new OperationCanceledException(UiText.Get("The connection changed. Retry with the task's original account."));
+            throw new LocalOperationCanceledException(UiText.Get("The connection changed. Retry with the task's original account."));
     }
     private static TaskArtifact ValidatePath(TaskArtifact artifact)
     {

@@ -129,19 +129,10 @@ public sealed class AholoImportSceneCommand:global::Rhino.Commands.Command
             {
                 using var dialog=FileDialog();if(dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc))!=DialogResult.Ok)return Result.Cancel;path=dialog.FileName;
             }
-            var target=GaussianDocument.CaptureSceneImport(doc);_=ImportAsync(path,target);
+            var target=GaussianDocument.CaptureSceneImport(doc);
+            CommandOperation.Start(target.Document.Serial,"scene-import","Import USD scene",ct=>GaussianDocument.ImportUsdSceneAsync(path,target,ct));
             global::Rhino.RhinoApp.WriteLine(UiText.Get("Importing the complete USD scene locally at its source position and size. Use AholoCancel to stop."));return Result.Success;
         }
         catch(Exception ex){global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(ex));return Result.Failure;}
-    }
-    private static async Task ImportAsync(string path,SceneImportTarget target)
-    {
-        try
-        {
-            string result=await AholoPlugin.Session.Operations.RunAsync(AholoPlugin.DocumentScope(target.Document.Serial)+"scene-import","Import USD scene",ct=>GaussianDocument.ImportUsdSceneAsync(path,target,ct)).ConfigureAwait(false);
-            AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(result));
-        }
-        catch(OperationCanceledException){AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(UiText.Get("Local scene import cancelled before completion.")));}
-        catch(Exception ex){AholoHost.Ui(()=>global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(ex)));}
     }
 }

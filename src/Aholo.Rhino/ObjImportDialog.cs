@@ -41,7 +41,7 @@ internal sealed class ObjImportDialog : Dialog<ObjImportOptions?>
         // Never synchronously wait for the UI from a cancellation callback.
         using var registration=ct.Register(()=>Application.Instance.AsyncInvoke(()=>{if(!dialog.closed)dialog.Close(null);}));
         ct.ThrowIfCancellationRequested();var result=dialog.ShowModal(RhinoEtoApp.MainWindowForDocument(doc));
-        ct.ThrowIfCancellationRequested();return result??throw new OperationCanceledException(ct);
+        ct.ThrowIfCancellationRequested();return result??throw new LocalOperationCanceledException();
     }
     protected override void Dispose(bool disposing){closed=true;base.Dispose(disposing);}
 }

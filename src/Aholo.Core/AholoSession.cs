@@ -20,6 +20,7 @@ public sealed class AholoSession : IAsyncDisposable
     private readonly TimeSpan pollInterval;
     private readonly object startGate=new();
     private Task? loop;
+    private TaskCompletionSource? disposal;
     private int cursor;
     private readonly object intentGate = new();
     private readonly HashSet<Guid> revoked = new();
@@ -35,7 +36,7 @@ public sealed class AholoSession : IAsyncDisposable
         Operations.Changed+=Notify;
     }
     public void Start()
-    {lock(startGate)loop??=Task.Run(RunLoopAsync);}
+    {lock(startGate){if(disposal is not null)throw new ObjectDisposedException(nameof(AholoSession));loop??=Task.Run(RunLoopAsync);}}
     public async Task<ConnectionState> ReadConnectionAsync(CancellationToken ct=default)
     {
         long expected; lock(intentGate) expected=generation;
@@ -100,8 +101,9 @@ public sealed class AholoSession : IAsyncDisposable
         long expected,version;CancellationToken authorityToken;
         lock(intentGate){paused.TryRemove(id,out _);expected=generation;version=taskVersions.GetValueOrDefault(id);authorityToken=authority.Token;}
         using var continuation=CancellationTokenSource.CreateLinkedTokenSource(ct,authorityToken);
-        continuation.Token.ThrowIfCancellationRequested();
-        var task=await Client.ContinueRenderAsync(id,continuation.Token).ConfigureAwait(false);
+        LocalTask task;
+        try{continuation.Token.ThrowIfCancellationRequested();task=await Client.ContinueRenderAsync(id,continuation.Token).ConfigureAwait(false);}
+        catch(OperationCanceledException) when(authorityToken.IsCancellationRequested){throw new LocalOperationCanceledException();}
         lock(intentGate)
         {
             if(expected==generation&&version==taskVersions.GetValueOrDefault(id))
@@ -114,7 +116,11 @@ public sealed class AholoSession : IAsyncDisposable
     }
     public async Task PollOnceAsync(CancellationToken ct=default)
     {
+        CancellationToken authorityToken;lock(intentGate)authorityToken=authority.Token;
+        using var polling=CancellationTokenSource.CreateLinkedTokenSource(ct,lifetime.Token,authorityToken);
+        ct=polling.Token;
         if(!AutoRefresh||!Connection.Connected||!await pollGate.WaitAsync(0,ct).ConfigureAwait(false))return;
+        LocalOperationHandle<bool>? query=null;
         try
         {
             // Reading local history does not wait behind a long pipe request or start a new sidecar.
@@ -123,24 +129,26 @@ public sealed class AholoSession : IAsyncDisposable
             var task=records[(int)((uint)Interlocked.Increment(ref cursor)%(uint)records.Length)];
             string scope="task:"+task.Id.ToString("N");
             if(Operations.IsActive(scope))return;
-            await Operations.RunAsync(scope,"Refresh task",async token=>
+            query=Operations.Start(scope,"Refresh task",async token=>
             {
+                if(paused.ContainsKey(task.Id))throw new LocalOperationCanceledException();
                 var updated=await Client.RefreshAsync(task.Id,token).ConfigureAwait(false);Observe(updated);
-                CancellationToken authorityToken=default;bool canContinue;
+                bool canContinue;
                 lock(intentGate)
                 {
                     canContinue=updated.Error is null&&renderIntents.ContainsKey(task.Id)&&TaskCapabilities.For(updated).CanContinueRender&&!paused.ContainsKey(task.Id);
-                    if(canContinue)authorityToken=authority.Token;
                 }
                 if(canContinue)
                 {
-                    using var continuation=CancellationTokenSource.CreateLinkedTokenSource(token,authorityToken);
-                    continuation.Token.ThrowIfCancellationRequested();
-                    updated=await Client.ContinueRenderAsync(task.Id,continuation.Token).ConfigureAwait(false);Observe(updated);
+                    token.ThrowIfCancellationRequested();
+                    updated=await Client.ContinueRenderAsync(task.Id,token).ConfigureAwait(false);Observe(updated);
                 }
                 if(updated.Error is not null||updated.OperationId is not null||updated.Status is "SubmissionUnknown" or "FAILED" or "CANCELED" or "SUCCEEDED")renderIntents.TryRemove(task.Id,out _);
-            },ct).ConfigureAwait(false);
+                return true;
+            },ct);
+            await query.Completion.ConfigureAwait(false);
         }
+        catch(OperationCanceledException error) when(ct.IsCancellationRequested||query?.Cancellation.IsCancellationRequested==true||error is LocalOperationCanceledException){throw;}
         catch(Exception) when(!ct.IsCancellationRequested){SetError("Background refresh failed. Restore the connection or refresh the original task; do not resubmit it.");throw;}
         finally{pollGate.Release();}
     }
@@ -178,7 +186,7 @@ public sealed class AholoSession : IAsyncDisposable
         CancelAuthority(previous);
     }
     private static void CancelAuthority(CancellationTokenSource? previous)
-    {if(previous is not null){previous.Cancel();previous.Dispose();}}
+    {if(previous is not null){try{previous.Cancel();}finally{previous.Dispose();}}}
     private void SetError(string? error){Volatile.Write(ref lastError,error);Notify();}
     private void TransportReset()
     {
@@ -191,11 +199,31 @@ public sealed class AholoSession : IAsyncDisposable
         Notify();
     }
     private void Notify(){foreach(Action observer in Changed?.GetInvocationList()??Array.Empty<Delegate>())try{observer();}catch(Exception){ }}
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        lifetime.Cancel();Invalidate();Operations.CancelPrefix("");
-        if(loop is not null)try{await loop.ConfigureAwait(false);}catch(OperationCanceledException){ }
-        Client.TransportReset-=TransportReset;Operations.Changed-=Notify;
-        await Client.DisposeAsync().ConfigureAwait(false);lifetime.Dispose();pollGate.Dispose();authority.Dispose();
+        TaskCompletionSource completion;
+        lock(startGate)
+        {
+            if(disposal is not null)return new(disposal.Task);
+            completion=disposal=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+        _=DisposeCoreAsync(completion);return new(completion.Task);
+    }
+    private async Task DisposeCoreAsync(TaskCompletionSource completion)
+    {
+        var errors=new List<Exception>();
+        void Attempt(Action action){try{action();}catch(Exception error){errors.Add(error);}}
+        async Task Await(Func<Task> action){try{await action().ConfigureAwait(false);}catch(Exception error){errors.Add(error);}}
+        Task operations=Task.CompletedTask;
+        Attempt(()=>operations=Operations.StopAsync());
+        Attempt(lifetime.Cancel);Attempt(Invalidate);
+        await Await(()=>operations).ConfigureAwait(false);
+        if(loop is not null)await Await(async()=>{try{await loop.ConfigureAwait(false);}catch(OperationCanceledException){ }}).ConfigureAwait(false);
+        // A manual poll has a finally block outside its registered request. Let it release the gate.
+        await Await(()=>pollGate.WaitAsync()).ConfigureAwait(false);
+        Attempt(()=>Client.TransportReset-=TransportReset);Attempt(()=>Operations.Changed-=Notify);
+        await Await(()=>Client.DisposeAsync().AsTask()).ConfigureAwait(false);
+        Attempt(lifetime.Dispose);Attempt(pollGate.Dispose);Attempt(authority.Dispose);
+        if(errors.Count==0)completion.TrySetResult();else completion.TrySetException(new AggregateException(errors));
     }
 }

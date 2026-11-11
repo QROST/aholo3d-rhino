@@ -205,3 +205,8 @@ For a running World task, a supplied fraction such as 0.457 displays 45.7%; miss
 Native Mac/Windows and actual cloud appearance remain pending. Use `fixtures/mesh-obj/checker.png`, whose four corners include partially and fully transparent colors. On four copies of the same textured mesh, test: texture alpha enabled/material opacity 0.6; texture alpha disabled/opacity 1; disabled/opacity 0.4; disabled/opacity 0. Use a distinct clamp/nearest sampler on the last copy. The third copy must have uniform 0.4 coverage across all four colored regions, including the original transparent yellow. The fourth must be fully transparent; the first must still use the image alpha multiplied by 0.6.
 
 Check GLB preparation/authorized cloud output separately from USD export/re-import. Source bitmap bytes and document material settings must remain unchanged, shared-image sampler settings must remain per object, and color/UV orientation must match. A malformed pixel stream on a PNG that requires conversion must fail before upload. Cancel during preparation/write and verify any prior output survives without temporary-file residue. This checklist has not been executed in Rhino; offline pixel and file evidence is recorded in [PNG alpha export](png-alpha-export.md).
+
+
+## Local operation lifecycle (after alpha.23)
+
+Run the document-scoped command cancellation, queued placement, Scripted path/OBJ, terminal ID, panel status and shutdown checks in [local operations](operation-lifecycle.md). Portable lifecycle tests do not establish native event, Undo or quit-time acceptance.
