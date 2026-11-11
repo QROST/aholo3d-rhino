@@ -1,6 +1,6 @@
 # Manual host acceptance
 
-Maintainer: CuriousArc · qrost. Current candidate: 0.2.0-alpha.9. New integrated workflows must also follow [integrated acceptance](integrated-acceptance.md).
+Maintainer: CuriousArc · qrost. Current candidate: 0.2.0-alpha.10. New integrated workflows must also follow [integrated acceptance](integrated-acceptance.md).
 
 The user confirmed the local Mac beta.5 startup/GS retest passed on 2026-11-02 and approved version 0.1.0. The checklist below remains the full validation scope; that confirmation does not mark every item or platform passed. The user operates Rhino manually; no computer-control automation is used.
 
@@ -9,7 +9,7 @@ The user confirmed the local Mac beta.5 startup/GS retest passed on 2026-11-02 a
 ## Offline / no service credits
 
 1. Install the matching local Yak package; restart Rhino; run `AholoPanel`.
-2. In Rhino plug-in properties verify publisher **CuriousArc**, description and independent plug-in GUID. The numeric assembly version is `0.2.0.0`; the package version is `0.2.0-alpha.9`.
+2. In Rhino plug-in properties verify publisher **CuriousArc**, description and independent plug-in GUID. The numeric assembly version is `0.2.0.0`; the package version is `0.2.0-alpha.10`.
 3. Run `AholoImportPly` and select `fixtures/tiny-world.ply`. Expect a colored point cloud, automatic zoom and one Undo step. Redo, save, reopen and check colors/positions again.
 4. Import into another document/unit system, use a different explicit scale and confirm its interpretation. Close/change the document while a larger file is parsing: the plugin must not place into the wrong document.
 5. Verify narrow panel layout, keyboard input, file pickers and closing/reopening on macOS. Repeat separately on Windows and Intel Mac.
