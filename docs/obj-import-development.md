@@ -1,0 +1,30 @@
+# OBJ import implementation
+
+Maintainer: CuriousArc · qrost.
+
+Status: core foundations after alpha.14; **not yet a user-facing import feature**. The Library, task placement policy and file picker still reject OBJ/OBJ ZIP. The last packaged candidate remains alpha.14 and predates this source increment. This work does not change the native acceptance claim or require Python/OpenUSD for the future OBJ path.
+
+## Implemented foundations
+
+`ObjSourceSnapshot` copies the selected OBJ or ZIP into a private workspace and hashes those exact bytes. Referenced MTL/image resources are captured on request before parsing. ZIP entries form a virtual path table: original entry names are never used as extraction destinations. Relative references remain within the package/root directory; ambiguous case/Unicode names, file/directory collisions, special/link entries and escaping/remote paths fail. Multiple OBJ entries require an explicit entry selection in the core API. The complete tree is not an atomic source-application snapshot; hashes describe each captured file. Local link checks are not a filesystem sandbox against a concurrent hostile writer. ZIP decoding relies on .NET and checks captured entry length; no complete ZIP/CRC conformance claim is made.
+
+`ObjSyntax` retains double-precision positions, independent vertex/texture/normal indices, source face lines, material names, smoothing groups and group membership. Negative indices resolve against values already declared at that face. Every `o` creates an ordinal, so repeated/empty names remain separate objects. Multiple groups label one face without duplicating it. Logical lines, quotes, comments and Windows-style dependency separators are handled explicitly. Copying, text scanning and corner loops observe cancellation without a fixed geometry-count cap. Native array capacity and finite-number limits still apply.
+
+The syntax boundary is static polygon meshes: unsupported commands, freeform/line/point geometry, non-unit rational weights, vertex-color extensions, nonzero third texture coordinates, invalid/mixed face-corner forms and malformed indices fail explicitly. Syntax acceptance alone does not validate topology, bind materials or generate missing normals.
+
+`PolygonTriangulator` supplies cancellable simple-planar face triangulation with original corner indices and an oriented unit normal. It rejects repeated/degenerate/self-intersecting/nonplanar boundaries and does not use a fan fallback. The relative planarity tolerance is 1e-6. Exact binary-rational orientation is used near cancellation and for subnormal products; the ordinary floating-point fast path does not assume a relative-error bound in that domain. Collinear boundary corners are retained. High-sided individual faces can still be computationally expensive; there is no arbitrary face/corner cap.
+
+The original [Wavefront OBJ specification](https://www.martinreddy.net/gfx/3d/OBJ.spec) defines separate corner references, relative indexing, material/group state and normal precedence. The [original MTL format documentation, transcribed](https://raw.githubusercontent.com/Alhadis/language-wavefront/master/docs/mtl-spec.rst) is the contract reference for the next material stage. Rhino's own [OBJ import options](https://docs.mcneel.com/rhino/8/help/en-us/fileio/wavefront_obj_import_export.htm) expose axis and material choices; they do not establish acceptance of this independent reader.
+
+## Remaining integration, in dependency order
+
+1. Decode used MTL materials and referenced PNG/JPEG bytes. Preserve diffuse/opacity and expressible texture options; unsupported shader maps or illumination effects must be rejected or explicitly identified as a preview conversion. Do not silently ignore unknown used statements. Resolve duplicate/undefined material names and conflicting opacity declarations.
+2. Compile source faces into the existing mesh scene transport. Generate missing normals from source faces/smoothing groups before material splitting; authored `vn` wins. Keep hard edges and texture seams. Rebase double coordinates to shared per-object origins before any float conversion. Decide and document nonplanar-quad handling. Original labels and object ordinals must remain distinct from generated part identity.
+3. Present explicit import units and up-axis choices; OBJ carries no reliable physical-unit convention. Preserve the captured target and chosen options through async preparation and acceptance. Do not guess a Lux3D cloud axis/unit contract. Texture coordinate origin must not be flipped merely because another mesh transport uses glTF conventions.
+4. Reuse the self-contained mesh snapshot with embedded-image readback, candidate preview, Block/Undo and import receipts. Generalize USD-specific layer/error wording for the shared snapshot. Verify source hash separately from derived 3DM hash.
+5. Open typed `obj_zip` task placement and map its cached suffix to `.zip`; retain rejection of generic `zip` and `fbx_zip` unless separately supported. Add explicit local OBJ/ZIP entry routing and multi-entry selection. Preview, direct placement and source recovery must share the same parser/identity semantics.
+6. Add end-to-end local fixtures and cross-platform native acceptance for texture persistence, material boundaries, units, cancellation, one Undo/Redo and save/reopen. Only then update user-facing supported-format claims and build a new candidate.
+
+## Evidence
+
+Release build has zero warnings/errors; **1129 offline tests pass**. Forty-five input tests cover corner state, source immutability, ZIP/dependency closure, conflicting names/links, malformed content, cancellation admission and a 10,000-corner syntax fixture. Twenty triangulation tests cover independent area/boundary/centroid checks, all principal planes, reversed/collinear/deeply concave faces, a 2^52 thin parallelogram, large translated coordinates, scales down to 1e-200 and cancellation triggered during input traversal. These prove core behavior, not native import or cloud-result compatibility.

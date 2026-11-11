@@ -314,3 +314,10 @@ Independent read-only reviews checked algorithm, binding/provenance and tests. T
 ## Candidate checkpoint — alpha.14
 
 Packages simple planar USD polygons and material face subsets (`95942f2`) as `0.2.0-alpha.14`, with a small self-contained colored native acceptance sample. Evidence is 1064 passing offline tests, four-format public-reader topology checks, 17 strict polygon/material rejection cases and existing 24 mixed-scene round trips. Stable assembly/plugin/Yak identities remain unchanged. Triangles/quads retain the native route; subdivision, general shaders and native Mac/Windows appearance/Undo remain open. Exact local receipts bind clean source and package bytes. No installation or publication is performed.
+
+
+## OBJ input and geometry foundations after alpha.14
+
+Added private OBJ/ZIP source capture, a static polygon syntax model and a host-independent .NET triangulator. Source positions remain double precision; vertex/UV/normal references, face state, repeated-object ordinals and smoothing groups remain available for the later material/scene compiler. ZIP dependencies are read through a confined virtual path table and private numbered copies. No user-facing route has been opened yet, so unimplemented material/normal handling cannot accidentally admit a partial result. The development sequence and evidence are recorded in [OBJ implementation](obj-import-development.md).
+
+Two local read-only reviews found the repeated-object identity requirement and the orientation fast-path boundary for subnormal products; both were implemented and verified. The primary wrote files and ran the checks. Remote catalog/status left only 135 daily output tokens; no inference or limit change occurred. MTL conversion, smoothing-normal synthesis, coordinate choices, shared snapshot wording and task/UI wiring remain required before OBJ placement can be claimed. No new package, installation, publication or live request is part of this foundation commit.
