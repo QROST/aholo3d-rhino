@@ -31,12 +31,13 @@ internal static class UsdBridgeProcess
         return python;
     }
 
-    private static string ResolveBridge()
+    private static string ResolveBridge(bool mesh)
     {
+        string filename = mesh ? "usd_mesh_bridge.py" : "usd_bridge.py";
         string assemblyDirectory = Path.GetDirectoryName(typeof(UsdGaussianReader).Assembly.Location) ?? AppContext.BaseDirectory;
         foreach (string start in new[] { assemblyDirectory, AppContext.BaseDirectory })
         {
-            string packaged = Path.Combine(start, "usd", "usd_bridge.py");
+            string packaged = Path.Combine(start, "usd", filename);
             if (File.Exists(packaged)) return packaged;
         }
         // Source-tree fallback is for development; never load scripts next to an imported asset.
@@ -44,16 +45,16 @@ internal static class UsdBridgeProcess
             for (DirectoryInfo? current = new(start); current is not null; current = current.Parent)
             {
                 string project = Path.Combine(current.FullName, "src", "Aholo.Core", "Aholo.Core.csproj");
-                string script = Path.Combine(current.FullName, "scripts", "usd_bridge.py");
+                string script = Path.Combine(current.FullName, "scripts", filename);
                 if (File.Exists(project) && File.Exists(script)) return script;
             }
-        throw new FileNotFoundException("The installed Aholo package is missing usd/usd_bridge.py.");
+        throw new FileNotFoundException("The installed Aholo package is missing usd/" + filename + ".");
     }
 
-    internal static void Run(string input, string output, CancellationToken ct, string? exportFormat = null)
+    internal static void Run(string input, string output, CancellationToken ct, string? exportFormat = null, bool mesh = false)
     {
         ct.ThrowIfCancellationRequested();
-        string python = ResolvePython(), script = ResolveBridge();
+        string python = ResolvePython(), script = ResolveBridge(mesh);
         var start = new ProcessStartInfo(python)
         {
             UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true

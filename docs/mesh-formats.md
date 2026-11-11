@@ -8,7 +8,7 @@ Maintainer: CuriousArc · qrost.
 | PLY | Ordinary polygon mesh with complete finite positions and valid face indices; ASCII and either binary byte order. Complete Gaussian fields use the separate GS importer. |
 | STL | Original bytes passed to Rhino's native importer and audited as mesh geometry. |
 | 3MF | Core static mesh, core components/build transforms and base materials. Package preflight precedes native Rhino import. Extension-bearing files are rejected explicitly. |
-| OBJ/FBX archives, extended 3MF, ordinary mesh USD | Retained downloads; integrated placement remains pending. GS USD/USDZ has its own implemented exchange path. |
+| OBJ/FBX archives, extended 3MF, ordinary mesh USD | Retained downloads; integrated placement remains pending. GS USD/USDZ has its own implemented exchange path; local ordinary mesh USD export is also implemented separately. |
 
 All supported formats use a private suffix-preserving copy and the original SHA-256, headless native import, actual mesh audit/repair, candidate preview and one Block/Undo commit. Original downloads are retained. Repeated acceptance uses the existing import receipt instead of creating another object. There is no artificial vertex/face ceiling. Native parsing and memory use still depend on Rhino and the machine.
 

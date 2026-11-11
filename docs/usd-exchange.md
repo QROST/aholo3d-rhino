@@ -1,6 +1,10 @@
-# Local Gaussian USD exchange
+# Local USD exchange
 
-Aholo imports and exports static GS scenes using the official OpenUSD 26.11 `ParticleField3DGaussianSplat` schema. This is GS interchange, not a general Rhino geometry exporter. No cloud/account is used.
+Aholo has separate local routes for static GS exchange and tessellated mesh export using pinned OpenUSD 26.11. Neither uses a cloud account. Ordinary mesh import and a combined mesh/GS scene route remain open.
+
+## Gaussian route
+
+`AholoImportGs` / `AholoExportGs` use the official `ParticleField3DGaussianSplat` schema.
 
 - `.usd` and `.usdc` exports are binary USDC, `.usda` is text, and `.usdz` is a self-contained, officially packaged USDC-root archive.
 - Every supported splat and SH0–3 coefficient is retained. Multiple instances remain separate parts even when they share the same source cache. Local positions, anisotropic scales, WXYZ orientations, opacity, full affine placements, units and up axis remain explicit.
@@ -28,3 +32,22 @@ Aholo imports and exports static GS scenes using the official OpenUSD 26.11 `Par
 Maintained by CuriousArc · qrost.
 
 The optional OpenUSD 26.11 runtime is installed separately and governed by the TOST-1.0 terms distributed with its official wheel. The Yak archive ships our bridge/setup scripts, not the OpenUSD runtime. RhinoCommon/Eto are supplied by Rhino.
+
+
+## Tessellated mesh export route
+
+`AholoExportMesh` and the panel's local mesh export action capture selected model-space Mesh/Brep/Extrusion and ordinary nested blocks. The selected document may be read-only and the view orthographic. Page-space roots are rejected because their units differ. GS objects are rejected rather than substituted with their bounding boxes. Shared cloud capture still requires its original perspective camera and preserves the existing cloud path.
+
+The private snapshot uses millimetres/Z-up. A double-precision mesh copy receives block transforms before local-origin rebasing, so float-only block translations do not destroy detail first. The USD output stores float32 local positions and normals, with double-precision translation. Surfaces are tessellated; mesh quads use Rhino's native triangulation. Names, triangle winding, smooth/custom normals, supported PBR factors and direct mesh UV PNG/JPEG bytes are retained. Standard USD `subdivisionScheme=none`, `orientation=rightHanded`, extents, material binding and vertex interpolation are authored explicitly. Native source geometry is not changed. Block hierarchy, NURBS parametrization, layers, per-face/complex materials, procedural mappings, glass transmission and lights are not preserved by this mesh route.
+
+A private binary transport avoids imposing the GLB container's 32-bit total-size limit on USD. There is no arbitrary vertex/face ceiling. Normal process cancellation/timeout, available memory and native array/file limits still apply. Texture assets are hash-deduplicated. USD `st` coordinates use the specified lower-left origin, converted once from the capture's glTF UV convention. `UsdPreviewSurface` uses linear factors and `UsdUVTexture` uses sRGB image data; alpha policy is encoded with explicit texture scale/bias, including ignored image alpha with partial material opacity. Sampler wrapping is authored. Standard Preview Surface has no portable min/mag filter controls: source settings are retained in custom metadata and the UI reports viewer-defined filtering. Exact cross-renderer appearance is not claimed.
+
+USDZ packages all images in a single file. Plain USD has a unique adjacent texture directory. Both image bundle and pending root file are staged on the destination filesystem; the root-file rename is the commit point. Failure before it removes only the new bundle and preserves existing output. Cancellation after that commit is success, not a claimed rollback. Older bundles are deliberately retained because other scene copies may refer to them. The public transport helper writes into a caller-owned empty directory which its caller must remove on failure; the user-facing writer always cleans its workspace.
+
+### Mesh validation and pending host acceptance
+
+Build Release, then run `fixtures/mesh-usd-verify.py` with the configured OpenUSD interpreter. It generates all four formats through the production C# writer and independently checks world coordinates at large offsets, normals/winding, UV orientation data, PBR/alpha connections, relocated texture hashes, USDZ 64-byte alignment and package-contained dependencies. It also exercises root replacement failure after companion publication and preservation of older texture bundles. This does not run Rhino or render pixels.
+
+Still pending on Mac and Windows: selected mesh plus tessellated surface and nested/mirrored blocks; a float-only mesh block translated far from the origin; named/unnamed parts; readonly and orthographic export; model/page unit differences; asymmetric texture colors/UV/alpha in an independent renderer; cancellation, document closure and source-file changes while capturing. Ordinary USD mesh import and mixed GS+mesh exchange are subsequent implementation work.
+
+References: [UsdPreviewSurface and USD UV orientation](https://openusd.org/release/spec_usdpreviewsurface.html), [UsdGeomMesh schema](https://openusd.org/release/api/class_usd_geom_mesh.html), [USDZ packaging](https://openusd.org/release/api/usdz_package_8h.html).

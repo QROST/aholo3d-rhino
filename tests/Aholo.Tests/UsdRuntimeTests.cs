@@ -100,6 +100,28 @@ public sealed class UsdRuntimeTests
         finally { Environment.SetEnvironmentVariable(UsdGaussianReader.PythonEnvironmentVariable, previous); }
     }
 
+    [UnixRuntimeFact]
+    public async Task PublicMeshExportCancellationPreservesDestinationAndRemovesWorkspace()
+    {
+        using var launcher=new FakeInterpreter();using var cancellation=new CancellationTokenSource();
+        string? previous=Environment.GetEnvironmentVariable(UsdGaussianReader.PythonEnvironmentVariable);
+        string output=System.IO.Path.Combine(launcher.DirectoryPath,"existing.usda");File.WriteAllText(output,"previous output");
+        try
+        {
+            Environment.SetEnvironmentVariable(UsdGaussianReader.PythonEnvironmentVariable,launcher.Path);
+            var mesh=new MeshData(new float[]{0,0,0,1,0,0,0,1,0},new[]{0,1,2},255,0,0);
+            var write=Task.Run(()=>UsdMeshWriter.Write(output,new[]{new UsdMeshPart("part",mesh,new())},cancellation.Token));
+            await launcher.WaitUntilLauncherExits();Assert.True(launcher.ChildIsAlive);
+            string workspace=File.ReadAllText(System.IO.Path.Combine(launcher.DirectoryPath,"output.path"));
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>write.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Equal("previous output",File.ReadAllText(output));Assert.False(Directory.Exists(workspace));
+            Assert.Empty(Directory.GetDirectories(launcher.DirectoryPath,"usd-assets-*"));
+            Assert.Empty(Directory.GetFiles(launcher.DirectoryPath,"*.tmp"));
+        }
+        finally{Environment.SetEnvironmentVariable(UsdGaussianReader.PythonEnvironmentVariable,previous);}
+    }
+
     // The Unix launcher deliberately leaves an orphan with inherited stdout and stderr.
     // A production probe cannot enumerate descendants after the launcher exits; this test
     // owns the child and always terminates it, even if the cancellation assertion fails.

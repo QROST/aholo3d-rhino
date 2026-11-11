@@ -10,6 +10,7 @@
     <ProjectReference Include="../Aholo.Core/Aholo.Core.csproj" />
     <None Include="../../assets/gaussian-opacity-atlas.png" Link="assets/gaussian-opacity-atlas.png" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../assets/gaussian-alpha.png" Link="assets/gaussian-alpha.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../scripts/usd_mesh_bridge.py" Link="usd/usd_mesh_bridge.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scripts/usd_bridge.py" Link="usd/usd_bridge.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

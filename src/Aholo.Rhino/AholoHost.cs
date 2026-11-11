@@ -8,6 +8,7 @@ using Color = System.Drawing.Color;
 namespace Aholo.Rhino;
 
 internal sealed record ImportTarget(uint Serial, global::Rhino.UnitSystem Units);
+internal sealed record GeometrySnapshot(IReadOnlyList<MeshData> Meshes, RenderLight[] Lights, IReadOnlyDictionary<int,MeshTextureSource> Textures, GaussianVector[] Origins, string[] Names);
 internal sealed record RenderSnapshot(IReadOnlyList<MeshData> Meshes, RenderCamera Camera, string Name, RenderLight[] Lights, IReadOnlyDictionary<int,MeshTextureSource> Textures);
 
 /// <summary>Capture and commit occur on the Rhino UI thread; parsing and file serialization are asynchronous.</summary>
@@ -35,11 +36,11 @@ internal static partial class AholoHost
     {
         if (global::Rhino.RhinoApp.InvokeRequired) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Start this operation from the Rhino interface."));
     }
-    private static void RequireDocument(RhinoDoc doc)
+    private static void RequireDocument(RhinoDoc doc, bool forExport=false)
     {
         if (RhinoDoc.ActiveDoc?.RuntimeSerialNumber != doc.RuntimeSerialNumber) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Activate the document associated with this panel first."));
-        if (doc.IsClosing || doc.IsReadOnly) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The target document is not writable."));
-        if (doc.Views.ActiveView is global::Rhino.Display.RhinoPageView { PageIsActive: true }) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Switch to a model view or activate a model detail viewport in the layout."));
+        if (doc.IsClosing || !forExport && doc.IsReadOnly) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The target document is not writable."));
+        if (!forExport && doc.Views.ActiveView is global::Rhino.Display.RhinoPageView { PageIsActive: true }) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Switch to a model view or activate a model detail viewport in the layout."));
     }
     internal static async Task<string> ImportAsync(string path, ImportTarget target, double scale, string upAxis, Guid? taskId, CancellationToken ct)
     {
@@ -132,11 +133,23 @@ internal static partial class AholoHost
     internal static RenderSnapshot CaptureRender(RhinoDoc doc, int width, int height, bool includeLights=false, double pointRadiusMillimetres=50, double lightIntensityMultiplier=1, bool includeTextures=true)
     {
         var camera=CaptureCamera(doc,width,height);
+        var geometry=CaptureGeometry(doc,includeLights,pointRadiusMillimetres,lightIntensityMultiplier,includeTextures,false);
+        return new RenderSnapshot(geometry.Meshes,camera,string.IsNullOrWhiteSpace(doc.Name) ? UiText.Get("Rhino selection render") : Path.GetFileNameWithoutExtension(doc.Name) + UiText.Get(" · Selection render"),geometry.Lights,geometry.Textures);
+    }
+    internal static GeometrySnapshot CaptureMeshExport(RhinoDoc doc, bool includeTextures=true)
+        => CaptureGeometry(doc,false,50,1,includeTextures,true);
+    private static GeometrySnapshot CaptureGeometry(RhinoDoc doc,bool includeLights,double pointRadiusMillimetres,double lightIntensityMultiplier,bool includeTextures,bool rebase)
+    {
+        RequireUi();RequireDocument(doc,rebase);
+        if(doc.ModelUnitSystem is global::Rhino.UnitSystem.None or global::Rhino.UnitSystem.Unset or global::Rhino.UnitSystem.CustomUnits)
+            throw new InvalidOperationException(UiText.Get("Set explicit length units for the Rhino document first."));
         double mm=global::Rhino.RhinoMath.UnitScale(doc.ModelUnitSystem,global::Rhino.UnitSystem.Millimeters);
+        if(!double.IsFinite(mm)||mm<=0)throw new InvalidOperationException(UiText.Get("Cannot convert document units."));
         RhinoObject[] objects = doc.Objects.GetSelectedObjects(false, false)
             .Concat(includeLights?doc.Lights.Where(l=>!l.IsDeleted&&l.IsSelected(false)!=0).Cast<RhinoObject>():Enumerable.Empty<RhinoObject>()).DistinctBy(o=>o.Id).ToArray();
-        if (objects.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Select the meshes, surfaces or solids to render in Rhino first."));
-        var meshes = new List<MeshData>();var lights=new List<RenderLight>();var textures=new Dictionary<int,MeshTextureSource>();
+        if (objects.Length == 0) throw new InvalidOperationException(UiText.Get("Select meshes, surfaces, extrusions or ordinary blocks first."));
+        if(objects.Any(o=>o.Attributes.Space==ActiveSpace.PageSpace))throw new InvalidOperationException(UiText.Get("Select model-space geometry. Page-space objects use different units and cannot enter this mesh workflow."));
+        var meshes = new List<MeshData>();var lights=new List<RenderLight>();var textures=new Dictionary<int,MeshTextureSource>();var origins=new List<GaussianVector>();var names=new List<string>();
         foreach (var (obj,transform,appearance,parentMapping) in RenderObjects(objects,doc,includeLights,includeTextures))
         {
             if(obj.Geometry is Light light)
@@ -168,14 +181,19 @@ internal static partial class AholoHost
                         var n = mesh.Normals[i]; sourceNormals[i * 3] = n.X; sourceNormals[i * 3 + 1] = n.Y; sourceNormals[i * 3 + 2] = n.Z;
                     }
                     var normals = MeshAttributes.TransformNormals(sourceNormals, new(transform.M00, transform.M01, transform.M02, transform.M10, transform.M11, transform.M12, transform.M20, transform.M21, transform.M22));
+                    // Rebase only after transforming a double-precision copy; float block translation would already lose local detail.
+                    if(rebase)mesh.Vertices.UseDoublePrecisionVertices=true;
                     if (!mesh.Transform(transform)) throw new InvalidOperationException(UiText.Get("A block transform could not be applied."));
                     if(transform.Determinant < 0) mesh.Flip(true,true,true);
                     if (mesh.Vertices.Count == 0 || mesh.Faces.Count == 0 || !mesh.IsValid) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The selection contains empty or invalid meshes. Repair them in Rhino first."));
+                    Point3d anchor=rebase?mesh.Vertices.Point3dAt(0):Point3d.Origin;
+                    origins.Add(new(anchor.X*mm,anchor.Y*mm,anchor.Z*mm));names.Add(obj.Name??"");
+                    if(rebase)mesh.Faces.ConvertQuadsToTriangles();
                     var positions = new float[checked(mesh.Vertices.Count * 3)];
                     for (int i = 0; i < mesh.Vertices.Count; i++)
                     {
                         Point3d p = mesh.Vertices.Point3dAt(i);
-                        positions[i * 3] = CheckedFloat(p.X * mm); positions[i * 3 + 1] = CheckedFloat(p.Y * mm); positions[i * 3 + 2] = CheckedFloat(p.Z * mm);
+                        positions[i * 3] = CheckedFloat((p.X-anchor.X) * mm); positions[i * 3 + 1] = CheckedFloat((p.Y-anchor.Y) * mm); positions[i * 3 + 2] = CheckedFloat((p.Z-anchor.Z) * mm);
                     }
                     var indices = new List<int>();
                     foreach (MeshFace face in mesh.Faces)
@@ -189,7 +207,7 @@ internal static partial class AholoHost
             finally { foreach (Mesh mesh in generated) mesh.Dispose(); }
         }
         if(meshes.Count==0)throw new InvalidOperationException(UiText.Get("Select at least one supported mesh or surface together with the lights."));
-        return new RenderSnapshot(meshes, camera, string.IsNullOrWhiteSpace(doc.Name) ? global::Aholo.Core.UiText.Get("Rhino selection render") : Path.GetFileNameWithoutExtension(doc.Name) + global::Aholo.Core.UiText.Get(" · Selection render"),lights.ToArray(),textures);
+        return new GeometrySnapshot(meshes,lights.ToArray(),textures,origins.ToArray(),names.ToArray());
     }
     private sealed record MaterialSnapshot(Color Color,MeshMaterial? Factors,bool Assigned=false,TextureSnapshot? Texture=null);
     private static IEnumerable<(RhinoObject Object,Transform Transform,MaterialSnapshot Appearance,bool ParentMapping)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc,bool includeLights,bool includeTextures)

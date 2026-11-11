@@ -12,6 +12,7 @@ public sealed partial class AholoPanel
     private ConnectionState placementConnection=new(false,null,false);
     private bool autoBusy,shown=true;
     private Button previewResult=null!;
+    private readonly CheckBox meshExportTextures=new(){Text=T("Include direct base-color bitmaps in mesh USD"),Checked=true};
     private void InitializePlacement()
     {
         meshEditor=new(serial,AholoPlugin.Placement,Report,RunAsync);
@@ -69,6 +70,13 @@ public sealed partial class AholoPanel
             artifact=MeshPlacementPolicy.SelectStaticMesh(task,artifact.Key);
         }
         await meshEditor.AddAsync(artifact.LocalPath!,artifact.Sha256,task.Name,task.Id,token);
+    }
+    private async Task ExportMeshAsync()
+    {
+        using var dialog=MeshUsdExport.SaveDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
+        var snapshot=AholoHost.CaptureMeshExport(Document(),meshExportTextures.Checked==true);
+        string message=await MeshUsdExport.ExportAsync(GaussianExportDialogs.NormalizePath(dialog),snapshot,token);
+        AholoHost.Ui(()=>Report(message));
     }
     private async Task LoadLocalMeshAsync()
     {

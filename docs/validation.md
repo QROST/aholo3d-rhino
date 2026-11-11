@@ -104,3 +104,10 @@ Actual OpenUSD parsing found and drove repair of invalid same-line nested camera
 Release solution build: zero warnings/errors. Full suite: **853 passed**, zero failed/skipped. New coverage includes native-format selection, immutable snapshot/hash, core components/base materials, primary/secondary relationships, valid parent-relative and UTF-8 package paths, duplicates, missing/external targets, extensions, DTDs, malformed archives and preflight cancellation. The committed deterministic `fixtures/mesh-core.3mf` and generator provide a native acceptance sample; its bytes and preflight pass, not its native rendering.
 
 Remote Sol supplied the package/format boundary review; a later implementation review timed out and was not retried. Independent local review reproduced a UTF-8 continuation-byte rejection, which was fixed and regression tested. Both Mac and Windows staging checks passed for 46 allowlisted files, including the new OPC assemblies/license and fixture. This was a Mac build/staging check, not Windows native execution. No installation, publication, authenticated request or desktop automation was performed.
+
+
+## Local mesh USD export after alpha.4 (2026-11-11 UTC)
+
+Release build: zero warnings/errors. **860 offline .NET tests passed**, zero failures/skips, including mesh transport, invalid geometry/asset paths, source-image deduplication, large double origins and public export cancellation with inherited process pipes. Actual OpenUSD 26.11 checked all four production formats after moving outputs and deleting the original location: coordinates, normals/winding, UVs, material/alpha graphs, texture bytes, USDZ alignment and enclosed dependencies. Real export replacement failure cleans only the new companion directory, and successful replacement preserves prior texture files. Run `fixtures/mesh-usd-verify.py` with the configured USD interpreter to repeat.
+
+No GUI automation, native Rhino export, authenticated service call, installation or publication occurred. Mac/Windows native capture and independent renderer appearance remain pending. These source changes are newer than the alpha.4 package receipts.

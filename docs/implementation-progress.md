@@ -180,3 +180,10 @@ Added local and downloaded core 3MF results to candidate preview and native Bloc
 ## Candidate checkpoint — alpha.4
 
 The post-alpha.3 fidelity, realtime scene and core 3MF commits are consolidated as `0.2.0-alpha.4`. Source validation at `a85b04e`: 853 offline tests passed, clean Release compilation, Khronos GLB validation and actual OpenUSD patch composition. Both platform payloads include the OPC dependency, license and native acceptance sample. The product parity table continues to list open implementation and contract gates; this checkpoint does not mark the plugin complete or publish/install it.
+
+
+## Ordinary mesh USD export after alpha.4
+
+Added `AholoExportMesh` and a bilingual local panel action, separate from GS exchange and cloud rendering. Selected model-space Mesh/Brep/Extrusion/nested blocks are captured into private tessellated snapshots, with double-precision rebasing, supported normals/materials/UV bitmaps and no GLB intermediate. Local export permits orthographic and readonly documents; page-space roots fail explicitly to prevent unit confusion. USDZ is self-contained; plain USD keeps a stable adjacent image bundle, with atomic root replacement and old bundles preserved.
+
+Remote Sol returned export-design and two implementation reviews; the import-design task timed out, was status-checked and not retried. Primary checks rejected incorrect claims about missing normal/material validation and old-asset deletion, confirmed the image contract, and improved error reporting. A native read-only SDK review identified double-precision-before-transform and page/model-space unit risks; both were fixed. Ordinary mesh import and combined GS/mesh export remain actionable work. The existing alpha.4 archives predate this source change.

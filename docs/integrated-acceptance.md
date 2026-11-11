@@ -90,3 +90,8 @@ Pending native/live acceptance: before starting, adjust world-mm XYZ, scale, Z r
 ## Core 3MF placement
 
 Native Mac/Windows checks remain pending. Use the packaged `fixtures/mesh-core.3mf` and the expected colors, units and bounds in `mesh-formats.md`. Check mirrored/nested components, candidate placement, one Block, Undo/Redo, original hash, save/reopen and duplicate receipt protection. Use a material/production-extension file as a negative case: reject before document mutation without deleting the downloaded source.
+
+
+## Local mesh USD export
+
+Run `AholoExportMesh` and the panel action on both platforms. Follow the mesh checklist in `usd-exchange.md`, including mirrored/far-translated blocks, readonly/orthographic capture, page-space rejection, source materials unchanged, alpha/UV appearance, moved USDZ/plain companion bundles and cancellation/closure. This route needs no API Key. Automated USD parsing does not establish Rhino capture or native viewing acceptance.

@@ -67,6 +67,7 @@ def main():
         'sidecar/Aholo.Core.dll': 'src/Aholo.Sidecar/bin/Release/net8.0/Aholo.Core.dll',
         'sidecar/Aholo.Provider.dll': 'src/Aholo.Sidecar/bin/Release/net8.0/Aholo.Provider.dll',
         'manifest.yml': 'packaging/manifest.yml',
+        'usd/usd_mesh_bridge.py': 'src/Aholo.Rhino/bin/Release/net7.0/usd/usd_mesh_bridge.py',
         'usd/usd_bridge.py': 'src/Aholo.Rhino/bin/Release/net7.0/usd/usd_bridge.py',
         'scripts/setup-usd.py': 'scripts/setup-usd.py',
         'docs/usd-exchange.md': 'docs/usd-exchange.md',

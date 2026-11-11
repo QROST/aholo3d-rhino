@@ -3598,5 +3598,49 @@
   {
     "English": "This 3MF uses extensions not yet supported by mesh placement. Export a core 3MF or static GLB instead.",
     "Chinese": "此 3MF 使用了网格放置尚未支持的扩展。请导出为核心 3MF 或静态 GLB。"
+  },
+  {
+    "English": "Export selected meshes to USD",
+    "Chinese": "将选中网格导出为 USD"
+  },
+  {
+    "English": "USD output file",
+    "Chinese": "USD 输出文件"
+  },
+  {
+    "English": "Export selected mesh USD",
+    "Chinese": "导出选中网格 USD"
+  },
+  {
+    "English": "Include direct base-color bitmaps in mesh USD",
+    "Chinese": "网格 USD 包含直接基础色贴图"
+  },
+  {
+    "English": "Exported {0:N0} mesh parts and {1:N0} triangles to USD.\n{2}",
+    "Chinese": "已导出 {0:N0} 个网格部分、{1:N0} 个三角面到 USD。\n{2}"
+  },
+  {
+    "English": "Keep this texture folder beside the USD file: {0}",
+    "Chinese": "请将此贴图文件夹与 USD 文件一起保留：{0}"
+  },
+  {
+    "English": "USD texture filtering is viewer-defined; source filter settings are retained as metadata.",
+    "Chinese": "USD 贴图过滤由查看器决定；原始过滤设置保留在元数据中。"
+  },
+  {
+    "English": "Exporting the captured selection locally. Use AholoCancel to stop. No cloud request is made.",
+    "Chinese": "正在本地导出捕获的选中对象。使用 AholoCancel 停止，不调用云服务。"
+  },
+  {
+    "English": "Local export cancelled. The previous output was preserved.",
+    "Chinese": "本地导出已取消，原有输出文件保留。"
+  },
+  {
+    "English": "Select meshes, surfaces, extrusions or ordinary blocks first.",
+    "Chinese": "请先选中网格、曲面、拉伸体或普通块。"
+  },
+  {
+    "English": "Select model-space geometry. Page-space objects use different units and cannot enter this mesh workflow.",
+    "Chinese": "请选择模型空间几何。页面空间对象使用不同单位，不能进入此网格流程。"
   }
 ]

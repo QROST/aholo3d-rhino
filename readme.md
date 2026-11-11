@@ -76,6 +76,14 @@ This alpha is built locally; it has not been installed or published automaticall
 
 Core 3MF placement accepts packaged static meshes, core components/transforms and base colors. It validates package references before native Rhino import, keeps the original bytes/hash and uses the same candidate, Block and Undo flow. Texture/material, production, slice and vendor extension data are rejected explicitly; this is not an all-extensions 3MF claim. See [format boundaries and acceptance](docs/mesh-formats.md).
 
+## Local mesh USD / USDZ export
+
+Select model-space meshes, surfaces, extrusions or ordinary nested Blocks and run **`AholoExportMesh`**, or choose **Library → Export selected mesh USD**. This uses the same optional OpenUSD runtime as GS exchange and makes no cloud request. Orthographic views and read-only documents are supported. The panel can explicitly disable bitmap export for material constants only.
+
+USDZ is a portable single file. Textured `.usd`, `.usdc` and `.usda` exports have a uniquely named `usd-assets-…` folder beside them: keep that folder with the scene. Replacing a scene retains older texture folders because other copies may still reference them. Failed/canceled conversion preserves the previous output. Export uses the captured model coordinates in millimetres/Z-up, rebased float32 geometry with double-precision origins, smooth normals, supported PBR constants and direct UV bitmaps. Ordinary block transforms are baked into separate mesh parts; the editable block hierarchy is not retained. USD texture filtering is viewer-defined, with source filters kept as metadata. See [USD exchange boundaries](docs/usd-exchange.md).
+
+This adds ordinary mesh **export**; ordinary mesh USD import/placement and combined mesh/GS export remain open work. Native Rhino and independent viewer appearance require separate acceptance.
+
 ## Local GS USD / USDZ import and export
 
 No API Key or network call is needed for local GS exchange. `AholoImportGs` and the panel's local import action accept full Gaussian PLY, headerless 32-byte SPLAT, SPZ v1–4 and static official OpenUSD `.usd`, `.usda`, `.usdc`, `.usdz` scenes. Stage units, up axis, multiple parts and full transforms are respected; the original cloud task PLY placement remains available.
