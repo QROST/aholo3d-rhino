@@ -63,6 +63,7 @@ public sealed class RealtimeControlServer : IAsyncDisposable
                         "get"=>manager.Get(p.GetProperty("id").GetGuid(),p.GetProperty("afterFrame").GetInt64()),
                         "pending"=>manager.Pending(),
                         "confirmExternalResolution"=>await manager.ConfirmExternalResolutionAsync(p.GetProperty("id").GetGuid(),request.Epoch,deadline.Token).ConfigureAwait(false),
+                        "scene"=>await manager.SceneAsync(Read<RealtimeSceneRequest>(p),request.Epoch,deadline.Token).ConfigureAwait(false),
                         "camera"=>await manager.CameraAsync(Read<RealtimeCameraRequest>(p),request.Epoch,deadline.Token).ConfigureAwait(false),
                         "stop"=>await manager.StopAsync(p.GetProperty("id").GetGuid(),request.Epoch,deadline.Token).ConfigureAwait(false),
                         _=>throw new ArgumentException("Unknown realtime operation.")

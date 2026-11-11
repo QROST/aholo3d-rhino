@@ -125,6 +125,8 @@ The packaging script creates a fresh staging directory, checks the archive and w
 
 [Architecture and API evidence](docs/architecture.md) · [Validation record](docs/validation.md) · [Host acceptance](docs/host-acceptance.md) · [API snapshots](docs/api/README.md)
 
+Cloud preview **Scene settings** controls the model's world-mm XYZ offset, uniform scale and Z rotation, absolute positive environment brightness, and intensity of optional selected Rect/Point lights captured at start. Light poses/dimensions stay at that snapshot; this UI does not add/delete assets or light slots. Changes use stable cloud paths and one ordered queue; adjacent camera motion coalesces without crossing scene adjustments. Settings become committed only after server acknowledgement. An uncertain edit response closes the original session without automatic replay. Images do not acknowledge scene or camera revisions.
+
 ## License and attribution
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Runtime discovery, pipe communication, credential protection and download transport draw on the existing Lux3D/Tripo integrations. Maintained by **CuriousArc · qrost**. Report issues through the project maintainer with version, platform, task status and reproducible steps; omit credentials and signed URLs.

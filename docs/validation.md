@@ -84,3 +84,10 @@ Local CLI installation, if performed, is recorded separately in `artifacts/` wit
 Release compilation: zero warnings/errors; full suite: **802 passed**, zero failed/skipped. New coverage includes nonuniform/sheared/mirrored normal transforms, correct orientation under the glTF basis rotation, finite/cardinality checks, embedded PNG/JPEG bytes, sampler/alpha behavior, content deduplication, four-byte alignment, source-file changes and atomic failure. Malformed PNG palettes and non-sRGB/profile metadata have regression fixtures.
 
 A separate scratch .NET harness called the production GlbWriter and the official [Khronos glTF Validator](https://github.com/KhronosGroup/glTF-Validator) 2.0.0-dev.3.10 independently checked its output: **0 errors, 0 warnings, 0 infos, 0 hints**. No Rhino automation, authenticated service calls, package installation or publication was involved. Native texture orientation, material parity and both-platform interaction remain pending in `integrated-acceptance.md`.
+
+
+## Realtime scene refinement (2026-11-11 UTC)
+
+Release compilation has zero warnings/errors. Full suite: **810 passed**, zero failed/skipped. Queue/IPC tests hold acknowledgements to verify camera–scene–camera ordering, bounded coalescing, duplicate revisions, explicit epoch rejection, cleanup after lost replies and no automatic replay. Source snapshot tests verify mutable caller arrays cannot change the start scene.
+
+Actual OpenUSD parsing found and drove repair of invalid same-line nested camera `over` nodes. After repair, **124 affected realtime/geometry tests passed**, and the committed integration check parsed/composed production camera, scene and Gaussian patches, verifying final transforms, environment, lighting and preserved camera independently of mocked HTTP. Run the Release build, then `fixtures/render-verify.py` with the configured private OpenUSD interpreter. The script invokes `Aholo.Reference --render-fixtures` in a temporary directory; it performs no network or Rhino calls. Native/live and Windows acceptance remain pending; alpha.3 archives predate these source changes.

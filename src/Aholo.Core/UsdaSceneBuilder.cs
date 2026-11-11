@@ -5,7 +5,7 @@ namespace Aholo.Core;
 
 public static class UsdaSceneBuilder
 {
-    public static string Build(string meshId, RenderCamera camera, int width, int height, double environmentIntensity = 1, IReadOnlyList<RenderLight>? lights = null)
+    public static string Build(string meshId, RenderCamera camera, int width, int height, double environmentIntensity = 1, IReadOnlyList<RenderLight>? lights = null, double[]? modelTransform = null)
     {
         ArgumentNullException.ThrowIfNull(camera);
         if (string.IsNullOrWhiteSpace(meshId) || meshId.Any(c => !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c is '-' or '_')))
@@ -22,6 +22,7 @@ public static class UsdaSceneBuilder
         PositiveFloat(environmentIntensity, nameof(environmentIntensity));
         if (camera.Far <= camera.Near) throw new ArgumentException("Far clipping plane must exceed near clipping plane.", nameof(camera));
         string lightScene=RenderLightsUsda.Build(lights);
+        string modelPose=RenderModelPlacement.FormatPose(modelTransform??new RenderModelPlacement().Pose(true));
         var pose = new StringBuilder();
         for (var row = 0; row < 4; row++)
         {
@@ -40,7 +41,7 @@ def Xform "World"
 {
     def Xform "Model"
     {
-        matrix4d xformOp:transform = ((1000, 0, 0, 0), (0, 0, 1000, 0), (0, -1000, 0, 0), (0, 0, 0, 1))
+        matrix4d xformOp:transform = ({{modelPose}})
         uniform token[] xformOpOrder = ["xformOp:transform"]
         def Mesh "Geom" (
             payload = @manycore:/mesh/{{meshId}}@</mesh>

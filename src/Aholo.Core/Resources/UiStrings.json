@@ -3518,5 +3518,77 @@
   {
     "English": "Embedded color profiles, non-sRGB declarations and EXIF metadata are unsupported. Export an untagged sRGB PNG/JPEG or disable bitmap export.",
     "Chinese": "暂不支持内嵌色彩配置、非 sRGB 声明和 EXIF 元数据。请导出无标签的 sRGB PNG/JPEG，或关闭位图导出。"
+  },
+  {
+    "English": "Scene settings",
+    "Chinese": "场景设置"
+  },
+  {
+    "English": "Capture selected rectangular / point lights at start",
+    "Chinese": "开始时捕获选中的矩形灯/点灯"
+  },
+  {
+    "English": "Apply scene settings",
+    "Chinese": "应用场景设置"
+  },
+  {
+    "English": "Save scene settings",
+    "Chinese": "保存场景设置"
+  },
+  {
+    "English": "Model X / Y / Z offset (mm)",
+    "Chinese": "模型 X / Y / Z 偏移（毫米）"
+  },
+  {
+    "English": "Model scale",
+    "Chinese": "模型比例"
+  },
+  {
+    "English": "Model rotation around Z (degrees)",
+    "Chinese": "模型绕 Z 轴旋转（度）"
+  },
+  {
+    "English": "Environment brightness multiplier",
+    "Chinese": "环境亮度倍数"
+  },
+  {
+    "English": "Captured light intensity multiplier",
+    "Chinese": "已捕获灯光的强度倍数"
+  },
+  {
+    "English": "Captured lights: {0}. Positions and dimensions stay at the start snapshot; intensity can change.",
+    "Chinese": "已捕获灯光：{0}。位置和尺寸保持开始时的快照，可调整强度。"
+  },
+  {
+    "English": "Scene settings affect the cloud preview only. The Rhino document is unchanged.",
+    "Chinese": "场景设置只影响云预览，不改动 Rhino 文档。"
+  },
+  {
+    "English": "Enter finite scene values; scale, environment and radius must be positive, and light intensity cannot be negative.",
+    "Chinese": "请输入有限数值；比例、环境亮度和半径必须大于零，灯光强度不能为负数。"
+  },
+  {
+    "English": "The preview changed while editing. Open scene settings again.",
+    "Chinese": "编辑期间预览发生变化，请重新打开场景设置。"
+  },
+  {
+    "English": "Scene adjustments acknowledged {0} / {1}; image arrival is not an acknowledgement.",
+    "Chinese": "场景调整已确认 {0} / {1}；收到图像不代表调整已确认。"
+  },
+  {
+    "English": "Select enabled rectangular or point lights, or turn off light capture in scene settings.",
+    "Chinese": "请选择已启用的矩形灯或点灯，或在场景设置中关闭灯光捕获。"
+  },
+  {
+    "English": "Wait for the previous scene adjustment to be acknowledged before applying another.",
+    "Chinese": "请等待前一次场景调整确认后，再应用新的调整。"
+  },
+  {
+    "English": "Model placement must be finite with a positive scale.",
+    "Chinese": "模型位置必须为有限数值，比例必须大于零。"
+  },
+  {
+    "English": "Scene edits must retain the original light slots and types.",
+    "Chinese": "场景调整必须保留原始灯光位置编号和类型。"
   }
 ]

@@ -2,7 +2,8 @@ using System.Text.Json;
 namespace Aholo.Core;
 
 public sealed record RealtimeStartRequest(Guid Id,string MeshId,RenderCamera Camera,int Width=1280,int Height=720,
-    double EnvironmentIntensity=1,bool Gaussian=false,bool GltfCoordinates=true);
+    double EnvironmentIntensity=1,bool Gaussian=false,bool GltfCoordinates=true,RenderModelPlacement? Model=null,RenderLight[]? Lights=null);
+public sealed record RealtimeSceneRequest(Guid Id,long Revision,RenderModelPlacement Model,double EnvironmentIntensity,RenderLight[] Lights);
 public sealed record RealtimeCameraRequest(Guid Id,long Revision,RenderCamera Camera);
 public sealed record RealtimePreviewRecord
 {
@@ -17,7 +18,7 @@ public sealed record RealtimePreviewRecord
     public string? Error{get;init;}
     public DateTimeOffset UpdatedAt{get;init;}=DateTimeOffset.UtcNow;
 }
-public sealed record RealtimePreviewState(RealtimePreviewRecord Record,long FrameSequence=0,DateTimeOffset? ReceivedAt=null,long AcknowledgedCamera=0);
+public sealed record RealtimePreviewState(RealtimePreviewRecord Record,long FrameSequence=0,DateTimeOffset? ReceivedAt=null,long AcknowledgedCamera=0,long AcceptedScene=0,long AcknowledgedScene=0);
 public sealed record RealtimePreviewReply(RealtimePreviewState? State=null,RealtimePreviewRecord[]? Records=null,string? Error=null);
 public sealed record RealtimePreviewPacket(RealtimePreviewReply Reply,byte[]? Jpeg=null);
 public sealed record RealtimeControlRequest(int Version,Guid RequestId,string Nonce,string Method,JsonElement Payload,string? Epoch)

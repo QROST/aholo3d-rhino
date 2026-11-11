@@ -221,6 +221,19 @@ internal static partial class AholoHost
         }
         finally{while(stack.Count>0)stack.Pop().Objects.Dispose();}
     }
+    internal static RenderLight[] CaptureSelectedLights(RhinoDoc doc,double radius)
+    {
+        RequireUi();RequireDocument(doc);
+        if(doc.ModelUnitSystem is global::Rhino.UnitSystem.None or global::Rhino.UnitSystem.Unset or global::Rhino.UnitSystem.CustomUnits)
+            throw new InvalidOperationException(UiText.Get("Set explicit length units for the Rhino document first."));
+        double mm=global::Rhino.RhinoMath.UnitScale(doc.ModelUnitSystem,global::Rhino.UnitSystem.Millimeters);
+        var selected=doc.Objects.GetSelectedObjects(false,false).Concat(doc.Lights.Where(l=>!l.IsDeleted&&l.IsSelected(false)!=0).Cast<RhinoObject>()).DistinctBy(o=>o.Id);
+        var lights=new List<RenderLight>();
+        foreach(var (obj,transform,_,_) in RenderObjects(selected,doc,true,false))
+            if(obj.Geometry is Light {IsEnabled:true} light)lights.Add(CaptureLight(light,transform,mm,radius,1,doc));
+        if(lights.Count==0)throw new InvalidOperationException(UiText.Get("Select enabled rectangular or point lights, or turn off light capture in scene settings."));
+        return lights.ToArray();
+    }
     private static RenderLight CaptureLight(Light light,Transform t,double mm,double radius,double multiplier,RhinoDoc doc)
     {
         var transform=new GaussianTransform(new(t.M00,t.M01,t.M02,t.M10,t.M11,t.M12,t.M20,t.M21,t.M22),new(t.M03,t.M13,t.M23));

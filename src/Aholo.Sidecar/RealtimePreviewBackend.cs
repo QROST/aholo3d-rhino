@@ -8,6 +8,7 @@ public interface IRealtimePreviewBackend
     Task ConnectAsync(RealtimeOperation operation,CancellationToken ct);
     Task<RealtimeStreamMessage> ReadAsync(CancellationToken ct);
     Task CameraAsync(string patch,CancellationToken ct);
+    Task SceneAsync(string patch,CancellationToken ct);
     Task CloseAsync(string sessionId,bool explicitRetry);
 }
 
@@ -19,10 +20,12 @@ public sealed class RealtimePreviewBackend(AholoApiClient api,ApiKeyCredential k
     public async Task ConnectAsync(RealtimeOperation operation,CancellationToken ct)
     {session=new(api,key,operation,new RealtimeWebSocketTransport());await session.ConnectAsync(ct).ConfigureAwait(false);}
     public Task<RealtimeStreamMessage> ReadAsync(CancellationToken ct)=>session!.ReadNextAsync(ct);
-    public async Task CameraAsync(string patch,CancellationToken ct)
+    public Task CameraAsync(string patch,CancellationToken ct)=>UpdateAsync(patch,false,ct);
+    public Task SceneAsync(string patch,CancellationToken ct)=>UpdateAsync(patch,true,ct);
+    private async Task UpdateAsync(string patch,bool scene,CancellationToken ct)
     {
         using var deadline=CancellationTokenSource.CreateLinkedTokenSource(ct);deadline.CancelAfter(TimeSpan.FromSeconds(90));
-        try{await session!.EnqueueCameraAsync(patch).WaitAsync(deadline.Token).ConfigureAwait(false);}
+        try{await (scene?session!.EnqueueSceneAsync(patch):session!.EnqueueCameraAsync(patch)).WaitAsync(deadline.Token).ConfigureAwait(false);}
         catch{await session!.CloseOnceAsync().ConfigureAwait(false);throw;}
     }
     public async Task CloseAsync(string sessionId,bool explicitRetry)

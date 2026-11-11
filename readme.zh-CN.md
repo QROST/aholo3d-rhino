@@ -124,6 +124,8 @@ Windows 可运行 `powershell -File scripts/build-package.ps1`（需要 Python 3
 
 [架构与接口依据](docs/architecture.md) · [验证记录](docs/validation.md) · [宿主验收](docs/host-acceptance.md) · [官方接口快照](docs/api/README.md)
 
+云预览的“场景设置”支持模型世界毫米坐标 XYZ 偏移、统一比例、绕 Z 轴旋转、正值环境亮度，以及开始时可选捕获的矩形灯/点灯强度。灯光位置和尺寸保持开始时的快照；此界面尚不增删资产或灯光编号。调整沿用固定云端路径并按顺序发送，相邻相机移动可合并，但不跨越场景调整。只有服务端确认后才更新已提交设置；确认结果不明时关闭原会话，不自动重发。收到图像不代表相机或场景修改已确认。
+
 ## 许可证与署名
 
 Apache-2.0，见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。运行时发现、管道通信、安全凭据存储及下载传输参考现有 Lux3D/Tripo 项目。维护者为 **CuriousArc · qrost**。反馈问题时提供版本、平台、任务状态和复现步骤，不包含 Key 或带签名的 URL。

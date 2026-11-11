@@ -5,7 +5,7 @@ using Eto.Forms;
 using RhinoDoc=global::Rhino.RhinoDoc;
 namespace Aholo.Rhino;
 
-internal sealed class CloudPreviewWindow : Form
+internal sealed partial class CloudPreviewWindow : Form
 {
     private static readonly Dictionary<uint,CloudPreviewWindow> windows=new();
     private readonly uint serial;
@@ -26,7 +26,7 @@ internal sealed class CloudPreviewWindow : Form
     private ImportTarget? target;
     private ConnectionState? originalConnection;
     private long sequence,revision;
-    private string? lastCamera;
+    private string? lastQueuedCamera;
     private bool disposed,polling,starting,stopping;
     private Bitmap? bitmap;
     private Task startWork=Task.CompletedTask;
@@ -47,9 +47,10 @@ internal sealed class CloudPreviewWindow : Form
         kind.SelectedIndexChanged+=(_,_)=>{if(kind.SelectedIndex==1)coordinates.SelectedIndex=1;};
         start.Click+=async(_,_)=>{try{await (startWork=StartAsync());}catch(Exception error){Report(error);}finally{starting=false;UpdateButtons();}};
         stop.Click+=async(_,_)=>await StopAsync();
+        sceneControls.Click+=async(_,_)=>{try{await EditSceneAsync();}catch(Exception error){Report(error);}};
         Content=new StackLayout{Padding=12,Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
             new Label{Text=T("Use an asset already prepared by RenderCloud. Selecting a prepared render in Library fills its ID; this window does not upload or ingest files."),Wrap=WrapMode.Word},
-            meshId,kind,coordinates,new StackLayout{Orientation=Orientation.Horizontal,Spacing=8,Items={start,stop}},limits,status,
+            meshId,kind,coordinates,sceneControls,new StackLayout{Orientation=Orientation.Horizontal,Spacing=8,Items={start,stop}},limits,status,
             new StackLayoutItem(image,true),new Label{Text=T("Unresolved cloud sessions")},pending,
             new StackLayout{Spacing=5,Items={Action("Refresh cleanup list",PendingAsync),Action("Retry selected cleanup",CleanupSelectedAsync),Action("Confirm external resolution",ConfirmExternalAsync)}}}};
         timer.Elapsed+=async(_,_)=>await PollAsync();
@@ -65,7 +66,7 @@ internal sealed class CloudPreviewWindow : Form
     private void ConnectionChanged()=>Application.Instance.AsyncInvoke(()=>{if(!disposed){UpdateButtons();if(active is not null&&session.Connection!=originalConnection)_=StopAsync();}});
     private void DocumentClosed(object? sender,global::Rhino.DocumentEventArgs e){if(e.Document.RuntimeSerialNumber==serial&&!disposed)Close();}
     private RhinoDoc Document()=>RhinoDoc.FromRuntimeSerialNumber(serial)??throw new InvalidOperationException(T("The target document has closed."));
-    private void UpdateButtons(){if(disposed)return;start.Enabled=!starting&&!stopping&&active is null&&session.Connection.Connected;stop.Enabled=active is not null&&!stopping;meshId.Enabled=kind.Enabled=coordinates.Enabled=active is null&&!starting;}
+    private void UpdateButtons(){if(disposed)return;start.Enabled=!starting&&!stopping&&active is null&&session.Connection.Connected;stop.Enabled=active is not null&&!stopping;meshId.Enabled=kind.Enabled=coordinates.Enabled=active is null&&!starting;sceneControls.Enabled=!starting&&!stopping&&!sceneSending&&(active is null||lastStage=="Streaming"&&acknowledgedScene>=acceptedScene);}
     private void Report(Exception error)
     {if(!disposed)status.Text=AholoHost.FriendlyError(error);else global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(error));}
     private async Task CloseAfterStartAsync()
@@ -86,8 +87,9 @@ internal sealed class CloudPreviewWindow : Form
     {
         if(starting||active is not null)return;var doc=Document();target=AholoHost.CaptureTarget(doc);viewport=doc.Views.ActiveView!.ActiveViewport.Id;
         var camera=AholoHost.CaptureCamera(doc,RenderWidth,RenderHeight);originalConnection=session.Connection;
-        var request=new RealtimeStartRequest(Guid.NewGuid(),meshId.Text.Trim(),camera,RenderWidth,RenderHeight,Gaussian:kind.SelectedIndex==1,GltfCoordinates:coordinates.SelectedIndex==0);
-        _=RealtimeScene.Build(request);ClearImage();starting=true;active=request.Id;sequence=revision=0;lastCamera=JsonSerializer.Serialize(camera,AholoJson.Options);UpdateButtons();
+        baseLights=sceneOptions.IncludeLights?AholoHost.CaptureSelectedLights(doc,sceneOptions.PointRadius):Array.Empty<RenderLight>();
+        var request=new RealtimeStartRequest(Guid.NewGuid(),meshId.Text.Trim(),camera,RenderWidth,RenderHeight,sceneOptions.Environment,Gaussian:kind.SelectedIndex==1,GltfCoordinates:coordinates.SelectedIndex==0,Model:sceneOptions.Model,Lights:ScaleLights(baseLights,sceneOptions.LightMultiplier));
+        _=RealtimeScene.Build(request);ClearImage();starting=true;active=request.Id;sequence=revision=sceneRevision=acceptedScene=acknowledgedScene=0;lastStage=null;pendingScene=null;lastQueuedCamera=JsonSerializer.Serialize(camera,AholoJson.Options);UpdateButtons();
         try{var packet=await client.RealtimeAsync("start",request,lifetime.Token);if(!disposed)ShowState(packet);else await StopAsync();}
         catch(RealtimeControlException){active=null;throw;}
         catch{if(!disposed)status.Text=T("Start outcome is uncertain. Inspect this preview and the cleanup list before starting another.");throw;}
@@ -104,21 +106,29 @@ internal sealed class CloudPreviewWindow : Form
             if(packet.Reply.State?.Record.Stage is "Closed" or "NotSubmitted" or "ExternallyResolved" or "CleanupRequired" or "SubmissionUnknown")
             {active=null;UpdateButtons();await PendingAsync();return;}
             var camera=BoundCamera(id);string serialized=JsonSerializer.Serialize(camera,AholoJson.Options);
-            if(serialized!=lastCamera)
+            if(serialized!=lastQueuedCamera)
             {
                 await client.RealtimeAsync("camera",new RealtimeCameraRequest(id,++revision,camera),lifetime.Token);
-                if(!disposed&&active==id&&!stopping)lastCamera=serialized;
+                // This is only a queue watermark. AcknowledgedCamera remains the server-confirmed watermark.
+                if(!disposed&&active==id&&!stopping)lastQueuedCamera=serialized;
             }
         }
         catch(Exception error){if(!disposed&&active==id){Report(error);await StopAsync();}}
         finally{polling=false;}
     }
+    private static bool IsTerminalStage(string? stage)=>stage is "Closed" or "NotSubmitted" or "ExternallyResolved" or "CleanupRequired" or "SubmissionUnknown";
     private void ShowState(RealtimePreviewPacket packet)
     {
         if(disposed||packet.Reply.State is not{} state||state.Record.Id!=active)return;
+        if(IsTerminalStage(lastStage)&&!IsTerminalStage(state.Record.Stage))return;
+        lastStage=state.Record.Stage;acceptedScene=Math.Max(acceptedScene,state.AcceptedScene);acknowledgedScene=Math.Max(acknowledgedScene,state.AcknowledgedScene);
+        if(pendingScene is { } change&&acknowledgedScene>=change.Revision){sceneOptions=change.Options;pendingScene=null;}
+        if(lastStage is "Closed" or "NotSubmitted" or "ExternallyResolved" or "CleanupRequired" or "SubmissionUnknown")pendingScene=null;
+        UpdateButtons();
         status.Text=UiText.Status(state.Record.Stage)+" · "+UiText.Format("Local preview {0}",state.Record.Id)+
             (state.Record.SessionId is null?"":"\n"+UiText.Format("Cloud session {0}",state.Record.SessionId))+
             (state.ReceivedAt is null?"":"\n"+UiText.Format("Latest image received {0}; camera updates acknowledged {1} (not a frame match)",state.ReceivedAt.Value.ToLocalTime().ToString("T"),state.AcknowledgedCamera))+
+            (acceptedScene==0?"":"\n"+UiText.Format("Scene adjustments acknowledged {0} / {1}; image arrival is not an acknowledgement.",acknowledgedScene,acceptedScene))+
             (state.Record.Error is null?"":"\n"+UiText.TranslateKnownMessage(state.Record.Error));
         if(packet.Jpeg is null)return;
         try

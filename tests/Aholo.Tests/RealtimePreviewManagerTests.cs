@@ -99,18 +99,84 @@ public sealed class RealtimePreviewManagerTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(()=>h.Manager.StartAsync(request,h.Epoch,default));
         Assert.False(h.Journal.Exists(request.Id));Assert.Equal(0,h.Backend.Creates);
     }
+    [Fact]
+    public async Task CameraCoalescingCannotCrossASceneBarrierOrAcknowledgeItEarly()
+    {
+        await using var h=await Harness.New();var request=await h.StartStreaming();
+        await h.Manager.CameraAsync(new(request.Id,1,Camera(1)),h.Epoch,default);
+        var first=await h.Backend.Cameras.Reader.ReadAsync().AsTask().WaitAsync(Timeout);
+        await h.Manager.CameraAsync(new(request.Id,2,Camera(2)),h.Epoch,default);
+        var change=new RealtimeSceneRequest(request.Id,1,new(100,0,0),.8,Array.Empty<RenderLight>());
+        var accepted=await h.Manager.SceneAsync(change,h.Epoch,default);
+        Assert.Equal(1,accepted.Reply.State!.AcceptedScene);Assert.Equal(0,accepted.Reply.State.AcknowledgedScene);
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>h.Manager.SceneAsync(change with{Revision=2},h.Epoch,default));
+        await h.Manager.SceneAsync(change,h.Epoch,default); // Same accepted revision cannot enqueue twice.
+        await h.Manager.CameraAsync(new(request.Id,3,Camera(3)),h.Epoch,default);
+        await h.Manager.CameraAsync(new(request.Id,4,Camera(4)),h.Epoch,default);
+        first.Done.SetResult();var second=await h.Backend.Cameras.Reader.ReadAsync().AsTask().WaitAsync(Timeout);
+        Assert.Equal(RealtimeScene.CameraPatch(request with{Camera=Camera(2)}),second.Patch);Assert.Equal(0,h.Backend.SceneCount);
+        second.Done.SetResult();var scene=await h.Backend.Scenes.Reader.ReadAsync().AsTask().WaitAsync(Timeout);
+        Assert.Equal(RealtimeScene.ScenePatch(request,change),scene.Patch);Assert.Equal(0,h.Manager.Get(request.Id,0).Reply.State!.AcknowledgedScene);
+        scene.Done.SetResult();var final=await h.Backend.Cameras.Reader.ReadAsync().AsTask().WaitAsync(Timeout);
+        Assert.Equal(RealtimeScene.CameraPatch(request with{Camera=Camera(4)}),final.Patch);final.Done.SetResult();
+        await Eventually(()=>h.Manager.Get(request.Id,0).Reply.State!.AcknowledgedCamera==4);
+        Assert.Equal(1,h.Manager.Get(request.Id,0).Reply.State!.AcknowledgedScene);Assert.Equal(1,h.Backend.SceneCount);Assert.Equal(3,h.Backend.CameraCount);
+    }
+    [Fact]
+    public async Task UncertainSceneReplyClosesOriginalSessionWithoutReplayOrFalseAcknowledgement()
+    {
+        await using var h=await Harness.New();var request=await h.StartStreaming();
+        await h.Manager.SceneAsync(new(request.Id,1,new(),2,Array.Empty<RenderLight>()),h.Epoch,default);
+        var scene=await h.Backend.Scenes.Reader.ReadAsync().AsTask().WaitAsync(Timeout);scene.Done.SetException(new IOException("reply lost"));
+        await Eventually(()=>h.Journal.Read(request.Id).Stage=="Closed");
+        Assert.Equal(1,h.Backend.Creates);Assert.Equal(1,h.Backend.SceneCount);Assert.Equal(0,h.Manager.Get(request.Id,0).Reply.State!.AcknowledgedScene);
+        Assert.False(h.Journal.Read(request.Id).NeedsCleanup);Assert.Equal(new[]{false},h.Backend.CloseRetries.ToArray());
+        var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>h.Manager.SceneAsync(new(request.Id,2,new(),3,Array.Empty<RenderLight>()),h.Epoch,default));
+        Assert.Contains("closing or closed",error.Message);
+    }
+    [Fact]
+    public async Task InvalidSceneAndWrongEpochCannotEnterQueue()
+    {
+        await using var h=await Harness.New();var request=await h.StartStreaming();var patch=new RealtimeSceneRequest(request.Id,1,new(),1,Array.Empty<RenderLight>());
+        await Assert.ThrowsAsync<ProviderException>(()=>h.Manager.SceneAsync(patch,"old-epoch",default));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(()=>h.Manager.SceneAsync(patch with{EnvironmentIntensity=0},h.Epoch,default));
+        await Assert.ThrowsAsync<ArgumentException>(()=>h.Manager.SceneAsync(patch with{Revision=0},h.Epoch,default));
+        Assert.Equal(0,h.Backend.SceneCount);Assert.Equal(0,h.Manager.Get(request.Id,0).Reply.State!.AcceptedScene);
+    }
+    [Fact]
+    public async Task RealPipeSceneReplySeparatesQueueAcceptanceFromServerAcknowledgement()
+    {
+        await using var h=await Harness.New();var request=await h.StartStreaming();
+        string name="aholo-rt-"+Guid.NewGuid().ToString("N"),nonce=Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+        await using var server=new RealtimeControlServer(name,nonce,h.Manager);server.Start();
+        using var deadline=new CancellationTokenSource(Timeout);
+        async Task<RealtimePreviewPacket> Send(string method,object payload)
+        {
+            using var pipe=new System.IO.Pipes.NamedPipeClientStream(".",name,System.IO.Pipes.PipeDirection.InOut,System.IO.Pipes.PipeOptions.Asynchronous|System.IO.Pipes.PipeOptions.CurrentUserOnly);
+            await pipe.ConnectAsync(deadline.Token);
+            await RealtimeWire.WriteJsonAsync(pipe,new RealtimeControlRequest(1,Guid.NewGuid(),nonce,method,AholoJson.Element(payload),h.Epoch),RealtimeWire.MaximumRequestBytes,deadline.Token);
+            await pipe.FlushAsync(deadline.Token);return await RealtimeWire.ReadPacketAsync(pipe,deadline.Token);
+        }
+        var accepted=await Send("scene",new RealtimeSceneRequest(request.Id,1,new(),2,Array.Empty<RenderLight>()));
+        Assert.Null(accepted.Reply.Error);Assert.Equal(1,accepted.Reply.State!.AcceptedScene);Assert.Equal(0,accepted.Reply.State.AcknowledgedScene);
+        var update=await h.Backend.Scenes.Reader.ReadAsync(deadline.Token);update.Done.SetResult();
+        await Eventually(()=>h.Manager.Get(request.Id,0).Reply.State!.AcknowledgedScene==1);
+        var committed=await Send("get",new{id=request.Id,afterFrame=0});Assert.Equal(1,committed.Reply.State!.AcknowledgedScene);
+    }
     private sealed class FakeBackend:IRealtimePreviewBackend
     {
         internal readonly TaskCompletionSource Created=new(TaskCreationOptions.RunContinuationsAsynchronously),Connected=new(TaskCreationOptions.RunContinuationsAsynchronously),ExplicitClosing=new(TaskCreationOptions.RunContinuationsAsynchronously),CloseReply=new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal readonly TaskCompletionSource<RealtimeOperation> CreateReply=new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal readonly Channel<RealtimeStreamMessage> Messages=Channel.CreateUnbounded<RealtimeStreamMessage>();
         internal readonly Channel<(string Patch,TaskCompletionSource Done)> Cameras=Channel.CreateUnbounded<(string,TaskCompletionSource)>();
+        internal readonly Channel<(string Patch,TaskCompletionSource Done)> Scenes=Channel.CreateUnbounded<(string,TaskCompletionSource)>();
         internal readonly ConcurrentQueue<bool> CloseRetries=new();
-        internal int Creates,CameraCount;internal bool FailFirstClose,HoldExplicitClose;internal string? RequestId;
+        internal int Creates,CameraCount,SceneCount;internal bool FailFirstClose,HoldExplicitClose;internal string? RequestId;
         public async Task<RealtimeOperation> CreateAsync(string requestId,string usda,CancellationToken ct){Interlocked.Increment(ref Creates);RequestId=requestId;Created.TrySetResult();return await CreateReply.Task.WaitAsync(ct);}
         public Task<RealtimeOperation> QueryAsync(string id,CancellationToken ct)=>throw new InvalidOperationException("Not used.");
         public Task ConnectAsync(RealtimeOperation operation,CancellationToken ct){Connected.TrySetResult();return Task.CompletedTask;}
         public async Task<RealtimeStreamMessage> ReadAsync(CancellationToken ct)=>await Messages.Reader.ReadAsync(ct);
+        public async Task SceneAsync(string patch,CancellationToken ct){Interlocked.Increment(ref SceneCount);var done=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);await Scenes.Writer.WriteAsync((patch,done),ct);await done.Task.WaitAsync(ct);}
         public async Task CameraAsync(string patch,CancellationToken ct){Interlocked.Increment(ref CameraCount);var done=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);await Cameras.Writer.WriteAsync((patch,done),ct);await done.Task.WaitAsync(ct);}
         public async Task CloseAsync(string id,bool retry)
         {
