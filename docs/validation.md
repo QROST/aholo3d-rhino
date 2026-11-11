@@ -313,3 +313,8 @@ Release compilation passed with zero warnings/errors. **1350 offline .NET tests 
 `python3 fixtures/png-alpha-verify.py` passed with Pillow 10.4.0: 18 original/derived image pairs and 72 material-image bindings were decoded independently. The original inputs were themselves decoded against synthetic expected pixels before invoking the production writer. The configured OpenUSD 26.11 interpreter passed `fixtures/mesh-usd-verify.py` for USD/USDA/USDC/USDZ, including original texture hashes, alpha policy, relocation and package alignment. This is pixel/file evidence, not Rhino or cloud visual acceptance.
 
 Two local read-only reviewers supplied candidate checks; the primary implemented, tested and integrated the change. Remote remaining allowance was insufficient for a useful task, so no new remote inference ran. No computer use, Rhino automation, authenticated service call, installation, push or publication occurred. Native acceptance cases are recorded separately.
+
+
+### Alpha.22 source checkpoint
+
+Candidate `0.2.0-alpha.22` includes `4431fc6` and the bilingual PNG alpha support boundaries. Numeric assembly version remains `0.2.0.0`. The package allowlist now includes the conversion/acceptance document. Final archive verification binds clean source, payload bytes and platform hashes; both packages are built on Mac and do not establish Windows or Rhino execution. No installation or publication is part of this checkpoint.

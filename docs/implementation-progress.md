@@ -417,3 +417,8 @@ Closed the GLB rejection of ignored RGBA image alpha combined with partial mater
 The row-based converter covers five PNG filters, Adam7, source color declarations and exact zlib completion; it rejects malformed streams and animated-image conversion. Cancellation during actual GLB writing preserves the prior target and removes the temporary file. Two local read-only reviews found no blocking defect and prompted the deterministic write-stage cancellation test. Remote allowance was insufficient (135 tokens available); no new remote inference was dispatched.
 
 The primary ran 1350 offline tests, Release compilation, an independent Pillow pixel oracle and the four-format OpenUSD regression. Native Mac/Windows and real cloud appearance remain pending. The implementation adds no third-party image runtime dependency and no artificial geometry cap. See [conversion boundaries](png-alpha-export.md).
+
+
+### Candidate checkpoint — alpha.22
+
+Packages independent image/material alpha handling from `4431fc6`, with 1350 passing offline tests, independent Pillow/OpenUSD oracles and zero-warning/error Release compilation. The converter adds no image runtime dependency; stable assembly/plugin/Yak identities remain unchanged. Both platform archives remain local candidates. Native Mac/Windows appearance and actual cloud rendering require separate acceptance; no installation or publication is performed.
