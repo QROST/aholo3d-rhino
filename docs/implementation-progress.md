@@ -403,3 +403,8 @@ Added a host-independent result recommendation/action policy. The Library favors
 Actions now explain cached versus missing files, image viewing, download-only formats and mesh receipt-first offline lookup. Download remains gated by the original account/region and successful task; downloaded bytes are not automatically placed. Known World progress is formatted as a percentage; absent/zero/invalid values remain explicit and a visible-only timer reports local record age rather than a completion estimate. Source progress and server state are unchanged.
 
 Two local read-only reviewers checked identity, account/action gates and actual native bindings. Review caught stale dropdown cache labels, corrected before final integration. Remote allowance remained only 135 tokens, so no useful remote inference could be dispatched. Native Eto events, layout and host/live-service acceptance remain pending.
+
+
+### Candidate checkpoint — alpha.21
+
+Packages Library guidance and task-progress presentation from `c54b13e`, supported by 1323 passing offline tests and zero-warning/error compilation. Result selection and caching messages are distinct from geometry validation and paid-operation authorization. Stable assembly/plugin/Yak identities remain unchanged. Local Mac/Windows packages do not establish native interaction or service acceptance and are not installed or published automatically.

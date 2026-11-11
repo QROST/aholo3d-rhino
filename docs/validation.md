@@ -299,3 +299,8 @@ Candidate `0.2.0-alpha.20` includes `f767e13` and the self-contained textured 3M
 Release compilation passed with zero warnings/errors. **1323 offline .NET tests passed**, zero failed/skipped: 43 new cases cover actual Lux result ordering, automatic/default versus explicit selection, full task provenance, refresh/reorder/missing/duplicate keys, late outputs, real-cache facts, offline receipt lookup, successful-task/original-account download gates, World/render synthetic rows, bilingual guidance, fractional progress and clock/terminal-state boundaries. The source retains all existing backend identity/credential-epoch/hash/receipt checks.
 
 Two independent local read-only reviewers checked the integration. One identified a cache-label refresh mismatch; the primary fixed it and rebuilt/reran the complete suite. A final review covers the binding and timer lifecycle. The World progress interval comes from the pinned public schema; an attempted live web fetch was unavailable in this turn and no newly fetched contract or live progress behavior is claimed. No Rhino automation, authenticated API call, installation, push or publication occurred. Actual Mac/Windows Eto interaction and narrow-panel layout remain manual acceptance items.
+
+
+### Alpha.21 source checkpoint
+
+Candidate `0.2.0-alpha.21` includes `c54b13e` and the updated bilingual Library guidance. Numeric assembly version remains `0.2.0.0`. Package verification binds clean source, complete allowlisted payloads and archive hashes for both platforms. Both archives are built on Mac; native Mac/Windows event handling, layout and actual service behavior remain unaccepted. No installation or publication is part of this checkpoint.
