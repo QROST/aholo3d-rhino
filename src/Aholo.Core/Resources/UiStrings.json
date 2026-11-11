@@ -3512,8 +3512,16 @@
     "Chinese": "暂不支持 PNG 色键透明。请使用 8 位 RGB 或 RGBA PNG。"
   },
   {
-    "English": "An RGBA bitmap with ignored texture alpha cannot be combined with partial material opacity yet. Use an RGB bitmap or disable bitmap export.",
-    "Chinese": "暂不支持在忽略贴图 alpha 时叠加半透明材质。请使用 RGB 位图，或关闭位图导出。"
+    "English": "The PNG pixel stream is invalid or truncated; the previous export was preserved.",
+    "Chinese": "PNG 像素数据无效或不完整；已保留原有导出文件。"
+  },
+  {
+    "English": "The PNG row or encoded image exceeds the runtime byte-array capacity.",
+    "Chinese": "PNG 像素行或编码图像超出运行时字节数组容量。"
+  },
+  {
+    "English": "Animated PNG alpha normalization is unsupported. Use a static RGB/RGBA image.",
+    "Chinese": "暂不支持转换动画 PNG 的透明通道。请使用静态 RGB/RGBA 图像。"
   },
   {
     "English": "Embedded color profiles, non-sRGB declarations and EXIF metadata are unsupported. Export an untagged sRGB PNG/JPEG or disable bitmap export.",

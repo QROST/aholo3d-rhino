@@ -83,14 +83,13 @@ public sealed class MeshTextureTests
         Assert.Equal("image/png",new MeshTexture(InsertPng(valid)).MimeType);
     }
     [Fact]
-    public void MissingUvAndUnsupportedPartialAlphaDoNotOverwriteOutput()
+    public void MissingUvDoesNotOverwriteOutput()
     {
         string path=Path.GetTempFileName();File.WriteAllText(path,"keep");
         try
         {
             var bitmap=new MeshTexture(Convert.FromBase64String(Png),useAlpha:false);
             Assert.Throws<ArgumentException>(()=>GlbWriter.Write(path,new[]{Triangle(bitmap) with{TexCoords=null}}));
-            Assert.Throws<InvalidDataException>(()=>GlbWriter.Write(path,new[]{Triangle(bitmap) with{Material=new MeshMaterial(1,1,1,.5)}}));
             Assert.Equal("keep",File.ReadAllText(path));
         }
         finally{File.Delete(path);}

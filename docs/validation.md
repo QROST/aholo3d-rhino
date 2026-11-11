@@ -304,3 +304,12 @@ Two independent local read-only reviewers checked the integration. One identifie
 ### Alpha.21 source checkpoint
 
 Candidate `0.2.0-alpha.21` includes `c54b13e` and the updated bilingual Library guidance. Numeric assembly version remains `0.2.0.0`. Package verification binds clean source, complete allowlisted payloads and archive hashes for both platforms. Both archives are built on Mac; native Mac/Windows event handling, layout and actual service behavior remain unaccepted. No installation or publication is part of this checkpoint.
+
+
+## PNG alpha normalization for GLB (2026-11-11 UTC)
+
+Release compilation passed with zero warnings/errors. **1350 offline .NET tests passed**, zero failed/skipped, including 27 new normalization/writer cases. They cover all filters, Adam7 empty/narrow/odd passes, original transparent RGB samples, fragmented IDAT, every truncated zlib prefix, invalid checksum/decoded length/filter, animation rejection, runtime row capacity, final image deduplication with independent samplers, both first-use orders, layout offsets and preservation of prior output. A deterministic callback cancels after the private GLB file is created and verifies cleanup, without sleep or a production test hook.
+
+`python3 fixtures/png-alpha-verify.py` passed with Pillow 10.4.0: 18 original/derived image pairs and 72 material-image bindings were decoded independently. The original inputs were themselves decoded against synthetic expected pixels before invoking the production writer. The configured OpenUSD 26.11 interpreter passed `fixtures/mesh-usd-verify.py` for USD/USDA/USDC/USDZ, including original texture hashes, alpha policy, relocation and package alignment. This is pixel/file evidence, not Rhino or cloud visual acceptance.
+
+Two local read-only reviewers supplied candidate checks; the primary implemented, tested and integrated the change. Remote remaining allowance was insufficient for a useful task, so no new remote inference ran. No computer use, Rhino automation, authenticated service call, installation, push or publication occurred. Native acceptance cases are recorded separately.

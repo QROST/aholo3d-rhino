@@ -18,6 +18,9 @@ public static class GlbWriter
         var imageIndices = new Dictionary<string, int>(StringComparer.Ordinal);
         var textures = new List<object>();
         var samplers = new List<object>();
+        // Prepared pixel payloads are fixed before either layout or writing; sampler settings stay per mesh.
+        var preparedImages = new MeshTexture?[meshes.Count];
+        var opaqueImages = new Dictionary<string,MeshTexture>(StringComparer.Ordinal);
         long binaryLength = 0;
         for (var m = 0; m < meshes.Count; m++)
         {
@@ -99,15 +102,20 @@ public static class GlbWriter
             if (mesh.BaseColorTexture is { } texture)
             {
                 if (mesh.TexCoords is null) throw new ArgumentException("A base-color texture requires UV coordinates.");
+                var image=texture;
                 if (texture.HasAlpha && !texture.UseAlpha && mesh.Material?.Alpha < 1)
-                    throw new InvalidDataException(UiText.Get("An RGBA bitmap with ignored texture alpha cannot be combined with partial material opacity yet. Use an RGB bitmap or disable bitmap export."));
-                int samplerIndex = samplers.Count, textureIndex = textures.Count;
-                if (!imageIndices.TryGetValue(texture.Sha256, out int imageIndex))
                 {
-                    imageIndex = images.Count; imageIndices.Add(texture.Sha256, imageIndex);
-                    images.Add(new { bufferView = views.Count, mimeType = texture.MimeType });
-                    views.Add(new { buffer = 0, byteOffset = binaryLength, byteLength = texture.Length });
-                    binaryLength = checked(binaryLength + ((texture.Length + 3L) & ~3L));
+                    if(!opaqueImages.TryGetValue(texture.Sha256,out image))
+                        opaqueImages.Add(texture.Sha256,image=texture.WithoutAlpha(ct));
+                }
+                preparedImages[m]=image;
+                int samplerIndex = samplers.Count, textureIndex = textures.Count;
+                if (!imageIndices.TryGetValue(image.Sha256, out int imageIndex))
+                {
+                    imageIndex = images.Count; imageIndices.Add(image.Sha256, imageIndex);
+                    images.Add(new { bufferView = views.Count, mimeType = image.MimeType });
+                    views.Add(new { buffer = 0, byteOffset = binaryLength, byteLength = image.Length });
+                    binaryLength = checked(binaryLength + ((image.Length + 3L) & ~3L));
                 }
                 samplers.Add(new { wrapS = (int)texture.WrapU, wrapT = (int)texture.WrapV, minFilter = (int)texture.MinFilter, magFilter = (int)texture.MagFilter });
                 textures.Add(new { sampler = samplerIndex, source = imageIndex });
@@ -149,8 +157,9 @@ public static class GlbWriter
                 writer.Write((uint)binaryLength);
                 writer.Write(0x004E4942u);
                 var writtenImages = new HashSet<string>(StringComparer.Ordinal);
-                foreach (var mesh in meshes)
+                for(int meshIndex=0;meshIndex<meshes.Count;meshIndex++)
                 {
+                    var mesh=meshes[meshIndex];
                     for (var v = 0; v < mesh.Positions.Length; v += 3)
                     {
                         if ((v & 4095) == 0) ct.ThrowIfCancellationRequested();
@@ -177,7 +186,7 @@ public static class GlbWriter
                             if ((i & 4095) == 0) ct.ThrowIfCancellationRequested();
                             writer.Write(uv[i]);
                         }
-                    if (mesh.BaseColorTexture is { } texture && writtenImages.Add(texture.Sha256))
+                    if (preparedImages[meshIndex] is { } texture && writtenImages.Add(texture.Sha256))
                     {
                         for (int i = 0; i < texture.Length;)
                         {

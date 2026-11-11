@@ -31,6 +31,12 @@ public sealed class MeshTexture
         UseAlpha = useAlpha; Sha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
         WrapU = wrapU; WrapV = wrapV; MinFilter = minFilter; MagFilter = magFilter;
     }
+    /// <summary>Derive opaque RGB pixels without changing their samples, this image, or its sampler.</summary>
+    public MeshTexture WithoutAlpha(CancellationToken ct=default)
+    {
+        ct.ThrowIfCancellationRequested();if(!HasAlpha)return this;
+        return new(PngOpaqueCopy.Convert(bytes,ct),WrapU,WrapV,MinFilter,MagFilter,false,ct);
+    }
     /// <summary>Copy the immutable, validated encoded bitmap without exposing its mutable backing array.</summary>
     public void CopyEncodedTo(Stream output, CancellationToken ct = default)
     {

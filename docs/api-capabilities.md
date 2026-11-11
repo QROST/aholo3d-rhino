@@ -100,3 +100,6 @@ Public contract gates are distinct from ordinary implementation work: JPEG curre
 
 
 China-region public contracts were independently fetched and compared on 2026-11-11: all five service schemas and public-client OAuth discovery are available. Regional runtime routing, credential isolation and selection are now implemented; live regional acceptance remains pending. Exact sources, hashes and comparison limits: [regional contract audit](regional-contracts.md).
+
+
+GLB preparation now supports ignored PNG texture alpha together with partial material opacity using a private RGB payload. This closes that specific export limitation; it does not add arbitrary material graphs, glass transmission or native visual acceptance. [Pixel validation and boundaries](png-alpha-export.md).

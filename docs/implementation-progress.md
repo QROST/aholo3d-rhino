@@ -408,3 +408,12 @@ Two local read-only reviewers checked identity, account/action gates and actual 
 ### Candidate checkpoint — alpha.21
 
 Packages Library guidance and task-progress presentation from `c54b13e`, supported by 1323 passing offline tests and zero-warning/error compilation. Result selection and caching messages are distinct from geometry validation and paid-operation authorization. Stable assembly/plugin/Yak identities remain unchanged. Local Mac/Windows packages do not establish native interaction or service acceptance and are not installed or published automatically.
+
+
+## Independent PNG alpha and material opacity after alpha.21
+
+Closed the GLB rejection of ignored RGBA image alpha combined with partial material opacity. The writer prepares a private RGB payload, preserving every unassociated color sample, then keeps the material alpha factor. Original immutable bytes, USD shader policy and persisted source textures remain unchanged. Prepared image hashes/layout/write bytes agree across both passes; pixel payloads deduplicate without sharing sampler settings between materials.
+
+The row-based converter covers five PNG filters, Adam7, source color declarations and exact zlib completion; it rejects malformed streams and animated-image conversion. Cancellation during actual GLB writing preserves the prior target and removes the temporary file. Two local read-only reviews found no blocking defect and prompted the deterministic write-stage cancellation test. Remote allowance was insufficient (135 tokens available); no new remote inference was dispatched.
+
+The primary ran 1350 offline tests, Release compilation, an independent Pillow pixel oracle and the four-format OpenUSD regression. Native Mac/Windows and real cloud appearance remain pending. The implementation adds no third-party image runtime dependency and no artificial geometry cap. See [conversion boundaries](png-alpha-export.md).

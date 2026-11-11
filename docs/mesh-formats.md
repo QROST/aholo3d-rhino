@@ -104,3 +104,8 @@ The borrowed mesh relationship is explicit in [BrepFace.GetMesh](https://github.
 An Extrusion's whole original render cache is used only when every effective face has the same material identity and complete supported appearance (including bitmap/channel/UVW). A common overriding face material is retained instead of the object's unused base. Divergent face materials combined with surface UVs remain unsupported: [Extrusion.ToBrep(false)](https://github.com/mcneel/opennurbs/blob/8.x/opennurbs_beam.cpp#L2563) constructs new geometry without transferring original meshes, and no public map from the aggregate cache's mesh faces to original components was established. Convert such an extrusion to a polysurface, use supported explicit object mapping, or disable bitmap export. Missing/unrecoverable original surface parameters also remain an explicit failure.
 
 Native cache creation, extrusion surface metadata, packed rotation, trimmed faces and visual fidelity are pending Mac/Windows acceptance. Release compilation, source review and existing offline transport tests do not establish those behaviors.
+
+
+### Independent bitmap alpha and material opacity
+
+For GLB-based cloud preparation, an 8-bit RGBA PNG may ignore its alpha channel while retaining a partial material opacity. Only the GLB payload is normalized to RGB; original encoded images, persisted sources and USD texture payloads stay unchanged. The original RGB samples include colors hidden behind zero alpha. See [conversion boundaries and independent validation](png-alpha-export.md).
