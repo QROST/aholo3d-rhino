@@ -128,3 +128,8 @@ Open two Rhino instances under the same OS user: explicit sign-out in one must r
 - Retain tasks with colliding remote IDs in both regions. Refresh/download/continue and realtime cleanup require the original region and Key; interrupted cleanup retains its original record.
 - During another panel's upload, close a pending account login. Its late token must not publish, and the upload must continue. Repeat while the sidecar starts; closing an already completed login preserves it.
 - Verify real regional authorization, Keychain/DPAPI, uploads, service permissions and streaming using explicitly authorized accounts. Offline fixtures do not accept live behavior.
+
+
+## Combined GS + mesh export
+
+Use `AholoExportScene` and Library → Export selected scene USD with mixed and single-type selections, nested/repeated GS, mirrored/nonuniform blocks and both unit systems. Follow the combined scene checklist in `usd-exchange.md`, especially parent-material overrides, corrupted references, cancellation/document closure, page-space rejection and captured-state placement. Mixed imports still reject the file as a whole; do not label an export-only result a round trip. Record macOS/Windows native results separately from the 24-file OpenUSD checks.

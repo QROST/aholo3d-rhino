@@ -263,14 +263,13 @@ def canonical_payload(directory, part):
         raise
 
 
-def export(input_path, output, file_format):
-    """Author the official static GS schema. Atomic final replacement belongs to the C# caller."""
+def author(input_path, scene, root_path="/GaussianScene"):
+    """Author full GS data under a caller-owned root; leave stage metadata to the caller."""
     try:
         from pxr import Gf, Sdf, Usd, UsdGeom, UsdUtils, UsdVol, Vt
     except ImportError as error:
         raise UnsupportedUsd("OpenUSD runtime is missing. Install usd-core==26.11 using the Aholo USD setup.") from error
     require(Usd.GetVersion() == (0, 26, 11), "This bridge requires usd-core==26.11; another OpenUSD runtime version was found.")
-    require(file_format in ("usd", "usda", "usdc", "usdz"), "Unsupported USD export container.")
     with open(input_path, encoding="utf-8") as stream:
         manifest = json.load(stream)
     require(manifest.get("protocol") == 1 and manifest.get("openUsdVersion") == "26.11", "Unsupported USD export transport protocol.")
@@ -278,12 +277,7 @@ def export(input_path, output, file_format):
     require(axis in ("Y", "Z") and type(units) in (float, int) and math.isfinite(units) and units > 0, "USD export requires explicit Y/Z up axis and positive metersPerUnit.")
     parts = manifest["parts"]
     require(isinstance(parts, list) and parts, "No Gaussian parts were supplied for export.")
-    scene = Usd.Stage.CreateInMemory()
-    root = UsdGeom.Xform.Define(scene, "/GaussianScene")
-    scene.SetDefaultPrim(root.GetPrim())
-    UsdGeom.SetStageUpAxis(scene, axis)
-    UsdGeom.SetStageMetersPerUnit(scene, units)
-    scene.GetRootLayer().documentation = "Official static Gaussian splats. Positions are rebased per part; positions, scales, normalized orientations and activated opacity use float32. Object transforms use matrix4d. Normal float rounding is expected; this is not arbitrary-double lossless storage. Neutral gaussianSplatting customData preserves sourceName, localOrigin and the antialiased flag."
+    root = UsdGeom.Xform.Define(scene, root_path)
     total, files = 0, set()
     for index, part in enumerate(parts):
         name = part["name"]
@@ -327,7 +321,7 @@ def export(input_path, output, file_format):
                 sh[i * coefficients] = Gf.Vec3f(*data[11:14])
                 for k in range(1, coefficients):
                     sh[i * coefficients + k] = Gf.Vec3f(*(data[14 + channel * (coefficients - 1) + k - 1] for channel in range(3)))
-        gaussian = UsdVol.ParticleField3DGaussianSplat.Define(scene, f"/GaussianScene/Part{index:06d}")
+        gaussian = UsdVol.ParticleField3DGaussianSplat.Define(scene, f"{root_path}/Part{index:06d}")
         prim = gaussian.GetPrim()
         prim.SetDisplayName(name)
         prim.SetCustomDataByKey("gaussianSplatting:sourceName", name)
@@ -342,6 +336,19 @@ def export(input_path, output, file_format):
         gaussian.CreateRadianceSphericalHarmonicsCoefficientsAttr(sh)
         total += count
     require(total > 0, "The scene contains no Gaussian particles to export.")
+    return root, axis, units
+
+
+def export(input_path, output, file_format):
+    """Standalone GS export; final atomic replacement belongs to the C# caller."""
+    from pxr import Sdf, Usd, UsdGeom, UsdUtils
+    require(file_format in ("usd", "usda", "usdc", "usdz"), "Unsupported USD export container.")
+    scene = Usd.Stage.CreateInMemory()
+    root, axis, units = author(input_path, scene)
+    scene.SetDefaultPrim(root.GetPrim())
+    UsdGeom.SetStageUpAxis(scene, axis)
+    UsdGeom.SetStageMetersPerUnit(scene, units)
+    scene.GetRootLayer().documentation = "Official static Gaussian splats. Positions are rebased per part; positions, scales, normalized orientations and activated opacity use float32. Object transforms use matrix4d. Normal float rounding is expected; this is not arbitrary-double lossless storage. Neutral gaussianSplatting customData preserves sourceName, localOrigin and the antialiased flag."
     target = output / ("result." + file_format)
     if file_format == "usdz":
         binary = output / "scene.usdc"

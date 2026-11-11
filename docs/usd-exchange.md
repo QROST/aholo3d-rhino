@@ -1,6 +1,6 @@
 # Local USD exchange
 
-Aholo has separate local routes for static GS exchange and tessellated mesh export using pinned OpenUSD 26.11. Neither uses a cloud account. Ordinary mesh import and a combined mesh/GS scene route remain open.
+Aholo supports static GS import/export, ordinary static mesh import/export and combined GS + mesh export using pinned OpenUSD 26.11. These routes use no cloud account. Combined GS + mesh import remains open; the separate importers deliberately reject mixed contents.
 
 ## Gaussian route
 
@@ -48,7 +48,7 @@ USDZ packages all images in a single file. Plain USD has a unique adjacent textu
 
 Build Release, then run `fixtures/mesh-usd-verify.py` with the configured OpenUSD interpreter. It generates all four formats through the production C# writer and independently checks world coordinates at large offsets, normals/winding, UV orientation data, PBR/alpha connections, relocated texture hashes, USDZ 64-byte alignment and package-contained dependencies. It also exercises root replacement failure after companion publication and preservation of older texture bundles. This does not run Rhino or render pixels.
 
-Still pending on Mac and Windows: selected mesh plus tessellated surface and nested/mirrored blocks; a float-only mesh block translated far from the origin; named/unnamed parts; readonly and orthographic export; model/page unit differences; asymmetric texture colors/UV/alpha in an independent renderer; cancellation, document closure and source-file changes while capturing. Ordinary mesh import now has a separate static route below; mixed GS+mesh exchange remains subsequent implementation work.
+Still pending on Mac and Windows: selected mesh plus tessellated surface and nested/mirrored blocks; a float-only mesh block translated far from the origin; named/unnamed parts; readonly and orthographic export; model/page unit differences; asymmetric texture colors/UV/alpha in an independent renderer; cancellation, document closure and source-file changes while capturing. Ordinary mesh import now has a separate static route below; combined GS+mesh import remains subsequent implementation work. Combined export is described below.
 
 References: [UsdPreviewSurface and USD UV orientation](https://openusd.org/release/spec_usdpreviewsurface.html), [UsdGeomMesh schema](https://openusd.org/release/api/class_usd_geom_mesh.html), [USDZ packaging](https://openusd.org/release/api/usdz_package_8h.html).
 
@@ -59,3 +59,22 @@ Use `AholoImportMesh`, Library → Load local mesh, or the preview/place action 
 Run `fixtures/mesh-usd-import-verify.py` with the configured USD interpreter after Release compilation. It exercises the real public C# writer and reader for four formats, independent source snapshots, external layers/images, double origins, alpha and UVs; it also checks quads, native instances, all five supported interpolation modes and 15 rejection cases with actual OpenUSD. The worker SDK path compiles but does not constitute native acceptance. The production parser compares root/dependency hashes from copied bytes, so changing the original after capture cannot substitute a different parsed scene under the old source hash.
 
 Manual host acceptance: load a textured export with mirrored/nonuniformly scaled meshes and UV seams; compare candidate and accepted Block at the chosen height. Clear candidates so temporary bitmap paths disappear, save/reopen the document and inspect textures, source fields, Undo/Redo and repeat acceptance. Repeat with independent temporary paths, a changed unit/color configuration during loading, cancellation, large meshes and on Windows. Preview is a supported-material approximation rather than a full USD renderer; test rendered appearance separately. No such native acceptance is claimed by offline checks.
+
+
+## Combined scene export
+
+Run `AholoExportScene` or Library → Export selected scene USD for a selection containing GS, meshes, surfaces, extrusions and ordinary nested blocks. Pure GS and pure mesh selections also work. One UI-thread snapshot captures the selection, document units and accumulated transforms. GS instances inside ordinary blocks are treated as GS leaves, never bbox meshes; repeated instances are separate parts. Invalid references, unsupported selected geometry, page-space roots and unknown units fail the operation. GS cache data and mesh bitmaps are resolved in background from the captured references. Unrelated parent bitmap materials are not resolved for GS or meshes that override them.
+
+The output uses the captured document units and Z-up whenever GS are present. Canonical millimetre/Z-up mesh data receives exactly one double-precision root conversion, so GS local geometry, SH frames and placements remain untouched. The portable core also supports explicitly declared Y-up GS stages. Without GS, the output uses millimetres/Z-up. This is a flattened static scene: original editable block/layer/NURBS hierarchy, lights, animation and unsupported materials are not retained. No total geometry quota or implicit point-cloud conversion is introduced.
+
+All four containers share the existing immutable image-bundle and atomic root publication protocol. A successful final rename is success even if cancellation follows immediately. The operation registers against the original document before starting background work, and `AholoCancel` or document closure cancels uncommitted work. Missing resources and failed conversion preserve the previous destination. Current imports remain separate GS-only and mesh-only routes: a mixed scene cannot yet be reimported with one operation. In particular, do not treat mixed export as a completed mixed-scene round trip.
+
+`fixtures/scene-usd-verify.py` uses actual OpenUSD and the public C# writer to verify 24 files: all four containers, mixed Y/Z stages in millimetres/feet, and single-type scenes. It checks every SH0–3 coefficient including mixed-degree padding, scale/orientation/opacity, full transforms, large-coordinate local detail, UV/material/alpha, fixed source image hash, relocated dependencies and USDZ alignment. Publication-failure and prior-bundle retention checks are included. A separate process fixture tests cancellation during the converter wait and workspace cleanup. Neither establishes native visual or event acceptance.
+
+Manual checks on both native platforms:
+
+1. Select a mesh and GS, then an ordinary block containing both; include repeated GS instances, two nested transforms, nonuniform scale and mirrors. Export via both command and panel, with English and Chinese Rhino UI.
+2. Use millimetre, metre and inch documents, including distant origins; inspect physical placement and units in an independent compatible viewer. Compare counts/full SH using OpenUSD when that viewer lacks the GS schema.
+3. Give the ordinary parent an unsupported or missing bitmap while its children are GS or explicitly override material. Export should succeed. A mesh actually inheriting that unsupported texture should still report it.
+4. Try damaged GS markers/cache, unsupported selected geometry, empty selection, page-space geometry, readonly document and orthographic view. Failures must preserve old files and must not export bbox proxies.
+5. Cancel while preparing a large scene; close the original document during export; edit objects/change units after capture. Verify captured-state output or cancellation, no writes to another document, and no success after an uncommitted failure.

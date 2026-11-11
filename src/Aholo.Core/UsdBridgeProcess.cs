@@ -31,9 +31,9 @@ internal static class UsdBridgeProcess
         return python;
     }
 
-    private static string ResolveBridge(bool mesh)
+    private static string ResolveBridge(bool mesh, bool scene)
     {
-        string filename = mesh ? "usd_mesh_bridge.py" : "usd_bridge.py";
+        string filename = scene ? "usd_scene_bridge.py" : mesh ? "usd_mesh_bridge.py" : "usd_bridge.py";
         string assemblyDirectory = Path.GetDirectoryName(typeof(UsdGaussianReader).Assembly.Location) ?? AppContext.BaseDirectory;
         foreach (string start in new[] { assemblyDirectory, AppContext.BaseDirectory })
         {
@@ -51,10 +51,10 @@ internal static class UsdBridgeProcess
         throw new FileNotFoundException("The installed Aholo package is missing usd/" + filename + ".");
     }
 
-    internal static void Run(string input, string output, CancellationToken ct, string? exportFormat = null, bool mesh = false)
+    internal static void Run(string input, string output, CancellationToken ct, string? exportFormat = null, bool mesh = false, bool scene = false)
     {
         ct.ThrowIfCancellationRequested();
-        string python = ResolvePython(), script = ResolveBridge(mesh);
+        string python = ResolvePython(), script = ResolveBridge(mesh, scene);
         var start = new ProcessStartInfo(python)
         {
             UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true

@@ -24,7 +24,7 @@ internal static partial class GaussianDocument
         {
             RhinoObject[] selected = doc.Objects.GetSelectedObjects(true, true).ToArray();
             if (selected.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Select top-level GS blocks to export, or choose all top-level GS in the panel."));
-            if (selected.Any(o => o is not InstanceObject || !IsGaussian(o)))
+            if (selected.Any(o => o is not InstanceObject || !HasGaussianMarker(o)))
                 throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The selection contains non-GS objects or nested blocks. This export supports top-level GS blocks only; adjust the selection."));
             objects = selected.Cast<InstanceObject>().ToArray();
         }
@@ -40,69 +40,82 @@ internal static partial class GaussianDocument
                 .Where(HasGaussianMarker).ToArray();
         }
         if (objects.Length == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The current document has no exportable top-level GS blocks."));
-        var parts = objects.OrderBy(o => o.Id).Select(obj =>
-        {
-            GaussianReferenceMetadata reference = Reference(obj) ?? throw new InvalidDataException(global::Aholo.Core.UiText.Get("Invalid GS reference."));
-            Transform t = obj.InstanceXform;
-            if (!t.IsValid || t.M30 != 0 || t.M31 != 0 || t.M32 != 0 || t.M33 != 1)
-                throw new InvalidDataException(global::Aholo.Core.UiText.Get("A GS block has an invalid or non-affine transform. Export was stopped."));
-            var linear = new GaussianMatrix(t.M00,t.M01,t.M02,t.M10,t.M11,t.M12,t.M20,t.M21,t.M22);
-            _ = linear.Inverse();
-            var transform = new GaussianTransform(linear, new GaussianVector(t.M03,t.M13,t.M23));
-            bool antialiased = obj.Attributes.GetUserString(reference.Prefix + ".Antialiased") == "true";
-            return new ExportPart(obj.Name ?? "", reference, transform, antialiased, Ready(doc, obj)?.Splats);
-        }).ToArray();
+        if (objects.Any(o => o.Attributes.Space == ActiveSpace.PageSpace))
+            throw new InvalidOperationException(UiText.Get("Select model-space geometry for USD export. Page-space objects use different units."));
+        var parts = objects.OrderBy(o => o.Id).Select(obj => CaptureExportPart(doc, obj, Transform.Identity)).ToArray();
         return new(doc.RuntimeSerialNumber, meters, parts, selectedOnly);
     }
 
-    internal static async Task<string> ExportAsync(string path, ExportSnapshot snapshot, CancellationToken ct,
-        IProgress<string>? progress = null)
+    internal static ExportPart CaptureExportPart(RhinoDoc doc, InstanceObject obj, Transform parent)
+    {
+        GaussianReferenceMetadata reference = Reference(obj) ?? throw new InvalidDataException(UiText.Get("Invalid GS reference."));
+        Transform t = parent * obj.InstanceXform;
+        if (!t.IsValid || t.M30 != 0 || t.M31 != 0 || t.M32 != 0 || t.M33 != 1)
+            throw new InvalidDataException(UiText.Get("A GS block has an invalid or non-affine transform. Export was stopped."));
+        var linear = new GaussianMatrix(t.M00,t.M01,t.M02,t.M10,t.M11,t.M12,t.M20,t.M21,t.M22);
+        _ = linear.Inverse();
+        var transform = new GaussianTransform(linear, new GaussianVector(t.M03,t.M13,t.M23));
+        bool antialiased = obj.Attributes.GetUserString(reference.Prefix + ".Antialiased") == "true";
+        return new(obj.Name ?? "", reference, transform, antialiased, Ready(doc, obj)?.Splats);
+    }
+
+    internal static GaussianScene ResolveExportScene(ExportSnapshot snapshot, CancellationToken ct, IProgress<string>? progress = null)
+    {
+        var loaded = new Dictionary<string, GaussianSplat[]>(StringComparer.Ordinal);
+        var parts = new GaussianPart[snapshot.Parts.Length];
+        for (int i = 0; i < parts.Length; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            ExportPart part = snapshot.Parts[i];
+            progress?.Report(UiText.Format("Preparing complete GS assets {0:N0} / {1:N0}…", i + 1, parts.Length));
+            if (!loaded.TryGetValue(part.Reference.Hash, out var splats))
+            {
+                splats = part.Loaded ?? GaussianReferenceAsset.Load(part.Reference, CacheRoot, ct).Splats;
+                loaded.Add(part.Reference.Hash, splats);
+            }
+            parts[i] = new(part.Name, splats, part.Transform, part.Antialiased);
+        }
+        return new(parts, "Z", snapshot.MetersPerUnit, "USD");
+    }
+
+    internal static Task<string> ExportAsync(string path, ExportSnapshot snapshot, CancellationToken ct, IProgress<string>? progress = null)
+        => RunExportAsync(snapshot.Serial, ct, token =>
+        {
+            var scene = ResolveExportScene(snapshot, token, progress);
+            progress?.Report(UiText.Get("Building and packaging the USD scene; large scenes may take several minutes…"));
+            UsdGaussianWriter.Write(path, scene, token);
+            long count = scene.Parts.Sum(p => (long)p.Splats.Length);
+            return UiText.Format("Exported {0:N0} GS blocks and {1:N0} Gaussians.\n{2}\n", scene.Parts.Count, count, path) +
+                UiText.Get("Used document coordinates and units captured at export start; complete SH and object transforms are preserved. USD geometry fields use standard float32 precision.") +
+                (snapshot.SelectedOnly ? "" : UiText.Get(" Hidden/locked top-level GS blocks are also exported as visible assets."));
+        });
+
+    // Registration also covers a document closing between snapshot capture and background startup.
+    internal static async Task<string> RunExportAsync(uint serial, CancellationToken ct, Func<CancellationToken,string> work)
     {
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        CancellationToken token = cancellation.Token;
         try
         {
             await AholoHost.OnUi(() =>
             {
-                RhinoDoc doc = RhinoDoc.FromRuntimeSerialNumber(snapshot.Serial) ?? throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The target document has closed."));
-                if (doc.IsClosing) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The target document has closed."));
+                cancellation.Token.ThrowIfCancellationRequested();
+                RhinoDoc doc = RhinoDoc.FromRuntimeSerialNumber(serial) ?? throw new InvalidOperationException(UiText.Get("The target document has closed."));
+                if (doc.IsClosing) throw new InvalidOperationException(UiText.Get("The target document has closed."));
                 Initialize();
-                if (!Imports.TryGetValue(snapshot.Serial, out var pending)) Imports.Add(snapshot.Serial, pending = new());
+                if (!Imports.TryGetValue(serial, out var pending)) Imports.Add(serial, pending = new());
                 pending.Add(cancellation);
                 return true;
             }).ConfigureAwait(false);
-            return await Task.Run(() =>
-            {
-                var loaded = new Dictionary<string, GaussianSplat[]>(StringComparer.Ordinal);
-                var parts = new GaussianPart[snapshot.Parts.Length];
-                for (int i = 0; i < parts.Length; i++)
-                {
-                    token.ThrowIfCancellationRequested();
-                    ExportPart part = snapshot.Parts[i];
-                    progress?.Report(global::Aholo.Core.UiText.Format("Preparing complete GS assets {0:N0} / {1:N0}…", i + 1, parts.Length));
-                    if (!loaded.TryGetValue(part.Reference.Hash, out var splats))
-                    {
-                        splats = part.Loaded ?? GaussianReferenceAsset.Load(part.Reference, CacheRoot, token).Splats;
-                        loaded.Add(part.Reference.Hash, splats);
-                    }
-                    parts[i] = new(part.Name, splats, part.Transform, part.Antialiased);
-                }
-                progress?.Report(global::Aholo.Core.UiText.Get("Building and packaging the USD scene; large scenes may take several minutes…"));
-                UsdGaussianWriter.Write(path, new GaussianScene(parts, "Z", snapshot.MetersPerUnit, "USD"), token);
-                long count = parts.Sum(p => (long)p.Splats.Length);
-                return global::Aholo.Core.UiText.Format("Exported {0:N0} GS blocks and {1:N0} Gaussians.\n{2}\n", parts.Length, count, path) +
-                    global::Aholo.Core.UiText.Get("Used document coordinates and units captured at export start; complete SH and object transforms are preserved. USD geometry fields use standard float32 precision.") +
-                    (snapshot.SelectedOnly ? "" : global::Aholo.Core.UiText.Get(" Hidden/locked top-level GS blocks are also exported as visible assets."));
-            }, token).ConfigureAwait(false);
+            return await Task.Run(() => work(cancellation.Token), cancellation.Token).ConfigureAwait(false);
         }
         finally
         {
             await AholoHost.OnUi(() =>
             {
-                if (Imports.TryGetValue(snapshot.Serial, out var pending))
+                if (Imports.TryGetValue(serial, out var pending))
                 {
                     pending.Remove(cancellation);
-                    if (pending.Count == 0) Imports.Remove(snapshot.Serial);
+                    if (pending.Count == 0) Imports.Remove(serial);
                 }
                 cancellation.Dispose();
                 return true;

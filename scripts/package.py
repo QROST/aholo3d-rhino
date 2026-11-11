@@ -68,6 +68,7 @@ def main():
         'sidecar/Aholo.Provider.dll': 'src/Aholo.Sidecar/bin/Release/net8.0/Aholo.Provider.dll',
         'manifest.yml': 'packaging/manifest.yml',
         'usd/usd_mesh_reader.py': 'src/Aholo.Rhino/bin/Release/net7.0/usd/usd_mesh_reader.py',
+        'usd/usd_scene_bridge.py': 'src/Aholo.Rhino/bin/Release/net7.0/usd/usd_scene_bridge.py',
         'usd/usd_mesh_bridge.py': 'src/Aholo.Rhino/bin/Release/net7.0/usd/usd_mesh_bridge.py',
         'usd/usd_bridge.py': 'src/Aholo.Rhino/bin/Release/net7.0/usd/usd_bridge.py',
         'scripts/setup-usd.py': 'scripts/setup-usd.py',

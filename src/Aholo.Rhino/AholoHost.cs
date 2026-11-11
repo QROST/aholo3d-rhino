@@ -138,7 +138,15 @@ internal static partial class AholoHost
     }
     internal static GeometrySnapshot CaptureMeshExport(RhinoDoc doc, bool includeTextures=true)
         => CaptureGeometry(doc,false,50,1,includeTextures,true);
-    private static GeometrySnapshot CaptureGeometry(RhinoDoc doc,bool includeLights,double pointRadiusMillimetres,double lightIntensityMultiplier,bool includeTextures,bool rebase)
+    internal static SceneExportSnapshot CaptureSceneExport(RhinoDoc doc, bool includeTextures=true)
+    {
+        var parts = new List<GaussianDocument.ExportPart>();
+        var meshes = CaptureGeometry(doc,false,50,1,includeTextures,true,parts);
+        double meters = global::Rhino.RhinoMath.UnitScale(doc.ModelUnitSystem,global::Rhino.UnitSystem.Meters);
+        if (!double.IsFinite(meters) || meters <= 0) throw new InvalidOperationException(UiText.Get("Cannot convert document units."));
+        return new(new(doc.RuntimeSerialNumber,meters,parts.ToArray(),true),meshes);
+    }
+    private static GeometrySnapshot CaptureGeometry(RhinoDoc doc,bool includeLights,double pointRadiusMillimetres,double lightIntensityMultiplier,bool includeTextures,bool rebase,List<GaussianDocument.ExportPart>? gaussianParts=null)
     {
         RequireUi();RequireDocument(doc,rebase);
         if(doc.ModelUnitSystem is global::Rhino.UnitSystem.None or global::Rhino.UnitSystem.Unset or global::Rhino.UnitSystem.CustomUnits)
@@ -150,7 +158,7 @@ internal static partial class AholoHost
         if (objects.Length == 0) throw new InvalidOperationException(UiText.Get("Select meshes, surfaces, extrusions or ordinary blocks first."));
         if(objects.Any(o=>o.Attributes.Space==ActiveSpace.PageSpace))throw new InvalidOperationException(UiText.Get("Select model-space geometry. Page-space objects use different units and cannot enter this mesh workflow."));
         var meshes = new List<MeshData>();var lights=new List<RenderLight>();var textures=new Dictionary<int,MeshTextureSource>();var origins=new List<GaussianVector>();var names=new List<string>();
-        foreach (var (obj,transform,appearance,parentMapping) in RenderObjects(objects,doc,includeLights,includeTextures))
+        foreach (var (obj,transform,appearance,parentMapping) in RenderObjects(objects,doc,includeLights,includeTextures,gaussianParts))
         {
             if(obj.Geometry is Light light)
             {
@@ -206,14 +214,14 @@ internal static partial class AholoHost
             }
             finally { foreach (Mesh mesh in generated) mesh.Dispose(); }
         }
-        if(meshes.Count==0)throw new InvalidOperationException(UiText.Get("Select at least one supported mesh or surface together with the lights."));
+        if(meshes.Count==0 && (gaussianParts is null || gaussianParts.Count==0))throw new InvalidOperationException(UiText.Get("Select at least one supported mesh or surface together with the lights."));
         return new GeometrySnapshot(meshes,lights.ToArray(),textures,origins.ToArray(),names.ToArray());
     }
     private sealed record MaterialSnapshot(Color Color,MeshMaterial? Factors,bool Assigned=false,TextureSnapshot? Texture=null);
-    private static IEnumerable<(RhinoObject Object,Transform Transform,MaterialSnapshot Appearance,bool ParentMapping)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc,bool includeLights,bool includeTextures)
+    private static IEnumerable<(RhinoObject Object,Transform Transform,MaterialSnapshot Appearance,bool ParentMapping)> RenderObjects(IEnumerable<RhinoObject> roots,RhinoDoc doc,bool includeLights,bool includeTextures,List<GaussianDocument.ExportPart>? gaussianParts=null)
     {
         var ancestry=new HashSet<Guid>();
-        var stack=new Stack<(IEnumerator<RhinoObject> Objects,Transform Transform,Guid? Definition,MaterialSnapshot? ParentMaterial,bool ParentMapping)>();
+        var stack=new Stack<(IEnumerator<RhinoObject> Objects,Transform Transform,Guid? Definition,Lazy<MaterialSnapshot>? ParentMaterial,bool ParentMapping)>();
         stack.Push((roots.GetEnumerator(),Transform.Identity,null,null,false));
         try
         {
@@ -222,9 +230,15 @@ internal static partial class AholoHost
                 var frame=stack.Peek();
                 if(!frame.Objects.MoveNext()){frame.Objects.Dispose();stack.Pop();if(frame.Definition.HasValue)ancestry.Remove(frame.Definition.Value);continue;}
                 var obj=frame.Objects.Current;
-                if(GaussianDocument.IsGaussian(obj)||obj.Attributes.GetUserString(GaussianDocument.ProxyKey) is not null)
-                    throw new InvalidOperationException(UiText.Get("Gaussian scenes cannot be exported as mesh bounds. Deselect GS objects before mesh rendering."));
-                var appearance = CaptureMaterial(obj,doc,frame.ParentMaterial,includeTextures);
+                if(GaussianDocument.HasGaussianMarker(obj)||obj.Attributes.GetUserString(GaussianDocument.ProxyKey) is not null)
+                {
+                    if(gaussianParts is null)throw new InvalidOperationException(UiText.Get("Gaussian scenes cannot be exported as mesh bounds. Deselect GS objects before mesh rendering."));
+                    if(obj is not InstanceObject gaussian || !GaussianDocument.HasGaussianMarker(obj))throw new InvalidDataException(UiText.Get("Invalid GS reference."));
+                    gaussianParts.Add(GaussianDocument.CaptureExportPart(doc,gaussian,frame.Transform));
+                    continue;
+                }
+                // Resolve inherited material only when a mesh leaf actually consumes it. GS ignores proxy/parent materials.
+                var appearance = new Lazy<MaterialSnapshot>(()=>CaptureMaterial(obj,doc,frame.ParentMaterial,includeTextures));
                 if(obj is InstanceObject instance)
                 {
                     var definition=instance.InstanceDefinition??throw new InvalidOperationException(UiText.Get("A selected block definition is missing."));
@@ -233,7 +247,7 @@ internal static partial class AholoHost
                     if(!transform.IsValid||Math.Abs(transform.Determinant)<1e-20)throw new InvalidOperationException(UiText.Get("A selected block transform is invalid."));
                     stack.Push((((IEnumerable<RhinoObject>)definition.GetObjects()).GetEnumerator(),transform,definition.Id,appearance,frame.ParentMapping||obj.GetTextureChannels().Length!=0));
                 }
-                else if(obj.Geometry is Mesh or Brep or Extrusion || includeLights&&obj.Geometry is Light)yield return(obj,frame.Transform,appearance,frame.ParentMapping);
+                else if(obj.Geometry is Mesh or Brep or Extrusion || includeLights&&obj.Geometry is Light)yield return(obj,frame.Transform,appearance.Value,frame.ParentMapping);
                 else throw new InvalidOperationException(UiText.Get("The selection contains unsupported geometry. Select meshes, surfaces, extrusions or blocks containing them."));
             }
         }
@@ -272,9 +286,13 @@ internal static partial class AholoHost
             _=>throw new InvalidOperationException(UiText.Get("Selected lights include an unsupported type. Only world rectangular and point lights are supported."))
         };
     }
-    private static MaterialSnapshot CaptureMaterial(RhinoObject obj,RhinoDoc doc,MaterialSnapshot? parent,bool includeTextures)
+    private static MaterialSnapshot CaptureMaterial(RhinoObject obj,RhinoDoc doc,Lazy<MaterialSnapshot>? parent,bool includeTextures)
     {
-        if(obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromParent&&parent is not null)return parent.Assigned?parent:new(obj.Attributes.DrawColor(doc),null);
+        if(obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromParent&&parent is not null)
+        {
+            var inherited=parent.Value;
+            return inherited.Assigned?inherited:new(obj.Attributes.DrawColor(doc),null);
+        }
         Color color=obj.Attributes.DrawColor(doc);
         bool assigned=obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromObject&&obj.Attributes.MaterialIndex>=0
             ||obj.Attributes.MaterialSource==ObjectMaterialSource.MaterialFromLayer&&doc.Layers[obj.Attributes.LayerIndex].RenderMaterialIndex>=0;

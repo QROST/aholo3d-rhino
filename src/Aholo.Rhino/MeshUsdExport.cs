@@ -14,6 +14,15 @@ internal static class MeshUsdExport
     }
     internal static Task<string> ExportAsync(string path,GeometrySnapshot snapshot,CancellationToken ct)=>Task.Run(()=>
     {
+        var parts=ResolveParts(snapshot,ct);
+        var result=UsdMeshWriter.Write(path,parts,ct);
+        string message=UiText.Format("Exported {0:N0} mesh parts and {1:N0} triangles to USD.\n{2}",result.Meshes,result.Triangles,result.Path);
+        if(result.AssetDirectory is not null)message+="\n"+UiText.Format("Keep this texture folder beside the USD file: {0}",result.AssetDirectory);
+        if(parts.Any(p=>p.Mesh.BaseColorTexture is not null))message+="\n"+UiText.Get("USD texture filtering is viewer-defined; source filter settings are retained as metadata.");
+        return message;
+    },ct);
+    internal static UsdMeshPart[] ResolveParts(GeometrySnapshot snapshot,CancellationToken ct)
+    {
         var loaded=new Dictionary<MeshTextureSource,MeshTexture>();var parts=new UsdMeshPart[snapshot.Meshes.Count];
         for(int i=0;i<parts.Length;i++)
         {
@@ -25,12 +34,9 @@ internal static class MeshUsdExport
             }
             parts[i]=new(snapshot.Names[i],mesh,snapshot.Origins[i]);
         }
-        var result=UsdMeshWriter.Write(path,parts,ct);
-        string message=UiText.Format("Exported {0:N0} mesh parts and {1:N0} triangles to USD.\n{2}",result.Meshes,result.Triangles,result.Path);
-        if(result.AssetDirectory is not null)message+="\n"+UiText.Format("Keep this texture folder beside the USD file: {0}",result.AssetDirectory);
-        if(loaded.Count>0)message+="\n"+UiText.Get("USD texture filtering is viewer-defined; source filter settings are retained as metadata.");
-        return message;
-    },ct);
+        return parts;
+    }
+
 }
 
 [Guid("C703943F-511B-4C3C-A664-36054723F8CC")]

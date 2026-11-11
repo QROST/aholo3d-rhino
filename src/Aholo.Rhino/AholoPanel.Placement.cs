@@ -73,6 +73,14 @@ public sealed partial class AholoPanel
         artifact=await MeshTaskSource.AcquireAsync(selection,task,()=>session.Connection,session.Client.DownloadAsync,session.Observe,Validate,token);
         await meshEditor.AddAsync(artifact.LocalPath!,artifact.Sha256,task.Name,task.Id,token,selection.ImportId,revision);
     }
+    private async Task ExportSceneAsync()
+    {
+        using var dialog=SceneUsdExport.SaveDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
+        var snapshot=AholoHost.CaptureSceneExport(Document(),meshExportTextures.Checked==true);
+        var progress=new Progress<string>(message=>AholoHost.Ui(()=>Report(message)));
+        string message=await SceneUsdExport.ExportAsync(GaussianExportDialogs.NormalizePath(dialog),snapshot,token,progress);
+        AholoHost.Ui(()=>Report(message));
+    }
     private async Task ExportMeshAsync()
     {
         using var dialog=MeshUsdExport.SaveDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;

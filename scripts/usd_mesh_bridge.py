@@ -94,22 +94,16 @@ def create_material(stage, path, part, output, assets, Gf, Sdf, UsdShade):
     return material
 
 
-def export(input_path, output, fmt):
+def author(input_path, output, stage, root_path="/Scene"):
     from pxr import Ar, Gf, Sdf, Usd, UsdGeom, UsdShade, UsdUtils, Vt
     require(Usd.GetVersion() == (0, 26, 11), 'Mesh exchange requires usd-core==26.11.')
     data = json.loads(input_path.read_text(encoding='utf-8'))
     require(data['protocol'] == 1 and data['openUsdVersion'] == '26.11', 'Unsupported mesh transport protocol.')
     assets = data['assets']
     require(isinstance(assets, str) and re.fullmatch(r'usd-assets-[a-f0-9]{32}', assets), 'Invalid asset directory.')
-    require(fmt in ('usd', 'usda', 'usdc', 'usdz'), 'Invalid USD export format.')
     require(isinstance(data['parts'], list) and data['parts'], 'No mesh parts to export.')
-    layer_path = output / ('scene.usdc' if fmt == 'usdz' else 'result.' + fmt)
-    stage = Usd.Stage.CreateNew(str(layer_path))
-    UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
-    UsdGeom.SetStageMetersPerUnit(stage, .001)
-    root = UsdGeom.Xform.Define(stage, '/Scene')
-    stage.SetDefaultPrim(root.GetPrim())
-    UsdGeom.Scope.Define(stage, '/Scene/Materials')
+    root = UsdGeom.Xform.Define(stage, root_path)
+    UsdGeom.Scope.Define(stage, root_path + '/Materials')
     files = set()
     for index, part in enumerate(data['parts']):
         file = part['file']
@@ -127,7 +121,7 @@ def export(input_path, output, fmt):
             require(all(0 <= v < vertices for v in triangles), 'Mesh triangle index is out of range.')
             normals = read_array(stream, 'f', vertices * 3) if part['normals'] else None
             uv = read_array(stream, 'f', vertices * 2) if part['uv'] else None
-        mesh = UsdGeom.Mesh.Define(stage, f'/Scene/Mesh_{index:06d}')
+        mesh = UsdGeom.Mesh.Define(stage, f'{root_path}/Mesh_{index:06d}')
         require(isinstance(part['name'], str), 'Invalid mesh display name.')
         mesh.GetPrim().SetDisplayName(part['name'])
         mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
@@ -149,10 +143,17 @@ def export(input_path, output, fmt):
             for i in range(1, len(uv), 2):
                 uv[i] = 1 - uv[i]
             UsdGeom.PrimvarsAPI(mesh).CreatePrimvar('st', Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex).Set(vectors(uv, 2, Vt.Vec2fArray))
-        material = create_material(stage, f'/Scene/Materials/Material_{index:06d}', part, output, assets, Gf, Sdf, UsdShade)
+        material = create_material(stage, f'{root_path}/Materials/Material_{index:06d}', part, output, assets, Gf, Sdf, UsdShade)
         UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
-    stage.GetRootLayer().Save()
-    stage = None
+    return root
+
+
+def finish(stage, output, fmt):
+    """Serialize and verify the complete dependency bundle before publication."""
+    from pxr import Ar, Sdf, Usd, UsdUtils
+    require(fmt in ('usd', 'usda', 'usdc', 'usdz'), 'Invalid USD export format.')
+    layer_path = output / ('scene.usdc' if fmt == 'usdz' else 'result.' + fmt)
+    require(stage.GetRootLayer().Export(str(layer_path), args={'format': 'usda' if fmt == 'usda' else 'usdc'}), 'OpenUSD stage export failed.')
     if fmt == 'usdz':
         require(UsdUtils.CreateNewUsdzPackage(Sdf.AssetPath(str(layer_path)), str(output / 'result.usdz')), 'OpenUSD packaging failed.')
     result = output / ('result.' + fmt)
@@ -164,6 +165,16 @@ def export(input_path, output, fmt):
         physical = Ar.SplitPackageRelativePathOuter(identifier)[0] if Ar.IsPackageRelativePath(identifier) else identifier
         resolved = Path(physical).resolve()
         require('://' not in physical and (resolved == result.resolve() if fmt == 'usdz' else resolved.is_relative_to(output.resolve())), 'Exported USD dependency escapes its output bundle.')
+
+
+def export(input_path, output, fmt):
+    from pxr import Usd, UsdGeom
+    stage = Usd.Stage.CreateInMemory()
+    root = author(input_path, output, stage)
+    stage.SetDefaultPrim(root.GetPrim())
+    UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
+    UsdGeom.SetStageMetersPerUnit(stage, .001)
+    finish(stage, output, fmt)
 
 
 if __name__ == '__main__':

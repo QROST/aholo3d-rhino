@@ -63,7 +63,7 @@ The provider now has a callable route for every listed endpoint. The new create 
 
 ## Contracts that must remain distinct
 
-- API authorization is a raw international API Key. An account OAuth login does not prove generation access or credit balance. Validation queries must not create charged work.
+- API authorization uses a raw API Key for the selected International or China region. An account OAuth login does not prove generation access or credit balance. Validation queries must not create charged work.
 - World IDs, Lux int64 task IDs, render operation IDs, ingestion IDs and spatial task IDs are separate. Unknown create replies remain unknown; they are never automatically replayed.
 - Lux outputs are operation-specific: URL, JSON-encoded result list/object, null or `NOT_REQUESTED`. A successful HTTP request or a running task with partial outputs is not a completed model. Task queries do not require undocumented `bizId`.
 - Generation's face-count parameter is a service constraint. It is not an import or viewport geometry limit. No post-generation decimation is implied.
@@ -88,8 +88,8 @@ The 30 public HTTP routes and 13 create forms are implemented; that is not a cla
 | Area | Implemented in this source candidate | Remaining before a complete parity claim |
 | --- | --- | --- |
 | Lux3D workflows | Ten public creates, typed outputs, paged cloud history, original-ID recovery, three mesh candidates, CPlane/point placement and volatile original-generation placement intent | Animation playback; OBJ/FBX archives, extended 3MF; native material and Undo acceptance |
-| Local mesh exchange | Local/task static USD/USDA/USDC/USDZ mesh import, AholoImportMesh, three placement modes and supported tessellated export, normals, PBR/direct UV bitmaps and double origins | Polygons/subsets/subdivision, combined GS/mesh export, editable hierarchy and full material/texture mapping support; native/viewer acceptance |
-| GSRhino capabilities | PLY/SPLAT/SPZ v1–4, local static GS USD/USDZ, compatible saved GS references, full SH0–3 data and experimental native display | Windows/new-host regression acceptance; transparent interleaving, nested GS instances, capture/layout/print/Raytraced support; further large-scene performance work |
+| Local mesh exchange | Local/task static USD/USDA/USDC/USDZ mesh import, AholoImportMesh, three placement modes and supported tessellated export, normals, PBR/direct UV bitmaps and double origins; unified static GS+mesh export including nested GS | Polygons/subsets/subdivision, combined GS/mesh import, editable hierarchy and full material/texture mapping support; native/viewer acceptance |
+| GSRhino capabilities | PLY/SPLAT/SPZ v1–4, local static GS USD/USDZ, compatible saved GS references, full SH0–3 data and experimental native display | Windows/new-host regression acceptance; transparent interleaving, nested GS viewport instances, capture/layout/print/Raytraced support; further large-scene performance work |
 | Accounts | International/China API Key routing/storage, separate regional PKCE OAuth login/refresh, remembered sessions and explicit Settings selection | Authenticated regional account/browser and OS-store acceptance |
 | World / Spatial | Generation/reconstruction, history/recovery, PLY/SPZ/panorama/LOD downloads, editable spatial DSL block | World LOD streaming schema; full structural solids/opening reconstruction; live reconstruction/DSL acceptance |
 | Offline rendering | Mesh/Brep/extrusion and ordinary nested blocks; PBR constants, smooth/custom vertex normals and direct Mesh UV bitmaps; selected rectangular/point lights; original camera/light snapshot and explicit recovered continuation | Procedural/explicit texture mapping, surface-meshing UVs, native embedded-image persistence acceptance, per-face/complex materials, glass transmission, calibrated light intensity, real ingestion/camera/render acceptance |

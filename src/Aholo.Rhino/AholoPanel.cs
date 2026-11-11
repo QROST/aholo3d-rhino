@@ -82,7 +82,7 @@ public sealed partial class AholoPanel : Panel,IPanel
             Row(download,Local("Open result folder",OpenResultFolder)),Local("Open image",OpenImage),place,previewResult,meshEditor.View,Action("Load local mesh",LoadLocalMeshAsync),continueRender,
             Row(Local("Pause local polling",Pause),Local("Resume polling",Resume)),
             Action("Cloud history and recovery",async()=>{using var dialog=new CloudLibraryDialog(session,Scope,token);var restored=dialog.ShowModal(this);if(restored is not null)await RevealAsync(restored);}),
-            Info("Local files"),Action("Export selected mesh USD",ExportMeshAsync),meshExportTextures,Row(Action("Import GS",ImportGsAsync),Action("Export GS",ExportGsAsync)),exportScope,
+            Info("Local files"),Action("Export selected scene USD",ExportSceneAsync),Action("Export selected mesh USD",ExportMeshAsync),meshExportTextures,Row(Action("Import GS",ImportGsAsync),Action("Export GS",ExportGsAsync)),exportScope,
             Row(Local("GS viewport",()=>GaussianViewport.Activate(Document())),Local("Diagnostics",()=>Report(GaussianViewport.Diagnostics(Document())))),
             worldId,Action("Restore World ID",async()=>{var task=await session.Client.ImportWorldAsync(worldId.Text.Trim(),token);session.Observe(task);await RevealAsync(task);}));
         var lightFields=Column(Info("Point-light radius before block scaling (mm)"),lightRadius,Info("Relative light intensity multiplier"),lightMultiplier,Info("Point lights use the chosen sphere radius. Light intensity is relative, not calibrated to Rhino lumens. Unsupported selected lights fail before upload."));
@@ -120,7 +120,7 @@ public sealed partial class AholoPanel : Panel,IPanel
         {
             await session.Operations.RunAsync(Scope+"foreground",name,async ct=>{token=ct;try{await work();}finally{token=default;}},lifetime.Token);
         }
-        catch(OperationCanceledException) when(name=="Export selected mesh USD"){AholoHost.Ui(()=>Report(T("Local export cancelled. The previous output was preserved.")));}
+        catch(OperationCanceledException) when(name is "Export selected mesh USD" or "Export selected scene USD" or "Export GS"){AholoHost.Ui(()=>Report(T("Local export cancelled. The previous output was preserved.")));}
         catch(Exception ex){AholoHost.Ui(()=>Report(AholoHost.FriendlyError(ex)));}
         finally
         {

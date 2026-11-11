@@ -3862,5 +3862,25 @@
   {
     "English": "The account cancellation response is missing.",
     "Chinese": "未收到账号取消确认。"
+  },
+  {
+    "English": "Export selected scene USD",
+    "Chinese": "导出选中场景 USD"
+  },
+  {
+    "English": "Export selected scene to USD",
+    "Chinese": "将选中场景导出为 USD"
+  },
+  {
+    "English": "Select Gaussian blocks or meshes to export.",
+    "Chinese": "请选择要导出的高斯块或网格。"
+  },
+  {
+    "English": "Select model-space geometry for USD export. Page-space objects use different units.",
+    "Chinese": "请选择模型空间几何导出 USD；图纸空间对象使用不同单位。"
+  },
+  {
+    "English": "Exported {0:N0} GS blocks, {1:N0} Gaussians, {2:N0} mesh parts and {3:N0} triangles.\n{4}",
+    "Chinese": "已导出 {0:N0} 个 GS 块、{1:N0} 个高斯、{2:N0} 个网格部件和 {3:N0} 个三角形。\n{4}"
   }
 ]

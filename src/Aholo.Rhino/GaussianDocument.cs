@@ -91,7 +91,7 @@ internal static partial class GaussianDocument
     }
     private static GaussianReferenceMetadata? Reference(RhinoObject obj) => GaussianReferenceMetadata.Resolve(
         obj.Attributes.GetUserString, () => obj.Attributes.GetUserStrings()?.AllKeys.OfType<string>() ?? Array.Empty<string>());
-    private static bool HasGaussianMarker(RhinoObject obj) => GaussianReferenceMetadata.HasMarker(
+    internal static bool HasGaussianMarker(RhinoObject obj) => GaussianReferenceMetadata.HasMarker(
         obj.Attributes.GetUserString, () => obj.Attributes.GetUserStrings()?.AllKeys.OfType<string>() ?? Array.Empty<string>());
     internal static bool IsGaussian(RhinoObject obj) => Reference(obj) is not null;
     internal static AssetData? Ready(RhinoDoc doc, RhinoObject obj)
