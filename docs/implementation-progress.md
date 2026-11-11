@@ -339,3 +339,8 @@ Packages the integrated static OBJ/OBJ ZIP workflow, source selection, supported
 Corrected missing-normal import to follow USD's original-face flat shading instead of delegating smoothing to Rhino. Normal generation precedes material splitting and triangulation; source-face vertices remain separate even without UV seams. Authored normals, left-handed orientation, mirror transforms and indexed corner attributes retain their distinct semantics. Planar concave and collinear-corner quads receive validated triangulation; convex and truly warped quads retain the native route. Exact arithmetic handles cancellation, subnormal predicates and wide coordinate ranges without a geometry-count ceiling.
 
 Two local read-only reviews strengthened direction/face association and original-corner offset checks. The primary performed changes and validation. Remote allowance was only 135 output tokens, so no useful remote review could be dispatched and no limit was changed. The new self-contained shading sample supports manual host acceptance; native appearance, embedded resources, Windows execution and live service coverage remain pending.
+
+
+### Candidate checkpoint — alpha.16
+
+Packages the USD flat-normal and planar concave-quad correction from `469625c`, retaining authored normals, source corners and native warped quads. The bundled shading sample supports visual hard-edge/smooth-edge comparison. Source verification includes 1190 passing offline .NET tests, 48 independent geometry checks and actual four-format mesh/mixed-scene reader checks. Stable plugin GUID, assembly identity and Yak slug remain unchanged. Native/platform/service gates remain pending; candidate packaging does not install or publish.

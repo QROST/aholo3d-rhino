@@ -239,3 +239,8 @@ Release compilation passed with zero warnings/errors; **1190 offline .NET tests 
 Actual pinned OpenUSD 26.11 and public C# readers verify nineteen parts in each of four mesh and four mixed-scene formats. Coverage includes absent and authored normals, primvar precedence, both handedness values, mirrors, material splits, no-UV hard edges, offset indexed face-corner UVs/normals, and concave/collinear/warped/extreme quads. Eight malformed normal/quad cases reject without publishing a manifest. The packaged three-part shading sample is decoded separately. Existing four-format mesh import (15 rejection cases), topology/material import (17 rejection cases), and 24 mixed-scene round trips (14 rejection cases) also passed. The mixed demo now verifies separate face vertices and each face's geometric normal.
 
 These are local file/math/protocol checks, not native Rhino rendering or Windows execution. Two independent read-only reviews supplied findings; the primary verified and integrated them. Remote quota was insufficient for useful inference. No Rhino automation, authenticated API call, installation, push or publication occurred.
+
+
+### Alpha.16 source checkpoint
+
+Candidate `0.2.0-alpha.16` packages the verified USD correction `469625c` and its self-contained shading sample. Version metadata changes preserve assembly version `0.2.0.0`, plugin identity and package slug. Local archive receipts bind the final source commit and platform-specific bytes; both archives are produced on Mac and do not establish Windows execution. Host appearance, Undo/persistence and live-service acceptance remain open.
