@@ -1,6 +1,10 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.26. Earlier entries below retain their original scope.
+Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.27. Earlier entries below retain their original scope.
+
+## Integrated candidate alpha.27 — 2026-11-11 UTC
+
+Coordination source `a4c9ddc` passes **1,468 .NET tests**, zero failures; one new Windows-filesystem-only test is explicitly skipped on macOS. Release compilation has zero warnings/errors. Render preparation captures original account/region authority before local capture, queued camera/light payloads remain immutable, late replies retain original tasks without renewed continuation, and actual pipe timeout/reset fixtures remain failures. GS, mesh and mixed USD exports reject simultaneous same-destination writes through cleanup; tests exercise actual blocked child-process exports and parent symlink aliases. Windows device-path normalization is implemented from the official contract but requires Windows execution. Two native read-only reviewers found the timeout ordering and Windows alias/test-cleanup issues; all were corrected by the parent and retested. Remote inference was not used because the gateway had only 135 output tokens remaining. Version metadata and archive checks are separate. Native Rhino, live accounts/services, installation and publication remain pending. [Coordination scope and acceptance](operation-lifecycle.md).
 
 ## Integrated candidate alpha.26 — 2026-11-11 UTC
 
@@ -44,7 +48,7 @@ An independent local OpenUSD check parsed a production-generated scene with Rect
 
 Packaging verifies both platform-tagged archives against the allowlisted files and records commit/dirty state, SHA-256 and pending host/service acceptance in `artifacts/latest-package-{mac,win}.json`. Those receipts are the authority for whether an archive was produced; source compilation on a Mac does not prove Windows execution. No GUI automation, installation, push or publication is part of this candidate preparation.
 
-The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha26) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
+The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha27) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
 
 ## Integrated development candidate — 2026-11-09
 
