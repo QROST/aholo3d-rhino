@@ -19,7 +19,7 @@ public sealed class NativeMeshImportSnapshot : IMeshImportSnapshot
         ct.ThrowIfCancellationRequested();
         string extension=System.IO.Path.GetExtension(source).ToLowerInvariant();
         if(extension==".glb")return GlbImportSnapshot.Create(source,expectedHash,trace);
-        if(extension is not (".ply" or ".stl"))throw new InvalidDataException(UiText.Get("Choose a static GLB, mesh PLY or STL file."));
+        if(extension is not (".ply" or ".stl" or ".3mf"))throw new InvalidDataException(UiText.Get("Choose a static GLB, mesh PLY, STL or core 3MF file."));
         string directory=System.IO.Path.Combine(System.IO.Path.GetTempPath(),"Aholo-Rhino",Guid.NewGuid().ToString("N"));
         try
         {
@@ -39,6 +39,7 @@ public sealed class NativeMeshImportSnapshot : IMeshImportSnapshot
             }
             if(expectedHash is not null&&!hash.Equals(expectedHash,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException(UiText.Get("The mesh hash does not match the task record."));
             if(extension==".ply")PlyReader.ValidateMesh(path,ct);
+            else if(extension==".3mf")ThreeMfPreflight.Validate(path,ct);
             else if(new FileInfo(path).Length==0)throw new InvalidDataException(UiText.Get("The mesh file is empty."));
             ct.ThrowIfCancellationRequested();trace?.Record("preflight_file_ready",extension);
             return new NativeMeshImportSnapshot(path,hash);

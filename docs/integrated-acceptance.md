@@ -85,3 +85,8 @@ Use an asymmetric four-color local RGB JPEG and RGBA PNG on a mesh with existing
 ## Realtime scene controls
 
 Pending native/live acceptance: before starting, adjust world-mm XYZ, scale, Z rotation and environment brightness. Optionally capture selected Rect/Point lights; verify no Rhino object is changed. During streaming, edit position/environment/light intensity while navigating. The latest camera must not discard the scene adjustment. Confirm the queued/server-acknowledged counters differ while the server is delayed, and the settings dialog remains unavailable until the outstanding scene change is acknowledged. Force a failed/lost edit reply: preserve cleanup obligations, do not create a replacement session or replay the edit. Restart or switch credentials/documents during an open settings dialog and confirm its late result is rejected. Repeat on Mac and Windows. Light poses/dimensions remain the start snapshot; asset/light additions/deletions are separate scope.
+
+
+## Core 3MF placement
+
+Native Mac/Windows checks remain pending. Use the packaged `fixtures/mesh-core.3mf` and the expected colors, units and bounds in `mesh-formats.md`. Check mirrored/nested components, candidate placement, one Block, Undo/Redo, original hash, save/reopen and duplicate receipt protection. Use a material/production-extension file as a negative case: reject before document mutation without deleting the downloaded source.

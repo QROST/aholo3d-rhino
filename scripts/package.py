@@ -53,6 +53,9 @@ def main():
     stage = pathlib.Path(tempfile.mkdtemp(prefix='package-' + args.platform + '.', dir=artifacts))
     required = {
         'Aholo.Rhino.rhp': 'src/Aholo.Rhino/bin/Release/net7.0/Aholo.Rhino.rhp',
+        'System.IO.Packaging.dll': 'src/Aholo.Rhino/bin/Release/net7.0/System.IO.Packaging.dll',
+        'sidecar/System.IO.Packaging.dll': 'src/Aholo.Sidecar/bin/Release/net8.0/System.IO.Packaging.dll',
+        'docs/licenses/System.IO.Packaging.txt': 'docs/licenses/System.IO.Packaging.txt',
         'ZstdSharp.dll': 'src/Aholo.Rhino/bin/Release/net7.0/ZstdSharp.dll',
         'sidecar/ZstdSharp.dll': 'src/Aholo.Sidecar/bin/Release/net8.0/ZstdSharp.dll',
         'docs/licenses/SPZ.txt': 'docs/licenses/SPZ.txt',
@@ -68,13 +71,13 @@ def main():
         'scripts/setup-usd.py': 'scripts/setup-usd.py',
         'docs/usd-exchange.md': 'docs/usd-exchange.md',
     }
-    for name in ['LICENSE','NOTICE','readme.md','readme.zh-CN.md','fixtures/tiny-world.ply',
+    for name in ['LICENSE','NOTICE','readme.md','readme.zh-CN.md','fixtures/tiny-world.ply','fixtures/mesh-core.3mf',
                  'fixtures/gaussian-anisotropic.ply','fixtures/gaussian-sh3.ply','assets/gaussian-alpha.png','assets/gaussian-opacity-atlas.png',
                  'docs/gs-host-acceptance.md','docs/gs-freeze-repair.md','docs/gs-visibility-stability.md','docs/decisions/0001-native-gaussian-viewport.md',
                  'docs/architecture.md','docs/repository-rename.md','docs/host-acceptance.md','docs/validation.md','docs/api/README.md',
                  'docs/api/world.openapi.json','docs/api/rendercloud.openapi.json','docs/api/asset.openapi.json',
                  'docs/api/lux3d.openapi.json','docs/api/spatialunderstanding.openapi.json','docs/api-capabilities.md',
-                 'docs/implementation-progress.md','docs/integrated-acceptance.md']:
+                 'docs/implementation-progress.md','docs/integrated-acceptance.md','docs/mesh-formats.md']:
         required[name] = name
     for target, source in required.items():
         destination = stage / target; destination.parent.mkdir(parents=True, exist_ok=True)

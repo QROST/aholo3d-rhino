@@ -140,7 +140,7 @@ public sealed partial class AholoPanel : Panel,IPanel
         bool sameAccount=task?.ConnectionId==session.Connection.ConnectionId;
         refresh.Enabled=!working&&connected&&sameAccount&&capability?.CanQuery==true;
         download.Enabled=!working&&connected&&sameAccount&&capability?.CanDownload==true&&artifact is not null&&artifact.Error is null;
-        place.Enabled=!working&&task is not null&&artifact is not null&&artifact.Format is "glb" or "ply" or "stl" or "spz" or "dsl"&&artifact.LocalPath is not null&&File.Exists(artifact.LocalPath);
+        place.Enabled=!working&&task is not null&&artifact is not null&&(MeshPlacementPolicy.IsNativeMeshFormat(artifact.Format)||artifact.Format is "spz" or "dsl")&&artifact.LocalPath is not null&&File.Exists(artifact.LocalPath);
         previewResult.Enabled=!working&&artifact is not null&&MeshPlacementPolicy.IsNativeMeshFormat(artifact.Format)&&artifact.Error is null&&(artifact.LocalPath is not null||connected&&sameAccount&&capability?.CanDownload==true);
         continueRender.Enabled=!working&&connected&&sameAccount&&capability?.CanContinueRender==true;
         continueRender.Visible=task?.Kind=="render"&&capability?.CanContinueRender==true;

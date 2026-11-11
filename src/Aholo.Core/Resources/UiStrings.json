@@ -2944,12 +2944,12 @@
     "Chinese": "模型 含不支持的非 Mesh 对象。"
   },
   {
-    "English": "Choose an available static GLB, mesh PLY or STL result. Use Import GS for Gaussian files.",
-    "Chinese": "请选择静态 GLB、网格 PLY 或 STL 结果。高斯文件请使用“导入 GS”。"
+    "English": "Choose an available static GLB, mesh PLY, STL or core 3MF result. Use Import GS for Gaussian files.",
+    "Chinese": "请选择静态 GLB、网格 PLY、STL 或核心 3MF 结果。高斯文件请使用“导入 GS”。"
   },
   {
-    "English": "Choose a static GLB, mesh PLY or STL file.",
-    "Chinese": "请选择静态 GLB、网格 PLY 或 STL 文件。"
+    "English": "Choose a static GLB, mesh PLY, STL or core 3MF file.",
+    "Chinese": "请选择静态 GLB、网格 PLY、STL 或核心 3MF 文件。"
   },
   {
     "English": "This PLY is not an ordinary mesh. Use Import GS for complete Gaussian data; point-only or ambiguous files are not converted.",
@@ -3590,5 +3590,13 @@
   {
     "English": "Scene edits must retain the original light slots and types.",
     "Chinese": "场景调整必须保留原始灯光位置编号和类型。"
+  },
+  {
+    "English": "The 3MF package is invalid or contains unresolved or external resources.",
+    "Chinese": "3MF 包无效，或包含缺失资源或包外引用。"
+  },
+  {
+    "English": "This 3MF uses extensions not yet supported by mesh placement. Export a core 3MF or static GLB instead.",
+    "Chinese": "此 3MF 使用了网格放置尚未支持的扩展。请导出为核心 3MF 或静态 GLB。"
   }
 ]

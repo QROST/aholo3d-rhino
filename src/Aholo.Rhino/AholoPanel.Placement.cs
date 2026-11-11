@@ -61,7 +61,7 @@ public sealed partial class AholoPanel
     {
         var task=Selected??throw new InvalidOperationException(T("Select a task first."));
         var artifact=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
-        if(!MeshPlacementPolicy.IsNativeMeshFormat(artifact.Format))throw new InvalidOperationException(T("Choose an available static GLB, mesh PLY or STL result. Use Import GS for Gaussian files."));
+        if(!MeshPlacementPolicy.IsNativeMeshFormat(artifact.Format))throw new InvalidOperationException(T("Choose an available static GLB, mesh PLY, STL or core 3MF result. Use Import GS for Gaussian files."));
         if(artifact.LocalPath is null||!File.Exists(artifact.LocalPath))
         {
             if(!session.Connection.Connected||task.ConnectionId!=session.Connection.ConnectionId)throw new InvalidOperationException(T("Connect to the task's original account before recovering its download."));
@@ -72,7 +72,7 @@ public sealed partial class AholoPanel
     }
     private async Task LoadLocalMeshAsync()
     {
-        using var dialog=new OpenFileDialog{Title=T("Load local mesh"),MultiSelect=false};dialog.Filters.Add(new FileFilter(T("Static mesh"),".glb",".ply",".stl"));
+        using var dialog=new OpenFileDialog{Title=T("Load local mesh"),MultiSelect=false};dialog.Filters.Add(new FileFilter(T("Static mesh"),".glb",".ply",".stl",".3mf"));
         if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
         await meshEditor.AddAsync(dialog.FileName,null,Path.GetFileName(dialog.FileName),null,token);
     }

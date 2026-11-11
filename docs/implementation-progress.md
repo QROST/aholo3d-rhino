@@ -170,3 +170,8 @@ Cloud preview has a separate Scene settings dialog for world-mm position, unifor
 Remote Sol reviewed the controls and identified premature UI commit; it was fixed. Findings caused by omitted excerpt bodies or already-present shared validation were checked and rejected. The parent added queue ordering, duplicate revision, lost response, wrong epoch, real named-pipe and coordinate/snapshot regressions. The full suite passed 810 tests; after the camera-format repair, the affected realtime/geometry subset passed 124 tests. Release compilation is clean.
 
 Independent OpenUSD parsing discovered that the earlier camera patch's same-line nested `over` statements were invalid USDA. The formatter now separates nodes correctly. A committed production fixture generator and `fixtures/render-verify.py` parse and compose actual scene/camera/GS patches, checking stable types, model millimetres, light/environment and independent camera updates. This check passes with the pinned OpenUSD runtime. No real paid service, native Rhino UI, Windows execution, installation or publication was used as evidence.
+
+
+### Core 3MF placement
+
+Added local and downloaded core 3MF results to candidate preview and native Block placement, retaining source SHA-256 and the existing import/Undo receipt. OPC references and model extension boundaries are checked before Rhino. UTF-8 package paths have positive regression coverage. Extended material/production/vendor 3MF remains an explicit boundary; no geometry-count limit was added. The 853-test offline suite and both staged payloads pass. See `mesh-formats.md` for native acceptance and remaining format gaps.

@@ -33,3 +33,6 @@ GSRhino, Apache-2.0, source commit dc90e5d. SPZ decoding follows the MIT-license
 Niantic Labs / Adobe reference; required attribution is retained in
 src/Aholo.Core/SpzReader.cs and docs/licenses/SPZ.txt. ZstdSharp.Port 0.8.8
 is redistributed under MIT; see docs/licenses/ZstdSharp.txt.
+
+System.IO.Packaging 8.0.1 is redistributed under MIT for OPC URI resolution;
+see docs/licenses/System.IO.Packaging.txt. Copyright .NET Foundation and Contributors.
