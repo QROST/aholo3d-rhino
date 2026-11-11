@@ -18,4 +18,7 @@ Re-verified 2026-11-08: the original World, RenderCloud and Asset snapshots are 
 Coverage and workflow status: [capability matrix](../api-capabilities.md). The official public index is https://labs.aholo.ai/api-docs/en/llms.txt .
 
 
-China-region World, Lux3D, SpatialUnderstanding, RenderCloud, Asset/OUS and public OAuth discovery snapshots were captured on 2026-11-11. See [China sources](china/README.md) and [regional contract audit](../regional-contracts.md). These references do not change the currently international-only runtime.
+China-region World, Lux3D, SpatialUnderstanding, RenderCloud, Asset/OUS and public OAuth discovery snapshots were captured on 2026-11-11. See [China sources](china/README.md) and [regional contract audit](../regional-contracts.md). Runtime regional routing is now implemented; these references alone do not establish regional account permissions or live acceptance.
+
+
+RenderCloud was fetched again on 2026-11-11 for multi-object scene editing and remains byte-identical to the recorded SHA-256. Its delete examples contain unquoted colon-bearing `customData` keys that OpenUSD 26.11 rejects. The writer quotes the literal `"manycore:operation:type"` key; see [syntax evidence and live gate](../realtime-scene-editing.md#contract-and-syntax-evidence). The untouched reference snapshot is preserved.

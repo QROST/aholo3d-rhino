@@ -11,9 +11,6 @@ internal sealed partial class CloudPreviewWindow : Form
     private readonly uint serial;
     private readonly AholoSession session=AholoPlugin.Session;
     private readonly IRealtimePreviewClient client;
-    private readonly TextBox meshId=new();
-    private readonly DropDown kind=new(){DataStore=new[]{T("Cloud mesh"),T("Cloud Gaussian asset")},SelectedIndex=0};
-    private readonly DropDown coordinates=new(){DataStore=new[]{T("Imported glTF · metres / Y-up"),T("Cloud native · millimetres / Z-up")},SelectedIndex=0};
     private readonly Label status=new(){Wrap=WrapMode.Word};
     private readonly Label limits=new(){Wrap=WrapMode.Word,Text=T("Cloud JPEG preview. Images can lag behind navigation; depth, transparency and camera-frame matching are unavailable. Local Rhino geometry is not composited into these images.")};
     private readonly ImageView image=new();
@@ -41,16 +38,16 @@ internal sealed partial class CloudPreviewWindow : Form
     {
         serial=doc.RuntimeSerialNumber;client=session.Client as IRealtimePreviewClient??throw new InvalidOperationException(T("Cloud preview control is unavailable."));
         Title=T("Aholo3D cloud preview");ClientSize=new Size(820,690);MinimumSize=new Size(560,620);Owner=global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc);
-        if(source?.MeshId is not null&&source.Region==session.Connection.Region&&source.ConnectionId==session.Connection.ConnectionId)meshId.Text=source.MeshId;
-        meshId.PlaceholderText=T("Existing ingested cloud asset ID");
+        if(source?.MeshId is not null&&source.Region==session.Connection.Region&&source.ConnectionId==session.Connection.ConnectionId)
+            sceneDraft=new(new[]{new RealtimeAssetSlot("Model",source.MeshId,Model:new())},Array.Empty<RealtimeLightSlot>());
+        sceneConnection=session.Connection;ShowSceneSummary();
         Button Action(string label,Func<Task> work){var b=new Button{Text=T(label)};b.Click+=async(_,_)=>{try{await work();}catch(Exception error){Report(error);}};return b;}
-        kind.SelectedIndexChanged+=(_,_)=>{if(kind.SelectedIndex==1)coordinates.SelectedIndex=1;};
         start.Click+=async(_,_)=>{try{await (startWork=StartAsync());}catch(Exception error){Report(error);}finally{starting=false;UpdateButtons();}};
         stop.Click+=async(_,_)=>await StopAsync();
         sceneControls.Click+=async(_,_)=>{try{await EditSceneAsync();}catch(Exception error){Report(error);}};
         Content=new StackLayout{Padding=12,Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
             new Label{Text=T("Use an asset already prepared by RenderCloud. Selecting a prepared render in Library fills its ID; this window does not upload or ingest files."),Wrap=WrapMode.Word},
-            meshId,kind,coordinates,sceneControls,new StackLayout{Orientation=Orientation.Horizontal,Spacing=8,Items={start,stop}},limits,status,
+            sceneSummary,sceneControls,new StackLayout{Orientation=Orientation.Horizontal,Spacing=8,Items={start,stop}},limits,status,
             new StackLayoutItem(image,true),new Label{Text=T("Unresolved cloud sessions")},pending,
             new StackLayout{Spacing=5,Items={Action("Refresh cleanup list",PendingAsync),Action("Retry selected cleanup",CleanupSelectedAsync),Action("Confirm external resolution",ConfirmExternalAsync)}}}};
         timer.Elapsed+=async(_,_)=>await PollAsync();
@@ -63,10 +60,10 @@ internal sealed partial class CloudPreviewWindow : Form
         global::Rhino.RhinoDoc.CloseDocument+=DocumentClosed;session.Changed+=ConnectionChanged;
         UpdateButtons();
     }
-    private void ConnectionChanged()=>Application.Instance.AsyncInvoke(()=>{if(!disposed){UpdateButtons();if(active is not null&&session.Connection!=originalConnection)_=StopAsync();}});
+    private void ConnectionChanged()=>Application.Instance.AsyncInvoke(()=>{if(!disposed){ShowSceneSummary();UpdateButtons();if(active is not null&&session.Connection!=originalConnection)_=StopAsync();}});
     private void DocumentClosed(object? sender,global::Rhino.DocumentEventArgs e){if(e.Document.RuntimeSerialNumber==serial&&!disposed)Close();}
     private RhinoDoc Document()=>RhinoDoc.FromRuntimeSerialNumber(serial)??throw new InvalidOperationException(T("The target document has closed."));
-    private void UpdateButtons(){if(disposed)return;start.Enabled=!starting&&!stopping&&active is null&&session.Connection.Connected;stop.Enabled=active is not null&&!stopping;meshId.Enabled=kind.Enabled=coordinates.Enabled=active is null&&!starting;sceneControls.Enabled=!starting&&!stopping&&!sceneSending&&(active is null||lastStage=="Streaming"&&acknowledgedScene>=acceptedScene);}
+    private void UpdateButtons(){if(disposed)return;start.Enabled=!starting&&!stopping&&!sceneEditing&&active is null&&sceneDraft.Assets.Length>0&&sceneConnection==session.Connection&&session.Connection.Connected;stop.Enabled=active is not null&&!stopping;sceneControls.Enabled=!starting&&!stopping&&!sceneSending&&!sceneEditing&&(active is null||lastStage=="Streaming"&&acknowledgedScene>=acceptedScene);}
     private void Report(Exception error)
     {if(!disposed)status.Text=AholoHost.FriendlyError(error);else global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(error));}
     private async Task CloseAfterStartAsync()
@@ -85,10 +82,13 @@ internal sealed partial class CloudPreviewWindow : Form
     }
     private async Task StartAsync()
     {
-        if(starting||active is not null)return;var doc=Document();target=AholoHost.CaptureTarget(doc);viewport=doc.Views.ActiveView!.ActiveViewport.Id;
+        if(starting||active is not null)return;
+        if(sceneConnection!=session.Connection)throw new InvalidOperationException(T("Account changed. Review the cloud asset IDs in the scene editor before starting."));
+        var doc=Document();target=AholoHost.CaptureTarget(doc);viewport=doc.Views.ActiveView!.ActiveViewport.Id;
         var camera=AholoHost.CaptureCamera(doc,RenderWidth,RenderHeight);originalConnection=session.Connection;
-        baseLights=sceneOptions.IncludeLights?AholoHost.CaptureSelectedLights(doc,sceneOptions.PointRadius):Array.Empty<RenderLight>();
-        var request=new RealtimeStartRequest(Guid.NewGuid(),meshId.Text.Trim(),camera,RenderWidth,RenderHeight,sceneOptions.Environment,Gaussian:kind.SelectedIndex==1,GltfCoordinates:coordinates.SelectedIndex==0,Model:sceneOptions.Model,Lights:ScaleLights(baseLights,sceneOptions.LightMultiplier));
+        var scene=RealtimeLayout.Snapshot(sceneDraft);
+        if(scene.Assets.Length==0)throw new InvalidOperationException(T("Add a prepared cloud asset before starting a preview."));
+        var request=new RealtimeStartRequest(Guid.NewGuid(),scene.Assets[0].MeshId,camera,RenderWidth,RenderHeight,Scene:scene);
         _=RealtimeScene.Build(request);ClearImage();starting=true;active=request.Id;sequence=revision=sceneRevision=acceptedScene=acknowledgedScene=0;lastStage=null;pendingScene=null;lastQueuedCamera=JsonSerializer.Serialize(camera,AholoJson.Options);UpdateButtons();
         try{var packet=await client.RealtimeAsync("start",request,lifetime.Token);if(!disposed)ShowState(packet);else await StopAsync();}
         catch(RealtimeControlException){active=null;throw;}
@@ -122,7 +122,7 @@ internal sealed partial class CloudPreviewWindow : Form
         if(disposed||packet.Reply.State is not{} state||state.Record.Id!=active)return;
         if(IsTerminalStage(lastStage)&&!IsTerminalStage(state.Record.Stage))return;
         lastStage=state.Record.Stage;acceptedScene=Math.Max(acceptedScene,state.AcceptedScene);acknowledgedScene=Math.Max(acknowledgedScene,state.AcknowledgedScene);
-        if(pendingScene is { } change&&acknowledgedScene>=change.Revision){sceneOptions=change.Options;pendingScene=null;}
+        if(pendingScene is { } change&&acknowledgedScene>=change.Revision){sceneDraft=RealtimeLayout.Snapshot(change.Scene);pendingScene=null;ShowSceneSummary();}
         if(lastStage is "Closed" or "NotSubmitted" or "ExternallyResolved" or "CleanupRequired" or "SubmissionUnknown")pendingScene=null;
         UpdateButtons();
         status.Text=UiText.Status(state.Record.Stage)+" · "+UiText.Format("Local preview {0}",state.Record.Id)+

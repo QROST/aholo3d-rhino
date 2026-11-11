@@ -5,7 +5,7 @@ using Aholo.Provider;
 using Aholo.Sidecar;
 namespace Aholo.Tests;
 
-public sealed class RealtimePreviewManagerTests
+public sealed partial class RealtimePreviewManagerTests
 {
     private static readonly TimeSpan Timeout=TimeSpan.FromSeconds(5);
     internal static RenderCamera Camera(double x=0)=>new(new[]{1d,0,0,0,0,1,0,0,0,0,1,0,x,0,3000,1},35,36,20.25,.1,100000);
@@ -195,16 +195,17 @@ public sealed class RealtimePreviewManagerTests
     {
         internal readonly TaskCompletionSource Created=new(TaskCreationOptions.RunContinuationsAsynchronously),Connected=new(TaskCreationOptions.RunContinuationsAsynchronously),ExplicitClosing=new(TaskCreationOptions.RunContinuationsAsynchronously),CloseReply=new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal readonly TaskCompletionSource<RealtimeOperation> CreateReply=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal readonly TaskCompletionSource SceneCancelled=new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal readonly Channel<RealtimeStreamMessage> Messages=Channel.CreateUnbounded<RealtimeStreamMessage>();
         internal readonly Channel<(string Patch,TaskCompletionSource Done)> Cameras=Channel.CreateUnbounded<(string,TaskCompletionSource)>();
         internal readonly Channel<(string Patch,TaskCompletionSource Done)> Scenes=Channel.CreateUnbounded<(string,TaskCompletionSource)>();
         internal readonly ConcurrentQueue<bool> CloseRetries=new();
-        internal int Creates,CameraCount,SceneCount;internal bool FailFirstClose,HoldExplicitClose;internal string? RequestId;
+        internal int Creates,CameraCount,SceneCount;internal bool FailFirstClose,HoldExplicitClose,IgnoreSceneCancellation;internal string? RequestId;
         public async Task<RealtimeOperation> CreateAsync(string requestId,string usda,CancellationToken ct){Interlocked.Increment(ref Creates);RequestId=requestId;Created.TrySetResult();return await CreateReply.Task.WaitAsync(ct);}
         public Task<RealtimeOperation> QueryAsync(string id,CancellationToken ct)=>throw new InvalidOperationException("Not used.");
         public Task ConnectAsync(RealtimeOperation operation,CancellationToken ct){Connected.TrySetResult();return Task.CompletedTask;}
         public async Task<RealtimeStreamMessage> ReadAsync(CancellationToken ct)=>await Messages.Reader.ReadAsync(ct);
-        public async Task SceneAsync(string patch,CancellationToken ct){Interlocked.Increment(ref SceneCount);var done=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);await Scenes.Writer.WriteAsync((patch,done),ct);await done.Task.WaitAsync(ct);}
+        public async Task SceneAsync(string patch,CancellationToken ct){Interlocked.Increment(ref SceneCount);var done=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);await Scenes.Writer.WriteAsync((patch,done),ct);using var registration=ct.Register(()=>SceneCancelled.TrySetResult());if(IgnoreSceneCancellation)await done.Task;else await done.Task.WaitAsync(ct);}
         public async Task CameraAsync(string patch,CancellationToken ct){Interlocked.Increment(ref CameraCount);var done=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);await Cameras.Writer.WriteAsync((patch,done),ct);await done.Task.WaitAsync(ct);}
         public async Task CloseAsync(string id,bool retry)
         {
@@ -227,9 +228,9 @@ public sealed class RealtimePreviewManagerTests
         internal static async Task<Harness> New(string region="international"){var h=new Harness();h.Credentials=new(new MemoryStore(),Path.Combine(h.root,"credentials"));h.Epoch=(await h.Credentials.ConnectAsync(new ApiKeyCredential("fixture-only",region),false)).Epoch;h.Journal=new(h.root);h.Manager=h.NewManager();return h;}
         internal RealtimePreviewManager NewManager()=>new(Credentials,Journal,(key,_)=>{BackendRegion=key.Region;return Backend;},TimeSpan.FromMilliseconds(1));
         internal RealtimeStartRequest Request()=>new(Guid.NewGuid(),"mesh-fixture",Camera());
-        internal async Task<RealtimeStartRequest> StartStreaming()
+        internal async Task<RealtimeStartRequest> StartStreaming(RealtimeSceneLayout? scene=null)
         {
-            var request=Request();await Manager.StartAsync(request,Epoch,default);
+            var request=Request() with{Scene=scene};await Manager.StartAsync(request,Epoch,default);
             await Backend.Created.Task.WaitAsync(Timeout);Backend.CreateReply.SetResult(new("session-1",true,RealtimeSessionStatus.Active,0,null,null));
             await Backend.Connected.Task.WaitAsync(Timeout);await Backend.Messages.Writer.WriteAsync(new RealtimeStatusMessage(RealtimeStatusCode.Initialized));
             await Eventually(()=>Manager.Get(request.Id,0).Reply.State!.Record.Stage=="Streaming");return request;

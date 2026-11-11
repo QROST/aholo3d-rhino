@@ -42,6 +42,15 @@ public sealed class UiTextTests
     }
 
     [Fact]
+    public void SharedChineseLabelsDoNotBreakInitializationOrGuessReverseMeaning()
+    {
+        Assert.Equal("云资产", UiText.Get("Cloud asset", "zh"));
+        Assert.Equal("云资产", UiText.Get("Cloud assets", "zh"));
+        Assert.Equal("Cloud assets", UiText.Get("Cloud assets", "en"));
+        Assert.Equal("云资产", UiText.TranslateKnownMessage("云资产", "en"));
+    }
+
+    [Fact]
     public async Task BackgroundMessagesFollowHostLanguageWithoutChangingFormattingCulture()
     {
         CultureInfo culture = CultureInfo.CurrentCulture, uiCulture = CultureInfo.CurrentUICulture;

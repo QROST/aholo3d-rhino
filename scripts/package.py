@@ -80,7 +80,7 @@ def main():
                  'docs/architecture.md','docs/repository-rename.md','docs/host-acceptance.md','docs/validation.md','docs/api/README.md',
                  'docs/api/world.openapi.json','docs/api/rendercloud.openapi.json','docs/api/asset.openapi.json',
                  'docs/api/lux3d.openapi.json','docs/api/spatialunderstanding.openapi.json','docs/api-capabilities.md',
-                 'docs/implementation-progress.md','docs/integrated-acceptance.md','docs/mesh-formats.md','docs/regional-contracts.md',
+                 'docs/implementation-progress.md','docs/integrated-acceptance.md','docs/mesh-formats.md','docs/regional-contracts.md','docs/realtime-scene-editing.md',
                  'docs/api/china/README.md','docs/api/china/sources.json','docs/api/china/world.openapi.json',
                  'docs/api/china/lux3d.openapi.json','docs/api/china/spatialunderstanding.openapi.json',
                  'docs/api/china/rendercloud.openapi.json','docs/api/china/asset.openapi.json',

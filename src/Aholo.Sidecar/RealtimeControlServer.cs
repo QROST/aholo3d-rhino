@@ -62,9 +62,10 @@ public sealed class RealtimeControlServer : IAsyncDisposable
                     {
                         "cancelAccount" when cancelAccount is not null=>new(new(Account:await cancelAccount(p.GetProperty("region").GetString()??"",p.GetProperty("attemptId").GetGuid(),deadline.Token).ConfigureAwait(false))),
                         "start"=>await manager.StartAsync(Read<RealtimeStartRequest>(p),request.Epoch,deadline.Token).ConfigureAwait(false),
-                        "get"=>manager.Get(p.GetProperty("id").GetGuid(),p.GetProperty("afterFrame").GetInt64()),
+                        "get"=>manager.Get(p.GetProperty("id").GetGuid(),p.GetProperty("afterFrame").GetInt64(),p.TryGetProperty("includeScene",out var includeScene)&&includeScene.GetBoolean()),
                         "pending"=>manager.Pending(),
                         "confirmExternalResolution"=>await manager.ConfirmExternalResolutionAsync(p.GetProperty("id").GetGuid(),request.Epoch,deadline.Token).ConfigureAwait(false),
+                        "composition"=>await manager.CompositionAsync(Read<RealtimeCompositionRequest>(p),request.Epoch,deadline.Token).ConfigureAwait(false),
                         "scene"=>await manager.SceneAsync(Read<RealtimeSceneRequest>(p),request.Epoch,deadline.Token).ConfigureAwait(false),
                         "camera"=>await manager.CameraAsync(Read<RealtimeCameraRequest>(p),request.Epoch,deadline.Token).ConfigureAwait(false),
                         "stop"=>await manager.StopAsync(p.GetProperty("id").GetGuid(),request.Epoch,deadline.Token).ConfigureAwait(false),

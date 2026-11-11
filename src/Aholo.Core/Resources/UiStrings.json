@@ -3970,5 +3970,189 @@
   {
     "English": "GS reference objects: {0}; loaded assets: {1}; loading: {2}; asset errors: {3}.",
     "Chinese": "GS 引用对象：{0}；已加载资产：{1}；加载中：{2}；资产错误：{3}。"
+  },
+  {
+    "English": "Enter finite scene values; dimensions and scale must be positive, and color and intensity cannot be negative.",
+    "Chinese": "请输入有限数值；尺寸和比例必须为正，颜色和强度不能为负。"
+  },
+  {
+    "English": "Cloud scene editor",
+    "Chinese": "云场景编辑器"
+  },
+  {
+    "English": "Add cloud asset",
+    "Chinese": "添加云资产"
+  },
+  {
+    "English": "Edit selected asset",
+    "Chinese": "编辑选中资产"
+  },
+  {
+    "English": "Remove selected asset",
+    "Chinese": "移除选中资产"
+  },
+  {
+    "English": "Add light",
+    "Chinese": "添加灯光"
+  },
+  {
+    "English": "Edit selected light",
+    "Chinese": "编辑选中灯光"
+  },
+  {
+    "English": "Remove selected light",
+    "Chinese": "移除选中灯光"
+  },
+  {
+    "English": "Add selected Rhino lights",
+    "Chinese": "添加选中的 Rhino 灯光"
+  },
+  {
+    "English": "Select rectangular or point lights in Rhino before opening this editor.",
+    "Chinese": "请在打开此编辑器前，在 Rhino 中选中矩形灯或点灯。"
+  },
+  {
+    "English": "Apply to cloud preview",
+    "Chinese": "应用到云预览"
+  },
+  {
+    "English": "Save scene",
+    "Chinese": "保存场景"
+  },
+  {
+    "English": "Add a prepared cloud asset before starting a preview.",
+    "Chinese": "开始预览前，请添加已入库的云资产。"
+  },
+  {
+    "English": "Cloud assets",
+    "Chinese": "云资产"
+  },
+  {
+    "English": "Point-light radius for Rhino capture (mm)",
+    "Chinese": "捕获 Rhino 点灯时使用的半径（毫米）"
+  },
+  {
+    "English": "Changes apply only after you confirm. Cloud updates can affect several objects; failure does not guarantee an atomic rollback.",
+    "Chinese": "确认后才会应用修改。一次云更新可能影响多个对象，失败时不保证全部回退。"
+  },
+  {
+    "English": "Use already-ingested cloud asset IDs. This editor does not upload files or modify the Rhino document.",
+    "Chinese": "请使用已入库的云资产 ID。此编辑器不上传文件，也不修改 Rhino 文档。"
+  },
+  {
+    "English": "Prepared cloud asset ID",
+    "Chinese": "已入库的云资产 ID"
+  },
+  {
+    "English": "To replace this asset or its type, add a new asset and remove this one.",
+    "Chinese": "若要替换资产或改变类型，请添加新资产并移除此项。"
+  },
+  {
+    "English": "The selected coordinate convention is applied once, before the model placement.",
+    "Chinese": "所选坐标约定在模型放置前只转换一次。"
+  },
+  {
+    "English": "Cloud asset",
+    "Chinese": "云资产"
+  },
+  {
+    "English": "Point light (sphere)",
+    "Chinese": "点灯（球体）"
+  },
+  {
+    "English": "Rectangular light",
+    "Chinese": "矩形灯"
+  },
+  {
+    "English": "Light X / Y / Z position (mm)",
+    "Chinese": "灯光 X / Y / Z 位置（毫米）"
+  },
+  {
+    "English": "Linear RGB color",
+    "Chinese": "线性 RGB 颜色"
+  },
+  {
+    "English": "Rectangle width / height (mm)",
+    "Chinese": "矩形宽度 / 高度（毫米）"
+  },
+  {
+    "English": "Sphere radius (mm)",
+    "Chinese": "球体半径（毫米）"
+  },
+  {
+    "English": "Light orientation is preserved. Capture a selected Rhino rectangle to use its orientation. New rectangles face downward along Z.",
+    "Chinese": "灯光方向保持不变。可捕获选中的 Rhino 矩形灯以沿用其方向；新矩形灯朝向 Z 轴负方向。"
+  },
+  {
+    "English": "Cloud light",
+    "Chinese": "云灯光"
+  },
+  {
+    "English": "Edit cloud scene",
+    "Chinese": "编辑云场景"
+  },
+  {
+    "English": "Cloud scene: {0} assets · {1} lights",
+    "Chinese": "云场景：{0} 个资产 · {1} 盏灯"
+  },
+  {
+    "English": "Account changed. Review the cloud asset IDs in the scene editor before starting.",
+    "Chinese": "账号已更换。开始前请在场景编辑器中核对云资产 ID。"
+  },
+  {
+    "English": "Scene acknowledgement could not be matched. Inspect the original preview before editing again.",
+    "Chinese": "无法匹配场景确认结果。再次编辑前请检查原预览。"
+  },
+  {
+    "English": "Environment brightness must be a positive finite float.",
+    "Chinese": "环境亮度必须为可表示的有限正数。"
+  },
+  {
+    "English": "Scene object identities must be unique.",
+    "Chinese": "场景对象标识不能重复。"
+  },
+  {
+    "English": "Invalid scene object identity.",
+    "Chinese": "场景对象标识无效。"
+  },
+  {
+    "English": "Add a new scene object to replace an asset or change its type.",
+    "Chinese": "若要替换资产或改变类型，请添加新场景对象。"
+  },
+  {
+    "English": "Deleted scene object identities cannot be reused in this preview.",
+    "Chinese": "此预览中已删除的对象标识不能重复使用。"
+  },
+  {
+    "English": "Add a new scene light to change its type.",
+    "Chinese": "若要改变灯光类型，请添加新灯光。"
+  },
+  {
+    "English": "A preview identity is required.",
+    "Chinese": "缺少预览标识。"
+  },
+  {
+    "English": "An increasing positive edit revision is required.",
+    "Chinese": "编辑版本必须为递增的正数。"
+  },
+  {
+    "English": "Light cannot be null.",
+    "Chinese": "灯光不能为空。"
+  },
+  {
+    "English": "This scene revision already describes a different edit.",
+    "Chinese": "此场景版本已对应另一项修改。"
+  },
+  {
+    "English": "This scene edit is older than the current preview.",
+    "Chinese": "此场景修改早于当前预览版本。"
+  },
+  {
+    "English": "The confirmed scene changed. Reload the scene before applying this edit.",
+    "Chinese": "已确认的场景发生变化，请重新载入场景后再修改。"
+  },
+  {
+    "English": "Use the scene editor for this multi-object preview.",
+    "Chinese": "请使用场景编辑器调整此多对象预览。"
   }
 ]

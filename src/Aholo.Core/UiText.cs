@@ -10,7 +10,11 @@ public static class UiText
     public sealed record Entry(string English, string Chinese);
     private static readonly IReadOnlyList<Entry> Entries = Load();
     private static readonly Dictionary<string, string> Chinese = Entries.GroupBy(e => e.English).ToDictionary(g => g.Key, g => g.First().Chinese, StringComparer.Ordinal);
-    private static readonly Dictionary<string, string> English = Entries.ToDictionary(e => e.Chinese, e => e.English, StringComparer.Ordinal);
+    // Several English labels may legitimately share a translation. Keep direct translation usable;
+    // ambiguous reverse messages stay unchanged rather than guessing a different English meaning.
+    private static readonly Dictionary<string, string> English = Entries.GroupBy(e => e.Chinese, StringComparer.Ordinal)
+        .Where(g => g.Select(e => e.English).Distinct(StringComparer.Ordinal).Count() == 1)
+        .ToDictionary(g => g.Key, g => g.First().English, StringComparer.Ordinal);
     private static readonly Regex Placeholder = new(@"\{(\d+)(?:,[^}:]+)?(?::[^}]+)?\}", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
     private static readonly Lazy<Template[]> Templates = new(() => Entries.Where(e => Placeholder.IsMatch(e.English)).Select(e => new Template(e)).ToArray());
     private static string _language = "en";

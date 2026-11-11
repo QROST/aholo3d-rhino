@@ -56,18 +56,19 @@ public static class RenderLightsUsda
     {
         if(lights is null||lights.Count==0)return "";
         var text=new StringBuilder("    def Xform \"Lights\"\n    {\n");
-        string F(double value)=>value.ToString("R",CultureInfo.InvariantCulture);
-        for(int i=0;i<lights.Count;i++)
-        {
-            var light=lights[i]??throw new ArgumentException("Light cannot be null.");light.Validate();
-            string pose=string.Join(", ",Enumerable.Range(0,4).Select(row=>"("+string.Join(", ",light.Transform.Skip(row*4).Take(4).Select(F))+")"));
-            text.Append("        def ").Append(light.Kind).Append("Light \"Light_").Append(i.ToString(CultureInfo.InvariantCulture)).Append("\"\n        {\n")
-                .Append("            color3f inputs:color = (").Append(string.Join(", ",light.Color.Select(F))).Append(")\n")
-                .Append("            float inputs:intensity = ").Append(F(light.Intensity)).Append("\n            float inputs:exposure = 0\n            float inputs:specular = 1\n            bool inputs:normalize = false\n");
-            if(light.Kind=="Rect")text.Append("            float inputs:width = ").Append(F(light.Width)).Append("\n            float inputs:height = ").Append(F(light.Height)).Append('\n');
-            else text.Append("            float inputs:radius = ").Append(F(light.Radius)).Append('\n');
-            text.Append("            matrix4d xformOp:transform = (").Append(pose).Append(")\n            uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        }\n");
-        }
+        for(int i=0;i<lights.Count;i++)text.Append(BuildLight(lights[i],"Light_"+i.ToString(CultureInfo.InvariantCulture),"def"));
         return text.Append("    }\n").ToString();
+    }
+    internal static string BuildLight(RenderLight light,string id,string specifier)
+    {
+        ArgumentNullException.ThrowIfNull(light);light.Validate();
+        string F(double value)=>value.ToString("R",CultureInfo.InvariantCulture);
+        string pose=string.Join(", ",Enumerable.Range(0,4).Select(row=>"("+string.Join(", ",light.Transform.Skip(row*4).Take(4).Select(F))+")"));
+        var text=new StringBuilder("        ").Append(specifier).Append(' ').Append(light.Kind).Append("Light \"").Append(id).Append("\"\n        {\n")
+            .Append("            color3f inputs:color = (").Append(string.Join(", ",light.Color.Select(F))).Append(")\n")
+            .Append("            float inputs:intensity = ").Append(F(light.Intensity)).Append("\n            float inputs:exposure = 0\n            float inputs:specular = 1\n            bool inputs:normalize = false\n");
+        if(light.Kind=="Rect")text.Append("            float inputs:width = ").Append(F(light.Width)).Append("\n            float inputs:height = ").Append(F(light.Height)).Append('\n');
+        else text.Append("            float inputs:radius = ").Append(F(light.Radius)).Append('\n');
+        return text.Append("            matrix4d xformOp:transform = (").Append(pose).Append(")\n            uniform token[] xformOpOrder = [\"xformOp:transform\"]\n        }\n").ToString();
     }
 }
