@@ -213,3 +213,8 @@ Remote Sol supplied routing and placement-mode reviews, test candidates and a fi
 `AholoImportMesh` opens the per-document Library, then prepares a reviewable candidate after the command/Undo cycle finishes. It supports interactive and scripted file selection, reports a busy panel, binds the pending request to the original active document and clears it on AholoCancel, document closure or shutdown. Three placement modes separate height fitting, original-size CPlane placement and resolved source scene coordinates. Planar geometry works in the latter two; disabled fields are not parsed. The existing default remains height fitting. Candidate acceptance now forwards cancellation plus panel revision/visibility through native commit checkpoints.
 
 Remote Sol reviewed the mode plan and final command/mathematics. Its extreme-coordinate example exposed an overflowing intermediate height difference despite a valid final ratio; the computation and regression now cover it. Fixed SDK inspection established the per-document panel lookup signatures; native command/Idle/event timing remains pending acceptance.
+
+
+## Candidate checkpoint — alpha.6
+
+Consolidates task-linked USD placement and result identity (`0b6d474`) with local mesh import/placement modes (`8f5963c`) as `0.2.0-alpha.6`. Stable plugin/assembly/Yak identities remain unchanged. The runtime source passes 921 offline tests and Release compilation; local archive receipts separately bind clean metadata source and actual payload bytes. Native/service acceptance remains pending, and this candidate is not automatically installed or published.

@@ -1,12 +1,12 @@
 name: aholo-rhino
-version: 0.2.0-alpha.5
+version: 0.2.0-alpha.6
 authors:
   - CuriousArc
   - qrost
 description: >-
   Aholo3D for Rhino by CuriousArc and qrost. Integrated World generation and
   reconstruction, Lux3D object/image/material/animation workflows, native static
-  GLB/mesh PLY/STL/core 3MF placement, local static mesh USD import/export,
+  GLB/mesh PLY/STL/core 3MF placement, static mesh USD task/local import and local export,
   experimental Gaussian viewing and USD exchange,
   spatial DSL placement, offline rendering and a separate RenderCloud JPEG preview. Create, Library and Render workspace with separate Settings.
   International API Key required for cloud services. Rhino 8.32+ and .NET 8 required.

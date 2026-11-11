@@ -81,14 +81,14 @@ Library exposes World/Lux3D/Spatial cloud history and recovery by existing World
 
 Downloaded files use immutable content-addressed names. Missing remote outputs retain downloaded local references. Rig/animation GLB files can be uploaded/downloaded, but static placement rejects unsupported skins, animations or required glTF extensions before touching the document. This is a format-support boundary, not a geometry-count cap. Generation/articulation URLs without a recognized format extension remain explicit unsupported results. Archives are retained as files and are not extracted automatically.
 
-## Product parity at alpha.5
+## Product parity at alpha.6
 
 The 30 public HTTP routes and 13 create forms are implemented; that is not a claim that every reference-plugin behavior or returned artifact is fully supported in Rhino.
 
 | Area | Implemented in this source candidate | Remaining before a complete parity claim |
 | --- | --- | --- |
 | Lux3D workflows | Ten public creates, typed outputs, paged cloud history, original-ID recovery, three mesh candidates, CPlane/point placement and volatile original-generation placement intent | Animation playback; OBJ/FBX archives, extended 3MF; native material and Undo acceptance |
-| Local mesh exchange | Local static USD/USDA/USDC/USDZ mesh import to candidates plus supported tessellated export, normals, PBR/direct UV bitmaps and double origins | Task-linked USD placement, polygons/subsets/subdivision, combined GS/mesh export, editable hierarchy and full material/texture mapping support; native/viewer acceptance |
+| Local mesh exchange | Local/task static USD/USDA/USDC/USDZ mesh import, AholoImportMesh, three placement modes and supported tessellated export, normals, PBR/direct UV bitmaps and double origins | Polygons/subsets/subdivision, combined GS/mesh export, editable hierarchy and full material/texture mapping support; native/viewer acceptance |
 | GSRhino capabilities | PLY/SPLAT/SPZ v1–4, local static GS USD/USDZ, compatible saved GS references, full SH0–3 data and experimental native display | Windows/new-host regression acceptance; transparent interleaving, nested GS instances, capture/layout/print/Raytraced support; further large-scene performance work |
 | Accounts | International API Key validation/storage plus separate optional PKCE OAuth login/refresh | Remembered OAuth sessions and China-region parity; authenticated account/browser acceptance |
 | World / Spatial | Generation/reconstruction, history/recovery, PLY/SPZ/panorama/LOD downloads, editable spatial DSL block | World LOD streaming schema; full structural solids/opening reconstruction; live reconstruction/DSL acceptance |

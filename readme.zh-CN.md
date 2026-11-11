@@ -6,7 +6,7 @@
 
 仓库和源码目录现为 **`aholo3d-rhino`**。已发布的 Yak 包继续使用 **`aholo-rhino`**，保持原有用户的更新渠道；插件标识、命令、凭据、任务/缓存及可选 USD 运行时路径保持兼容。详见[仓库改名与兼容说明](docs/repository-rename.md)。
 
-**0.2.0-alpha.5：本地开发候选版，尚未安装或发布。** 旧 `0.1.1-beta.2` Yak 包已按用户要求撤下。新界面和服务流程已有本地构建及模拟测试证据，真实服务行为和 Rhino 原生布局仍待验收；先前 Mac GS 验收不自动覆盖本次新增能力。CuriousArc 开发的独立集成并非 Aholo 或 McNeel 官方产品。
+**0.2.0-alpha.6：本地开发候选版，尚未安装或发布。** 旧 `0.1.1-beta.2` Yak 包已按用户要求撤下。新界面和服务流程已有本地构建及模拟测试证据，真实服务行为和 Rhino 原生布局仍待验收；先前 Mac GS 验收不自动覆盖本次新增能力。CuriousArc 开发的独立集成并非 Aholo 或 McNeel 官方产品。
 
 详见[实施进度](docs/implementation-progress.md)、[API 能力与剩余范围](docs/api-capabilities.md)、[集成验收清单](docs/integrated-acceptance.md)。
 
