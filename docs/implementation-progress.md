@@ -249,3 +249,8 @@ Packages the regional integration (`097b2b7`) as `0.2.0-alpha.8`, retaining stab
 Implemented `AholoExportScene` and a bilingual Library action. Mesh and GS parts share one selection snapshot, including repeated GS nested in ordinary blocks; parent transforms and source SH frames remain explicit. Standalone mesh/GS routes reuse their existing authors. A common publication transaction preserves old output and old texture bundles, and the new package bridge authors a single self-contained stage with one mesh unit/axis conversion. Lazy parent-material capture fixes unrelated bitmap failures for GS or independently materialed child meshes.
 
 One remote/gpt-6.1-sol design review recommended factoring authors into a caller-owned stage rather than temporary-layer composition. Native read-only reviews checked host traversal/units, found the parent-material bug, and reviewed its repair. The primary implemented all changes and ran actual validation. Remote daily quota was nearly exhausted after that bounded task; it was not increased or bypassed. Mixed scene import, native nested-GS viewing and host/live acceptance remain separate open work.
+
+
+## Candidate checkpoint — alpha.9
+
+Packages unified static scene export (`7c0717d`) as `0.2.0-alpha.9`. The installed command is `AholoExportScene`; existing strict GS/mesh routes and stable plugin/package identities are retained. Runtime evidence is 988 passing offline tests and 24 actual OpenUSD scene combinations, with original mesh/GS exchange regressions passing. Local archive receipts bind the clean source revision and all packaged bytes. Mixed import, native nested-GS viewport rendering, Mac/Windows and live-service acceptance remain pending. This is a local candidate, not installation or publication.
