@@ -200,9 +200,12 @@ with tempfile.TemporaryDirectory(prefix='aholo-topology-') as temporary:
             assert positions[3*i:3*i+3]==list(shared[source_indices[corner]])
             assert uv[2*i:2*i+2]==[(11-corner)/16,(11-corner)/32]
         assert set(corners)==expected and len(corners)==len(expected)
-    # No authored normals stays explicit; no inferred smooth-normal policy is introduced.
+    # Missing normals are faceted on each original face, including all derived n-gon triangles.
     path=work/'no-normals.usda';s,m,b=create(path);m.GetNormalsAttr().Clear();s.GetRootLayer().Save()
-    assert all(not p['normals'] for p in extract(path,work/'no-normals-out'))
+    out=work/'no-normals-out'
+    for p in extract(path,out):
+        assert p['normals'] and p['generatedNormals']
+        assert decode(out,p)[3]==[0,0,-1]*p['vertices']
 
     polygons={
       'crossing':[(0,0,0),(2,2,0),(0,2,0),(2,0,0),(3,0,0),(3,-1,0)],

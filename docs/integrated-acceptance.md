@@ -153,3 +153,10 @@ On both native platforms import `fixtures/mesh-subsets.usda` with Original size 
 ## OBJ and typed OBJ ZIP import
 
 Follow [OBJ native acceptance](obj-import-development.md#reproducible-host-acceptance--pending) on Mac and Windows. The packaged textured sample and two-entry archive cover explicit source units/up-axis, entry choice, material transparency versus image alpha, fixed-source selection, candidate/direct paths, one result receipt, cancellation and persistence. Record native outcomes separately from offline reader tests.
+
+
+## USD flat shading and planar concave quads
+
+Use the packaged `fixtures/mesh-shading.usda` through `AholoImportMesh`, selecting **Preserve scene coordinates**. It uses metres/Z-up and should contain three parts with six triangles in total: a blue two-face corner with a hard edge, a translated blue corner with explicitly smooth shared-edge normals, and a red concave quad represented by two non-overlapping triangles. The red shape has area 3 square metres; its interior diagonal joins original corners 0 and 2.
+
+On Mac and Windows, compare shaded/rendered views from both sides, check that the two blue corners differ as authored, and inspect the concave boundary for a filled notch or missing triangle. Repeat through `AholoImportScene`; verify physical positions, one Undo/Redo and save/reopen. For mirrored and left-handed files, confirm the geometric direction and authored shading remain consistent. Record source commit/package hash and observations. Automated math/file checks do not establish these native results.

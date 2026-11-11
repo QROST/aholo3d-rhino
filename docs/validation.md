@@ -230,3 +230,12 @@ Independent local read-only reviews covered MTL semantics, smoothing/precision a
 ### Alpha.15 final source checkpoint
 
 Release build completed with **zero warnings and zero errors**. The complete offline .NET suite passed **1188 tests**, zero failed/skipped. This includes the packaged OBJ public-reader fixture and runtime language-selection regression preserving source/material names in errors. Deterministic OBJ asset verification and Python syntax checks passed. Mac and Windows archives are built from this checkpoint with independent receipts; a Windows archive built on Mac is not Windows native execution. All native and live-service acceptance gates remain open. No installation or publication is authorized by this checkpoint.
+
+
+## USD shading and quad correctness (2026-11-11 UTC)
+
+Release compilation passed with zero warnings/errors; **1190 offline .NET tests passed**, zero failed/skipped. The new transport checks distinguish generated-normal provenance and reject contradictory payloads. Forty-eight independent pure geometry cases cover exact area, diagonal choice, source corners, winding, subnormal predicates, cancellation and warped-quad compatibility; this check is included in the platform CI workflow. Workflow execution itself was not performed here.
+
+Actual pinned OpenUSD 26.11 and public C# readers verify nineteen parts in each of four mesh and four mixed-scene formats. Coverage includes absent and authored normals, primvar precedence, both handedness values, mirrors, material splits, no-UV hard edges, offset indexed face-corner UVs/normals, and concave/collinear/warped/extreme quads. Eight malformed normal/quad cases reject without publishing a manifest. The packaged three-part shading sample is decoded separately. Existing four-format mesh import (15 rejection cases), topology/material import (17 rejection cases), and 24 mixed-scene round trips (14 rejection cases) also passed. The mixed demo now verifies separate face vertices and each face's geometric normal.
+
+These are local file/math/protocol checks, not native Rhino rendering or Windows execution. Two independent read-only reviews supplied findings; the primary verified and integrated them. Remote quota was insufficient for useful inference. No Rhino automation, authenticated API call, installation, push or publication occurred.

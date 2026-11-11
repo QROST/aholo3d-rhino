@@ -210,7 +210,8 @@ def orient(a, b, c):
     """One shared orientation sign; exact binary-rational fallback near cancellation."""
     left = (a[0]-c[0])*(b[1]-c[1]); right = (a[1]-c[1])*(b[0]-c[0])
     determinant = left-right
-    if abs(determinant) > (abs(left)+abs(right))*8*sys.float_info.epsilon:
+    normal_products = (left == 0 or abs(left) >= sys.float_info.min) and (right == 0 or abs(right) >= sys.float_info.min)
+    if normal_products and abs(determinant) > (abs(left)+abs(right))*8*sys.float_info.epsilon:
         return 1 if determinant > 0 else -1
     ax, ay, bx, by, cx, cy = map(Fraction, (a[0],a[1],b[0],b[1],c[0],c[1]))
     exact = (ax-cx)*(by-cy)-(ay-cy)*(bx-cx)
@@ -230,7 +231,7 @@ def intersects(a, b, c, d):
             (ab_c*ab_d < 0 and cd_a*cd_b < 0))
 
 
-def triangulate_polygon(points):
+def triangulate_polygon(points, preserve_convex_quad=False):
     """Return source-corner triples for a simple planar n-gon; never invent or discard a corner."""
     points = [values(p,3) for p in points]; count = len(points)
     require(count >= 3, 'A polygon needs at least three corners.')
@@ -240,8 +241,17 @@ def triangulate_polygon(points):
     local = [[v/extent for v in p] for p in local]
     a = max(local, key=lambda p: sum(v*v for v in p))
     crosses = [(a[1]*p[2]-a[2]*p[1],a[2]*p[0]-a[0]*p[2],a[0]*p[1]-a[1]*p[0]) for p in local]
-    normal = max(crosses,key=lambda p:sum(v*v for v in p)); length = math.hypot(*normal)
-    require(length > 0, 'Collinear polygon has no area.')
+    normal = max(crosses,key=lambda p:max(abs(v) for v in p)); largest = max(abs(v) for v in normal)
+    if largest <= 64*sys.float_info.epsilon:
+        # Subtracting a small origin from a huge point can erase the only non-collinear component.
+        exact = [[Fraction(p[i])-Fraction(points[0][i]) for i in range(3)] for p in points]
+        a = max(exact,key=lambda p:max(abs(v) for v in p))
+        crosses = [(a[1]*p[2]-a[2]*p[1],a[2]*p[0]-a[0]*p[2],a[0]*p[1]-a[1]*p[0]) for p in exact]
+        normal = max(crosses,key=lambda p:max(abs(v) for v in p));largest=max(abs(v) for v in normal)
+        require(largest > 0, 'Collinear polygon has no area.')
+        normal = [float(v/largest) for v in normal];largest=1
+    require(largest > 0, 'Collinear polygon has no area.')
+    normal = [v/largest for v in normal]; length = math.hypot(*normal)
     require(all(abs(sum(normal[i]*p[i] for i in range(3))) <= 1e-6*length for p in local), 'Nonplanar polygons must be tessellated before import.')
     axis = max(range(3),key=lambda i:abs(normal[i])); axes = [i for i in range(3) if i != axis]
     projected = [(p[axes[0]],p[axes[1]]) for p in points]
@@ -255,6 +265,8 @@ def triangulate_polygon(points):
     extreme = min(range(count),key=lambda i:projected[i])
     winding = orient(projected[(extreme-1)%count],projected[extreme],projected[(extreme+1)%count])
     require(winding != 0, 'Polygon has no stable winding.')
+    if preserve_convex_quad and count == 4 and all(orient(projected[i-1],projected[i],projected[(i+1)%count]) == winding for i in range(count)):
+        return None
     remaining = list(range(count)); result = []
     while len(remaining) > 3:
         for position, b in enumerate(remaining):
@@ -267,6 +279,58 @@ def triangulate_polygon(points):
         else: raise ValueError('Polygon cannot be triangulated without losing source corners.')
     require(orient(*(projected[i] for i in remaining)) == winding, 'Polygon triangulation ended with a degenerate face.')
     result.append(tuple(remaining));return result
+
+
+def coplanar_quad(points):
+    """Exact coplanarity near zero; a tiny real warp must not be rejected as a projected crossing."""
+    if any(all(p[i] == points[0][i] for p in points[1:]) for i in range(3)):
+        return True
+    a,b,c = [[p[i]-points[0][i] for i in range(3)] for p in points[1:]]
+    terms = [a[0]*b[1]*c[2],a[1]*b[2]*c[0],a[2]*b[0]*c[1],-a[2]*b[1]*c[0],-a[1]*b[0]*c[2],-a[0]*b[2]*c[1]]
+    if all(math.isfinite(v) and (v == 0 or abs(v) >= sys.float_info.min) for v in terms):
+        try:
+            determinant = math.fsum(terms)
+            if abs(determinant) > math.fsum(abs(v) for v in terms)*64*sys.float_info.epsilon:
+                return False
+        except OverflowError:
+            pass  # Finite individual terms can still overflow their sum; exact arithmetic remains available.
+    a,b,c = [[Fraction(p[i])-Fraction(points[0][i]) for i in range(3)] for p in points[1:]]
+    return a[0]*(b[1]*c[2]-b[2]*c[1])+a[1]*(b[2]*c[0]-b[0]*c[2])+a[2]*(b[0]*c[1]-b[1]*c[0]) == 0
+
+
+def quad_topology(points):
+    """Retain native convex/warped quads; tessellate only a validated planar concave/collinear boundary."""
+    points = [values(p,3) for p in points]
+    require(len(points) == 4 and len({tuple(p) for p in points}) == 4, 'Quad corners must be distinct.')
+    if not coplanar_quad(points):
+        return None
+    return triangulate_polygon(points,preserve_convex_quad=True)
+
+
+def facet_normal(points, left_handed=False):
+    """Original-face area vector, normalized after summation; never smooth across faces."""
+    points = [values(p,3) for p in points]
+    require(len(points) >= 3, 'A face needs at least three corners.')
+    local = [[p[i]-points[0][i] for i in range(3)] for p in points]
+    extent = max(abs(v) for p in local for v in p)
+    require(math.isfinite(extent) and extent > 0, 'Cannot generate a normal for a degenerate face.')
+    local = [[v/extent for v in p] for p in local]
+    sums, errors = [], []
+    for x,y in ((1,2),(2,0),(0,1)):
+        terms = [term for a,b in zip(local[1:-1],local[2:]) for term in (a[x]*b[y],-a[y]*b[x])]
+        sums.append(math.fsum(terms));errors.append(math.fsum(abs(t) for t in terms)*16*sys.float_info.epsilon)
+    if max(errors) >= max(abs(v) for v in sums) * 2**-24:
+        # Resolve cancellation before its directional error exceeds stored float-normal precision.
+        # Exact input arithmetic precedes normalization; there is no fixed face-size cap.
+        exact = [[Fraction(p[i])-Fraction(points[0][i]) for i in range(3)] for p in points]
+        sums = [sum((a[x]*b[y]-a[y]*b[x] for a,b in zip(exact[1:-1],exact[2:])),Fraction()) for x,y in ((1,2),(2,0),(0,1))]
+        largest = max(abs(v) for v in sums)
+        require(largest > 0, 'Cannot generate a normal for a zero-area face.')
+        sums = [float(v/largest) for v in sums]
+    length = math.hypot(*sums)
+    require(math.isfinite(length) and length > 0, 'Cannot generate a stable face normal.')
+    sign = -1 if left_handed else 1
+    return [sign*v/length for v in sums]
 
 
 def material_groups(prim, face_count, UsdGeom, UsdShade):
@@ -312,19 +376,27 @@ def write_mesh(prim, output, index, cache, UsdGeom, UsdShade, Ar, Sdf):
             if width == 3: require(math.hypot(*value)>0, label+': zero normal.')
     def attribute_index(interp,face,corner,vertex):
         return {'constant':0,'uniform':face,'vertex':vertex,'varying':vertex,'faceVarying':corner}.get(interp,-1)
-    # Dense triangle meshes need one compact offset per face, not Python corner tuples.
+    orientation=str(mesh.GetOrientationAttr().Get());require(orientation in ('leftHanded','rightHanded'),label+': invalid orientation.')
+    # Compact per-face data; generated normals are uniform on the original face, before splitting.
+    generated = normals is None
+    generated_normals=array.array('f')
+    if generated: ni='uniform'
     corner_offsets=array.array('q',[0]);triangulated={}
     for face,count in enumerate(counts):
         corner=corner_offsets[-1]
-        if count > 4:
-            try: triangulated[face]=triangulate_polygon([points[indices[corner+i]] for i in range(count)])
-            except ValueError as error: raise ValueError(label+f': face {face}: '+str(error)) from error
+        try:
+            face_points = [points[indices[corner+i]] for i in range(count)] if count >= 4 or generated else None
+            if count > 4: triangulated[face]=triangulate_polygon(face_points)
+            elif count == 4:
+                quad=quad_topology(face_points)
+                if quad is not None:triangulated[face]=quad
+            if generated: generated_normals.extend(facet_normal(face_points,orientation=='leftHanded'))
+        except ValueError as error: raise ValueError(label+f': face {face}: '+str(error)) from error
         corner_offsets.append(corner+count)
     matrix=cache.GetLocalToWorldTransform(prim)
     require(all(math.isfinite(float(matrix[r][c])) for r in range(4) for c in range(4)), label+': non-finite transform.')
     require(all(matrix[r][3]==0 for r in range(3)) and matrix[3][3]==1 and matrix.GetDeterminant()!=0, label+': non-affine or singular transform.')
     transform=[float(matrix[c][r]) for r in range(3) for c in range(3)]+[float(matrix[3][c]) for c in range(3)]
-    orientation=str(mesh.GetOrientationAttr().Get());require(orientation in ('leftHanded','rightHanded'),label+': invalid orientation.')
     parts=[]
     for material_prim,faces in groups:
         material=material_for(material_prim,output,Ar,Sdf,UsdGeom,UsdShade,geometry=prim)
@@ -344,7 +416,8 @@ def write_mesh(prim, output, index, cache, UsdGeom, UsdShade, Ar, Sdf):
                     key=(vertex,normal_index,uv_index)
                     if key not in mapping:
                         mapping[key]=len(positions_out)//3;positions_out.extend(values(points[vertex],3))
-                        if normals is not None:normals_out.extend(values(normals[normal_index],3))
+                        if generated:normals_out.extend(generated_normals[normal_index*3:normal_index*3+3])
+                        elif normals is not None:normals_out.extend(values(normals[normal_index],3))
                         if uv is not None:uv_out.extend(values(uv[uv_index],2))
                     indices_out.append(mapping[key])
         filename=f'mesh-{index+len(parts):06d}.bin'
@@ -356,7 +429,7 @@ def write_mesh(prim, output, index, cache, UsdGeom, UsdShade, Ar, Sdf):
         part_name=prim.GetDisplayName() or str(prim.GetName())
         if material_prim != prim:part_name+=' / '+(material_prim.GetDisplayName() or str(material_prim.GetName()))
         parts.append(dict(primPath=str(material_prim.GetPath()),sourcePrimPath=label,name=part_name,file=filename,vertices=len(positions_out)//3,
-                faces=len(counts_out),indices=len(indices_out),normals=normals is not None,uv=uv is not None,
+                faces=len(counts_out),indices=len(indices_out),normals=True,generatedNormals=generated,uv=uv is not None,
                 transform=transform,leftHanded=orientation=='leftHanded',doubleSided=bool(mesh.GetDoubleSidedAttr().Get()),**material))
     return parts
 

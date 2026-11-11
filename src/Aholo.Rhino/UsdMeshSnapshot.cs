@@ -113,6 +113,7 @@ internal sealed class UsdMeshSnapshot : IMeshImportSnapshot
                 if(materialIndex<0)throw new InvalidOperationException("Could not create the mesh snapshot material.");
                 using var attr=new ObjectAttributes{Name=part.Name,LayerIndex=layerIndex,MaterialSource=ObjectMaterialSource.MaterialFromObject,MaterialIndex=materialIndex};
                 attr.SetUserString("Aholo.Mesh.SourceFormat",sourceFormat);attr.SetUserString("Aholo.Mesh.SourceSha256",scene.SourceSha256);attr.SetUserString("Aholo.Mesh.SourcePrim",part.SourcePrimPath);attr.SetUserString("Aholo.Mesh.SourcePart",part.PrimPath);attr.SetUserString("Aholo.Mesh.SourceDoubleSided",part.DoubleSided?"true":"false");attr.SetUserString("Aholo.Mesh.SourceDependencies",System.Text.Json.JsonSerializer.Serialize(scene.DependencyHashes));
+                if(part.GeneratedFacetNormals)attr.SetUserString("Aholo.Mesh.GeneratedFacetNormals","true");
                 if(scene.SourceEntry is not null)attr.SetUserString("Aholo.Mesh.SourceEntry",scene.SourceEntry);
                 attr.SetUserString("Aholo.Mesh.SourceUpAxis",scene.UpAxis);
                 attr.SetUserString("Aholo.Mesh.SourceMetersPerUnit",scene.MetersPerUnit.ToString("R",System.Globalization.CultureInfo.InvariantCulture));

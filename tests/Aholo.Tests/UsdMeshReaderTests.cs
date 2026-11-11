@@ -83,6 +83,17 @@ public sealed class UsdMeshReaderTests
         var part=Assert.Single(UsdMeshReader.ReadBridgeOutput(f.Directory).Parts);Assert.Equal("/World/Mesh/Red",part.PrimPath);Assert.Equal("/World/Mesh",part.SourcePrimPath);
         f.Part["sourcePrimPath"]="/World/Other";f.Manifest();Assert.Throws<InvalidDataException>(()=>UsdMeshReader.ReadBridgeOutput(f.Directory));
     }
+    [Fact]
+    public void GeneratedFacetNormalProvenanceIsExplicitAndRequiresNormals()
+    {
+        using var f=new Fixture();f.Manifest();Assert.False(Assert.Single(UsdMeshReader.ReadBridgeOutput(f.Directory).Parts).GeneratedFacetNormals);
+        f.Part["generatedNormals"]=true;f.Manifest();Assert.True(Assert.Single(UsdMeshReader.ReadBridgeOutput(f.Directory).Parts).GeneratedFacetNormals);
+        f.Part["normals"]=false;f.Manifest();var error=Assert.Throws<InvalidDataException>(()=>UsdMeshReader.ReadBridgeOutput(f.Directory));
+        Assert.Contains("facet normals are missing",error.Message);
+    }
+    [Fact]
+    public void FacetProvenanceCannotUseAStringInsteadOfABoolean()
+    {using var f=new Fixture();f.Part["generatedNormals"]="true";f.Manifest();Assert.Throws<InvalidOperationException>(()=>UsdMeshReader.ReadBridgeOutput(f.Directory));}
     private sealed class Fixture:IDisposable
     {
         public static double[] Matrix=>new double[]{2,0,0,0,3,0,0,0,-4,10,20,30};

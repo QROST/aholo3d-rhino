@@ -332,3 +332,10 @@ Added deterministic textured and two-entry archive samples plus regression tests
 ### Candidate checkpoint — alpha.15
 
 Packages the integrated static OBJ/OBJ ZIP workflow, source selection, supported MTL/image handling, normal synthesis and bilingual errors with native acceptance samples. Final evidence: 1188 passing offline tests, zero-warning/error Release build and deterministic fixture verification. Existing plugin GUID, assembly identity and Yak slug remain stable. Both candidate archives retain pending host/service acceptance; local packaging does not install or publish them.
+
+
+## USD flat normals and planar concave quads after alpha.15
+
+Corrected missing-normal import to follow USD's original-face flat shading instead of delegating smoothing to Rhino. Normal generation precedes material splitting and triangulation; source-face vertices remain separate even without UV seams. Authored normals, left-handed orientation, mirror transforms and indexed corner attributes retain their distinct semantics. Planar concave and collinear-corner quads receive validated triangulation; convex and truly warped quads retain the native route. Exact arithmetic handles cancellation, subnormal predicates and wide coordinate ranges without a geometry-count ceiling.
+
+Two local read-only reviews strengthened direction/face association and original-corner offset checks. The primary performed changes and validation. Remote allowance was only 135 output tokens, so no useful remote review could be dispatched and no limit was changed. The new self-contained shading sample supports manual host acceptance; native appearance, embedded resources, Windows execution and live service coverage remain pending.

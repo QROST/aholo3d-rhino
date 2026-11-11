@@ -34,6 +34,8 @@ jobs:
         run: python scripts/check-region-contracts.py
       - name: Verify account coordination across processes (synthetic storage)
         run: python fixtures/oauth-coordinator-verify.py
+      - name: Verify mesh topology and shading geometry oracles
+        run: python fixtures/mesh-shading-verify.py --geometry-only
       - name: Check Gaussian resources
         run: python scripts/create-gs-assets.py --check
       - name: Validate packaged build payload (no Rhino or Yak installation)

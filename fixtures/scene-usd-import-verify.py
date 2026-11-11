@@ -86,10 +86,22 @@ with tempfile.TemporaryDirectory(prefix='aholo-scene-import-') as tmp:
     metadata=json.loads((demo/'scene-import.json').read_text());assert metadata['metersPerUnit']==1 and metadata['upAxis']=='Z'
     demo_gs=json.loads((demo/'manifest.json').read_text())['parts'];demo_mesh=json.loads((demo/'mesh-import.json').read_text())['parts']
     assert len(demo_gs)==2 and sum(p['count'] for p in demo_gs)==2 and len(demo_mesh)==1
-    assert demo_mesh[0]['vertices']==8 and demo_mesh[0]['faces']==6
+    part=demo_mesh[0];assert part['vertices']==24 and part['faces']==6 and part['generatedNormals']
     import struct
-    points=struct.unpack('<24f',(demo/demo_mesh[0]['file']).read_bytes()[:96])
+    payload=(demo/part['file']).read_bytes();points=struct.unpack('<72f',payload[:288])
     assert max(points[2::3])-min(points[2::3])==2
+    counts=struct.unpack('<6i',payload[288:312]);assert counts==(4,)*6
+    indices=struct.unpack('<24i',payload[312:408]);normals=struct.unpack('<72f',payload[408:696])
+    directions=set()
+    for face in range(6):
+        corners=indices[face*4:face*4+4];directions_for_face={normals[i*3:i*3+3] for i in corners}
+        assert len(directions_for_face)==1;directions.update(directions_for_face)
+        p0,p1,p2=[points[i*3:i*3+3] for i in corners[:3]]
+        a=[x-y for x,y in zip(p1,p0)];b=[x-y for x,y in zip(p2,p0)]
+        cross=(a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0])
+        length=sum(v*v for v in cross)**.5
+        assert directions_for_face=={tuple(v/length for v in cross)}
+    assert directions=={(1.,0.,0.),(-1.,0.,0.),(0.,1.,0.),(0.,-1.,0.),(0.,0.,1.),(0.,0.,-1.)}
 
     path=work/'instances.usda';stage,g,m=scene(path)
     copy=stage.DefinePrim('/Copy','Xform');copy.GetReferences().AddInternalReference('/Scene');copy.SetInstanceable(True)

@@ -8,6 +8,7 @@ public sealed record UsdMeshPrimitive(string PrimPath, string Name, float[] Posi
     float[]? Normals, float[]? TexCoords, GaussianTransform Transform, bool LeftHanded, bool DoubleSided, MeshMaterial Material, MeshTexture? Texture)
 {
     public string SourcePrimPath { get; init; } = PrimPath;
+    public bool GeneratedFacetNormals { get; init; }
     public IReadOnlyList<string> SourceGroups { get; init; } = Array.Empty<string>();
 }
 public sealed record UsdMeshScene(IReadOnlyList<UsdMeshPrimitive> Parts, string UpAxis, double MetersPerUnit,
@@ -74,6 +75,8 @@ public static class UsdMeshReader
             if (!Regex.IsMatch(file, @"\Amesh-[0-9]{6,}\.bin\z") || !files.Add(file)) throw Invalid("Invalid USD mesh payload path.");
             int vertices = part.GetProperty("vertices").GetInt32(), faces = part.GetProperty("faces").GetInt32(), count = part.GetProperty("indices").GetInt32();
             bool hasNormals = part.GetProperty("normals").GetBoolean(), hasUv = part.GetProperty("uv").GetBoolean();
+            bool generatedNormals = part.TryGetProperty("generatedNormals",out var generated) && generated.GetBoolean();
+            if(generatedNormals && !hasNormals)throw Invalid("Generated USD facet normals are missing from the payload.");
             if (vertices <= 0 || faces <= 0 || count <= 0) throw Invalid("Empty USD mesh.");
             long scalars = checked((long)vertices * (3 + (hasNormals ? 3 : 0) + (hasUv ? 2 : 0)) + faces + count);
             string payload = Path.Combine(directory, file); var info = new FileInfo(payload);
@@ -110,7 +113,7 @@ public static class UsdMeshReader
                 if (!texture.Sha256.Equals(Path.GetFileNameWithoutExtension(imageFile),StringComparison.OrdinalIgnoreCase) ||
                     (texture.MimeType == "image/png" ? ".png" : ".jpg") != Path.GetExtension(imageFile)) throw Invalid("USD image snapshot hash or media type does not match.");
             }
-            parts.Add(new(name,display,positions,counts,indices,hasNormals ? normals : null,hasUv ? uv : null,transform,part.GetProperty("leftHanded").GetBoolean(),part.GetProperty("doubleSided").GetBoolean(),material,texture){SourcePrimPath=sourcePrim});
+            parts.Add(new(name,display,positions,counts,indices,hasNormals ? normals : null,hasUv ? uv : null,transform,part.GetProperty("leftHanded").GetBoolean(),part.GetProperty("doubleSided").GetBoolean(),material,texture){SourcePrimPath=sourcePrim,GeneratedFacetNormals=generatedNormals});
         }
         if (parts.Count == 0) throw Invalid("The USD contains no supported meshes.");
         var result = new UsdMeshScene(parts,axis,units,hash,dependencies,root.GetProperty("warnings").EnumerateArray().Select(x => x.GetString() ?? "").ToArray());
