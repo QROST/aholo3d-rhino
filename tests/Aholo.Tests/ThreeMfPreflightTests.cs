@@ -46,7 +46,7 @@ public sealed class ThreeMfPreflightTests : IDisposable
         using var snapshot=NativeMeshImportSnapshot.Create(source,Convert.ToHexString(SHA256.HashData(original)));
         Assert.EndsWith(".3mf",snapshot.Path);Assert.Equal(original,File.ReadAllBytes(snapshot.Path));Assert.Equal(original,File.ReadAllBytes(source));
         Assert.True(MeshPlacementPolicy.IsNativeMeshFormat("3mf"));
-        Assert.Equal("3mf",MeshPlacementPolicy.SelectStaticMesh(new(){Artifacts=new[]{new TaskArtifact("model","model","3mf")}}).Format);
+        Assert.Equal("3mf",MeshPlacementPolicy.SelectStaticMesh(new(){Kind="object",Artifacts=new[]{new TaskArtifact("model","model","3mf")}}).Format);
         string copy=snapshot.Path;snapshot.Dispose();Assert.False(File.Exists(copy));Assert.True(File.Exists(source));
     }
     [Theory]

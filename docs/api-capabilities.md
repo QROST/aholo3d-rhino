@@ -87,7 +87,7 @@ The 30 public HTTP routes and 13 create forms are implemented; that is not a cla
 
 | Area | Implemented in this source candidate | Remaining before a complete parity claim |
 | --- | --- | --- |
-| Lux3D workflows | Ten public creates, typed outputs, paged cloud history, original-ID recovery, three mesh candidates, CPlane/point placement and volatile original-generation placement intent | Animation playback; OBJ/FBX archives, extended 3MF and task-linked ordinary mesh USD placement; native material and Undo acceptance |
+| Lux3D workflows | Ten public creates, typed outputs, paged cloud history, original-ID recovery, three mesh candidates, CPlane/point placement and volatile original-generation placement intent | Animation playback; OBJ/FBX archives, extended 3MF; native material and Undo acceptance |
 | Local mesh exchange | Local static USD/USDA/USDC/USDZ mesh import to candidates plus supported tessellated export, normals, PBR/direct UV bitmaps and double origins | Task-linked USD placement, polygons/subsets/subdivision, combined GS/mesh export, editable hierarchy and full material/texture mapping support; native/viewer acceptance |
 | GSRhino capabilities | PLY/SPLAT/SPZ v1–4, local static GS USD/USDZ, compatible saved GS references, full SH0–3 data and experimental native display | Windows/new-host regression acceptance; transparent interleaving, nested GS instances, capture/layout/print/Raytraced support; further large-scene performance work |
 | Accounts | International API Key validation/storage plus separate optional PKCE OAuth login/refresh | Remembered OAuth sessions and China-region parity; authenticated account/browser acceptance |

@@ -11,11 +11,18 @@ public static class MeshPlacementPolicy
         return new(SHA256.HashData(Encoding.UTF8.GetBytes(taskId.ToString("N")+":"+artifactKey)).AsSpan(0,16));
     }
     public static bool IsNativeMeshFormat(string format)=>format is "glb" or "ply" or "stl" or "3mf";
+    public static bool IsMeshFormat(string format)=>IsNativeMeshFormat(format)||format is "usd" or "usda" or "usdc" or "usdz";
+    public static bool CanPlaceMesh(LocalTask task,TaskArtifact artifact)=>task.SchemaVersion==LocalTask.CurrentSchemaVersion&&task.Kind=="object"&&IsMeshFormat(artifact.Format)&&artifact.Error is null;
+    public static void ValidateTask(LocalTask task)
+    {
+        if(task.SchemaVersion!=LocalTask.CurrentSchemaVersion||task.Kind!="object")throw new InvalidOperationException(UiText.Get("Choose a static object mesh result. Use Import GS for Gaussian scenes."));
+    }
     public static bool SupportsAutomaticPlacement(string operation)=>operation is "lux.text-to-3d" or "lux.img-to-3d";
     public static TaskArtifact SelectStaticMesh(LocalTask task,string? artifactKey=null)
     {
-        var artifact=artifactKey is null?task.Artifacts.FirstOrDefault(a=>IsNativeMeshFormat(a.Format)&&a.Error is null):task.Artifacts.FirstOrDefault(a=>a.Key==artifactKey);
-        if(artifact is null||!IsNativeMeshFormat(artifact.Format)||artifact.Error is not null)throw new InvalidOperationException(UiText.Get("Choose an available static GLB, mesh PLY, STL or core 3MF result. Use Import GS for Gaussian files."));
+        ValidateTask(task);
+        var artifact=artifactKey is null?task.Artifacts.FirstOrDefault(a=>IsMeshFormat(a.Format)&&a.Error is null):task.Artifacts.FirstOrDefault(a=>a.Key==artifactKey);
+        if(artifact is null||!CanPlaceMesh(task,artifact)||task.Artifacts.Count(a=>a.Key==artifact.Key)!=1)throw new InvalidOperationException(UiText.Get("Choose an available static GLB, mesh PLY, STL, core 3MF or USD mesh result. Use Import GS for Gaussian files."));
         return artifact;
     }
 }

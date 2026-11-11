@@ -199,3 +199,10 @@ Two remote Sol implementation reviews completed. The first confirmed the before/
 ## Candidate checkpoint — alpha.5
 
 Consolidates local mesh USD export (`7315d45`) and static local mesh USD import (`d29a8de`) into `0.2.0-alpha.5`. The package/assembly/command identities remain compatible. Source runtime verification is 878 passing offline tests and actual OpenUSD exchange checks; the current parity table and native acceptance gates still apply. Local archives are prepared separately from the clean metadata commit and are not installed or published automatically.
+
+
+## Task-linked mesh USD and placement identity
+
+Task preview/direct/automatic placement now use the common native-or-USD preparation route. Selection pins task/region/account/remote identity, operation, output key/format and known source hash across recovery. Existing/removed receipts are resolved before any download, and preview uses the same identity as direct placement. Cached results remain usable offline; known outputs avoid a redundant refresh. Revision/intent guards prevent late candidates or automatic placement after closure/revocation. Preparation, commit and prepared-document disposal are explicitly dispatched to Rhino UI.
+
+Remote Sol supplied routing and placement-mode reviews, test candidates and a final integration review. Candidate test drafts contained wrong check counts and an assumed constructor; primary tests use the actual implementation and verify the corrected cases. Hash checks remain in immutable source preflight. Final review prompted cancellation validation before receipt framing and explicit UI dispatch after candidate preparation. Native host behavior remains a separate gate.

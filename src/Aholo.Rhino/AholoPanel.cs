@@ -141,8 +141,11 @@ public sealed partial class AholoPanel : Panel,IPanel
         bool sameAccount=task?.ConnectionId==session.Connection.ConnectionId;
         refresh.Enabled=!working&&connected&&sameAccount&&capability?.CanQuery==true;
         download.Enabled=!working&&connected&&sameAccount&&capability?.CanDownload==true&&artifact is not null&&artifact.Error is null;
-        place.Enabled=!working&&task is not null&&artifact is not null&&(MeshPlacementPolicy.IsNativeMeshFormat(artifact.Format)||artifact.Format is "spz" or "dsl")&&artifact.LocalPath is not null&&File.Exists(artifact.LocalPath);
-        previewResult.Enabled=!working&&artifact is not null&&MeshPlacementPolicy.IsNativeMeshFormat(artifact.Format)&&artifact.Error is null&&(artifact.LocalPath is not null||connected&&sameAccount&&capability?.CanDownload==true);
+        bool mesh=task is not null&&artifact is not null&&MeshPlacementPolicy.CanPlaceMesh(task,artifact);
+        bool cached=artifact?.LocalPath is not null&&File.Exists(artifact.LocalPath);
+        // Mesh placement also resolves existing receipts offline, even after its cache was removed.
+        place.Enabled=!working&&task is not null&&artifact is not null&&artifact.Error is null&&(mesh||(artifact.Format is "ply" or "spz" or "dsl")&&cached);
+        previewResult.Enabled=!working&&mesh&&(cached||connected&&sameAccount&&capability?.CanDownload==true);
         continueRender.Enabled=!working&&connected&&sameAccount&&capability?.CanContinueRender==true;
         continueRender.Visible=task?.Kind=="render"&&capability?.CanContinueRender==true;
         cancel.Enabled=session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
@@ -230,6 +233,11 @@ public sealed partial class AholoPanel : Panel,IPanel
     private async Task PlaceAsync()
     {
         var task=Selected??throw new InvalidOperationException(T("Select a task first."));var artifact=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
+        if(MeshPlacementPolicy.CanPlaceMesh(task,artifact))
+        {
+            var result=await AholoPlugin.Placement.PlaceTaskAsync(task.Id,artifact.Key,meshEditor.Capture(),token);
+            Report(result.Message);return;
+        }
         if(artifact.LocalPath is null||!File.Exists(artifact.LocalPath))throw new InvalidOperationException(T("Download the selected result first."));
         var target=AholoHost.CaptureTarget(Document());
         if(artifact.Format=="dsl")
@@ -243,9 +251,7 @@ public sealed partial class AholoPanel : Panel,IPanel
         }
         if(artifact.Format=="spz")
         {string message=await GaussianDocument.ImportSceneAsync(artifact.LocalPath,target,Scale(),Axis(),sourceUnits.SelectedIndex==0,token,StageProgress(),taskId:task.Id);AholoHost.Ui(()=>Report(message));return;}
-        if(!MeshPlacementPolicy.IsNativeMeshFormat(artifact.Format))throw new InvalidOperationException(T("This result format cannot be placed directly."));
-        var result=await AholoPlugin.Placement.PlaceTaskAsync(task.Id,artifact.Key,meshEditor.Capture(),token);
-        Report(result.Message);
+        throw new InvalidOperationException(T("This result format cannot be placed directly."));
     }
     private async Task ImportGsAsync()
     {

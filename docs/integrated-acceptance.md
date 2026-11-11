@@ -100,3 +100,8 @@ Run `AholoExportMesh` and the panel action on both platforms. Follow the mesh ch
 ### Local ordinary USD import (source after alpha.4)
 
 Use the local mesh loader for USD/USDA/USDC/USDZ. Exercise textured triangles/quads, face-varying seams, nested/mirrored instances, Y/Z axes and normal document units; verify chosen height/CPlane placement and one Block/Undo. Change units/tolerance/color preprocessing during loading: preparation or acceptance must reject the stale snapshot. Close the document/cancel during processing. Clear the candidate’s temporary directory, save/reopen and verify embedded textures and source/derived hashes. Unsupported subdivision/n-gons/animation/subsets/mixed GS must fail with no document mutation. Record Mac and Windows native results separately; the automated OpenUSD checks do not establish this acceptance.
+
+
+### Task mesh recovery and USD routing
+
+For the same GLB/3MF/USD result, preview then accept, and invoke direct placement: only the original block is selected, never duplicated. Repeat after clearing the downloaded cache and disconnecting: existing placement/Redo guidance must work without network. For a missing unplaced cache, reconnect to the original account and recover only the selected output; a reordered response must not change the choice. Cancel, switch account, close/hide the panel or change the target document while downloading/converting: no late unwanted placement/candidate. Confirm the source task is not regenerated. Repeat in both native hosts.

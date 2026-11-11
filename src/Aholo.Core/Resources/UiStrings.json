@@ -3662,5 +3662,33 @@
   {
     "English": "Document units or color preprocessing changed. Reload the USD candidate before acceptance.",
     "Chinese": "文档单位或颜色预处理设置已改变，请重新加载 USD 候选后再接受。"
+  },
+  {
+    "English": "The selected task result changed. Select it again before placement.",
+    "Chinese": "所选任务结果已改变，请重新选择后再放置。"
+  },
+  {
+    "English": "The original task result is not available locally. No new generation was submitted.",
+    "Chinese": "原任务结果尚未保存到本机，未提交新的生成任务。"
+  },
+  {
+    "English": "The connection changed. Retry with the task's original account.",
+    "Chinese": "连接已改变，请使用任务的原账号重试。"
+  },
+  {
+    "English": "The cached result does not match its recorded format. Download it again.",
+    "Chinese": "缓存结果与记录格式不符，请重新下载。"
+  },
+  {
+    "English": "Choose a static object mesh result. Use Import GS for Gaussian scenes.",
+    "Chinese": "请选择静态单体网格结果，高斯场景请使用“导入 GS”。"
+  },
+  {
+    "English": "Choose an available static GLB, mesh PLY, STL, core 3MF or USD mesh result. Use Import GS for Gaussian files.",
+    "Chinese": "请选择可用的静态 GLB、网格 PLY、STL、核心 3MF 或 USD 网格结果，高斯文件请使用“导入 GS”。"
+  },
+  {
+    "English": "This result is already loaded as a candidate.",
+    "Chinese": "该结果已载入候选。"
   }
 ]

@@ -84,7 +84,7 @@ USDZ is a portable single file. Textured `.usd`, `.usdc` and `.usda` exports hav
 
 Use **Library → Load local mesh** for ordinary mesh `.usd`, `.usda`, `.usdc` or `.usdz`. Supported static triangles/quads, transforms, normals, UV seams, basic Preview Surface materials and direct sRGB PNG/JPEG bitmaps enter the existing candidate preview and Block/Undo flow. Source files/dependencies are privately snapshotted; the derived 3DM embeds its images and records source hashes separately. Placement still uses the chosen height/CPlane/point, rather than preserving the source world position. Native Rhino appearance, embedded-image persistence and Windows execution remain pending acceptance.
 
-This is a strict static subset: subdivision, faces with more than four corners, per-face material subsets, animation/skinning, hidden/proxy geometry and unsupported shading fail explicitly. Import flattens hierarchy and displays meshes two-sided; the source culling flag is retained as metadata. Downloaded USD artifacts are not yet wired to task placement; local import is available after downloading. Combined GS/mesh exchange remains open work.
+This is a strict static subset: subdivision, faces with more than four corners, per-face material subsets, animation/skinning, hidden/proxy geometry and unsupported shading fail explicitly. Import flattens hierarchy and displays meshes two-sided; the source culling flag is retained as metadata. USD task results use the same preview/direct-placement path, with stable output identity and receipt checks before download. Combined GS/mesh exchange remains open work.
 
 ## Local GS USD / USDZ import and export
 

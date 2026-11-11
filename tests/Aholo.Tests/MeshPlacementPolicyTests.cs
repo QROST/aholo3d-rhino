@@ -14,7 +14,7 @@ public sealed class MeshPlacementPolicyTests
     [Fact]
     public void CachedStaticResultCanBeChosenWithoutTreatingAnimationOutputsAsAutoPlace()
     {
-        var task=new LocalTask{Artifacts=new[]{new TaskArtifact("image","image","image"),new TaskArtifact("mesh","mesh","glb",LocalPath:"saved.glb")}};
+        var task=new LocalTask{Kind="object",Artifacts=new[]{new TaskArtifact("image","image","image"),new TaskArtifact("mesh","mesh","glb",LocalPath:"saved.glb")}};
         Assert.Equal("mesh",MeshPlacementPolicy.SelectStaticMesh(task).Key);
         Assert.Throws<InvalidOperationException>(()=>MeshPlacementPolicy.SelectStaticMesh(task,"image"));
         Assert.False(MeshPlacementPolicy.SupportsAutomaticPlacement("lux.articulation-animation"));Assert.False(MeshPlacementPolicy.SupportsAutomaticPlacement("world.generate"));

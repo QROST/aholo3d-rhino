@@ -62,14 +62,16 @@ public sealed partial class AholoPanel
     {
         var task=Selected??throw new InvalidOperationException(T("Select a task first."));
         var artifact=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
-        if(!MeshPlacementPolicy.IsNativeMeshFormat(artifact.Format))throw new InvalidOperationException(T("Choose an available static GLB, mesh PLY, STL or core 3MF result. Use Import GS for Gaussian files."));
-        if(artifact.LocalPath is null||!File.Exists(artifact.LocalPath))
+        var selection=MeshTaskSelection.Capture(task,artifact.Key);
+        var target=meshEditor.Capture();long revision=meshEditor.Revision;
+        Task Validate(CancellationToken ct)=>AholoHost.OnUi(()=>
         {
-            if(!session.Connection.Connected||task.ConnectionId!=session.Connection.ConnectionId)throw new InvalidOperationException(T("Connect to the task's original account before recovering its download."));
-            task=await session.Client.DownloadAsync(new(task.Id,"artifact:"+artifact.Key),token);session.Observe(task);
-            artifact=MeshPlacementPolicy.SelectStaticMesh(task,artifact.Key);
-        }
-        await meshEditor.AddAsync(artifact.LocalPath!,artifact.Sha256,task.Name,task.Id,token);
+            ct.ThrowIfCancellationRequested();AholoPlugin.Placement.Validate(target);
+            if(disposed||!shown||meshEditor.Revision!=revision)throw new OperationCanceledException(ct);
+            return true;
+        });
+        artifact=await MeshTaskSource.AcquireAsync(selection,task,()=>session.Connection,session.Client.DownloadAsync,session.Observe,Validate,token);
+        await meshEditor.AddAsync(artifact.LocalPath!,artifact.Sha256,task.Name,task.Id,token,selection.ImportId,revision);
     }
     private async Task ExportMeshAsync()
     {

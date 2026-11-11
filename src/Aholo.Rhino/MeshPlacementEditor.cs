@@ -22,6 +22,7 @@ internal sealed class MeshPlacementEditor : IDisposable
     private Point3d point;
     private bool disposed,visible=true;
     private long revision;
+    internal long Revision=>revision;
     internal Control View{get;}
     internal string HeightText{get=>height.Text;set=>height.Text=value;}
     internal MeshPlacementEditor(uint serial,MeshPlacementService placement,Action<string> report,Func<string,Func<Task>,Task> run)
@@ -60,13 +61,26 @@ internal sealed class MeshPlacementEditor : IDisposable
     {
         if(disposed)return;visible=shown;if(shown)Schedule();else{timer.Stop();preview.Clear();}
     }
-    internal async Task AddAsync(string path,string? hash,string name,Guid? taskId,CancellationToken ct)
+    internal async Task AddAsync(string path,string? hash,string name,Guid? taskId,CancellationToken ct,Guid? importId=null,long? expectedRevision=null)
     {
-        if(candidates.Count>=3)throw new InvalidOperationException(UiText.Get("Up to 3 candidates per group. Remove an unwanted candidate first."));
-        long expected=revision;var target=Capture();PreparedAsset asset=await placement.PrepareAsync(path,hash,target,ct);
-        if(disposed||expected!=revision||ct.IsCancellationRequested){asset.Dispose();ct.ThrowIfCancellationRequested();return;}
-        candidates.Add(new(name,asset,target,Guid.NewGuid(),taskId));Select(candidates.Count-1);
-        report(UiText.Get("Candidate loaded. Adjust placement, compare candidates, then accept. The document is unchanged until acceptance.")+(asset.ImportWarnings.Count==0?"":"\n"+string.Join("\n",asset.ImportWarnings.Select(w=>UiText.Get(w)))));
+        var request=await AholoHost.OnUi(()=>
+        {
+            ct.ThrowIfCancellationRequested();
+            if(disposed||expectedRevision is not null&&expectedRevision!=revision)throw new OperationCanceledException(ct);
+            int duplicate=importId.HasValue?candidates.FindIndex(c=>c.ImportId==importId.Value):-1;
+            if(duplicate>=0){Select(duplicate);report(UiText.Get("This result is already loaded as a candidate."));return (revision,(MeshPlacementTarget?)null);}
+            if(candidates.Count>=3)throw new InvalidOperationException(UiText.Get("Up to 3 candidates per group. Remove an unwanted candidate first."));
+            return (revision,(MeshPlacementTarget?)Capture());
+        }).ConfigureAwait(false);
+        if(request.Item2 is null)return;
+        PreparedAsset asset=await placement.PrepareAsync(path,hash,request.Item2,ct).ConfigureAwait(false);
+        await AholoHost.OnUi(()=>
+        {
+            if(disposed||request.revision!=revision||ct.IsCancellationRequested){asset.Dispose();ct.ThrowIfCancellationRequested();return false;}
+            candidates.Add(new(name,asset,request.Item2,importId??Guid.NewGuid(),taskId));Select(candidates.Count-1);
+            report(UiText.Get("Candidate loaded. Adjust placement, compare candidates, then accept. The document is unchanged until acceptance.")+(asset.ImportWarnings.Count==0?"":"\n"+string.Join("\n",asset.ImportWarnings.Select(w=>UiText.Get(w)))));
+            return true;
+        }).ConfigureAwait(false);
     }
     private void Select(int index){selected.DataStore=candidates.Select((c,i)=>$"{(char)('A'+i)} · {c.Name}").ToArray();selected.SelectedIndex=index;Schedule();}
     private void Pick()
