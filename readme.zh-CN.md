@@ -167,3 +167,6 @@ Apache-2.0，见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。运行时发现、管
 ## OBJ 导入
 
 在资产库或 `AholoImportMesh` 中选择本地 `.obj`/OBJ `.zip`，也可选择任务的 `obj_zip` 结果。准备前明确选择包内模型、源单位及 Y/Z 上轴。静态平面多边形、平滑/显式法线、支持的 MTL 颜色/透明度和 PNG/JPEG 漫反射贴图会进入统一候选与 Block 流程，无需 Python。旧式光照转换为 PBR 时会提示差异；不支持的几何或材质效果明确报错。普通 ZIP、FBX 任务结果仍仅供下载。每个任务结果保留一次放置记录；如需选择包内另一个模型，请把已下载 ZIP 作为本地文件导入。详见[格式范围与手动验收](docs/obj-import-development.md)。新增 Mac/Windows 原生行为仍待验收。
+
+
+GS 准备流程已加入保留完整深度精度的快速排序，所有可见高斯和透明叠加顺序均保留。[CPU 实测范围与待完成的原生性能验收](docs/gs-sort-performance.md)。

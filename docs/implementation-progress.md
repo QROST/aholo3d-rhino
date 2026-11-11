@@ -452,3 +452,12 @@ Validation: Release build with zero warnings/errors; 1,404 .NET tests passed on 
 ## Local candidate alpha.24
 
 Packages the operation lifecycle changes from `ed3302b`, without changing saved-document, command or Yak identities. Versioned metadata and both platform archive receipts are verified separately from the 1,404-test runtime check. The payload now includes the operation lifecycle behavior/acceptance document; native and service acceptance remain pending. The candidate is not installed, pushed or published.
+
+
+## Exact GS sorting acceleration (after alpha.24)
+
+Native projected values retain increasing unique global ordinals. Added a stable full-64-bit depth radix path for large monotonic-ordinal inputs, preserving reverse insertion ordering at equal depth. Every referenced value is validated before any already-sorted shortcut. Constant byte passes are skipped; arbitrary/duplicate ordinals and small inputs retain stable merge sorting. The 4,096 threshold only selects an algorithm; it does not cap visible geometry. Existing caller buffers are reused with a 1 KiB stack histogram and no per-GS heap allocation.
+
+The reproducible benchmark freezes the exact original `9f7fb3b` merge implementation, alternates five paired samples on each of 20 synthetic cases and compares each result to independent stable LINQ ordering. The measured 1,048,576-value random-depth median changed from 228.48 ms to 83.23 ms (2.75x); many-equal-depth values from 132.87 ms to 31.23 ms. Arbitrary-ordinal fallback is roughly unchanged. All current-sort measured samples allocated zero managed heap bytes. This is Apple Silicon/.NET 8.0.29 CPU sorting with tiered compilation disabled for the benchmark process, not native Rhino navigation, GPU or Windows performance. Raw samples and candidate source hashes are recorded in [the benchmark report](gs-sort-performance.md).
+
+Validation: Release compilation zero warnings/errors; 1,421 .NET tests passed, zero failures/skips (17 additional tests). New cases exercise threshold boundaries, adjacent/subnormal/maximum depths, signed ordinal extremes, stable duplicate indices, full validation, unused invalid values, scratch bounds and large equal-depth transparency. Cancellation tests coordinate with a worker thread and can depend on scheduler timing. Two local read-only reviews checked sorting and benchmark independence; remote allowance was insufficient and no third-party inference was made. No native Rhino execution, service submission, installation, push or publication occurred.

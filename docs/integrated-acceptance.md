@@ -210,3 +210,8 @@ Check GLB preparation/authorized cloud output separately from USD export/re-impo
 ## Local operation lifecycle (after alpha.23)
 
 Run the document-scoped command cancellation, queued placement, Scripted path/OBJ, terminal ID, panel status and shutdown checks in [local operations](operation-lifecycle.md). Portable lifecycle tests do not establish native event, Undo or quit-time acceptance.
+
+
+## Exact GS depth-sort acceleration (after alpha.24)
+
+Repeat the saved-document/overlapping-instance orbit, clipping, settling and equal-depth color checks in [GS sorting performance](gs-sort-performance.md). Verify unchanged compositing and complete instances on both hosts. Record native preparation and navigation observations separately from the CPU-only synthetic benchmark.

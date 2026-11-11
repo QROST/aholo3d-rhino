@@ -166,3 +166,6 @@ Settings → **Restore saved connection** recovers a stopped background connecti
 ## OBJ imports
 
 Load local `.obj`/OBJ `.zip` files through Library or `AholoImportMesh`, or choose a typed `obj_zip` task result. Select one model, source units and Y/Z up before preparation. Static planar polygons, smoothing/authored normals, supported MTL colors/opacity and PNG/JPEG diffuse maps enter the shared candidate/Block workflow without Python. Legacy lighting is a reported PBR approximation; unsupported geometry/material effects fail explicitly. Generic ZIP and FBX task outputs remain download-only. Each task result keeps one placement; import its ZIP locally to choose a different entry. See [format limits and manual acceptance](docs/obj-import-development.md). New native Mac/Windows behavior remains unaccepted.
+
+
+GS preparation includes an exact depth-sort fast path that retains all visible Gaussians and their transparent order. [Measured CPU scope and pending native performance checks](docs/gs-sort-performance.md).

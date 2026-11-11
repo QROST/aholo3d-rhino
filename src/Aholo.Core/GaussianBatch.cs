@@ -209,14 +209,38 @@ public static class GaussianDepthSorter
         ct.ThrowIfCancellationRequested();
         if (scratch.Length < indices.Length) throw new ArgumentException("Sort scratch must be at least as long as the index range.", nameof(scratch));
         if (indices.Overlaps(scratch)) throw new ArgumentException("Sort scratch must not overlap the indices.", nameof(scratch));
+        bool increasing=true,decreasing=true,ordered=true;
+        ulong firstDepth=0,varyingDepthBits=0;
         for (int i = 0; i < indices.Length; ++i)
         {
             if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
             int index = indices[i];
             if ((uint)index >= (uint)values.Length || !double.IsFinite(values[index].Depth) || values[index].Depth <= 0)
                 throw new ArgumentException("Every sort index must reference a finite positive projected depth.", nameof(indices));
+            ref readonly var current=ref values[index];
+            if(i==0)firstDepth=BitConverter.DoubleToUInt64Bits(current.Depth);
+            else if(increasing||decreasing||ordered)
+            {
+                ref readonly var previous=ref values[indices[i-1]];
+                increasing&=current.GlobalOrdinal>previous.GlobalOrdinal;
+                decreasing&=current.GlobalOrdinal<previous.GlobalOrdinal;
+                ordered&=BeforeOrEqual(in previous,in current);
+                if(increasing||decreasing)varyingDepthBits|=firstDepth^BitConverter.DoubleToUInt64Bits(current.Depth);
+            }
         }
-        if (indices.Length < 2) return;
+        ct.ThrowIfCancellationRequested();
+        if (indices.Length < 2 || ordered) return;
+        // Native projection emits increasing unique ordinals. Start with exact descending ordinal
+        // order, then stably radix-sort all 64 depth bits. Arbitrary callers retain the merge path.
+        if(indices.Length>=4096&&(increasing||decreasing))
+        {
+            if(increasing)for(int i=0;i<indices.Length/2;i++)
+            {
+                if((i&1023)==0)ct.ThrowIfCancellationRequested();
+                int last=indices.Length-1-i;(indices[i],indices[last])=(indices[last],indices[i]);
+            }
+            RadixDepth(indices,values,scratch,varyingDepthBits,ct);return;
+        }
         Span<int> source = indices, destination = scratch[..indices.Length];
         bool sourceIsIndices = true;
         for (int width = 1; width < indices.Length; width = width > indices.Length / 2 ? indices.Length : width * 2)
@@ -243,6 +267,36 @@ public static class GaussianDepthSorter
             {
                 ct.ThrowIfCancellationRequested(); int length = Math.Min(1024, indices.Length - i); source.Slice(i, length).CopyTo(indices.Slice(i, length));
             }
+        ct.ThrowIfCancellationRequested();
+    }
+    private static void RadixDepth(Span<int> indices,ReadOnlySpan<GaussianProjectedValue> values,Span<int> scratch,ulong varyingBits,CancellationToken ct)
+    {
+        Span<int> histogram=stackalloc int[256];
+        Span<int> source=indices,destination=scratch[..indices.Length];bool sourceIsIndices=true;
+        for(int shift=0;shift<64;shift+=8)
+        {
+            ct.ThrowIfCancellationRequested();if(((varyingBits>>shift)&255)==0)continue;
+            histogram.Clear();
+            for(int i=0;i<source.Length;i++)
+            {
+                if((i&1023)==0)ct.ThrowIfCancellationRequested();
+                int digit=(int)((~BitConverter.DoubleToUInt64Bits(values[source[i]].Depth)>>shift)&255);
+                histogram[digit]++;
+            }
+            int offset=0;
+            for(int digit=0;digit<256;digit++){int count=histogram[digit];histogram[digit]=offset;offset+=count;}
+            for(int i=0;i<source.Length;i++)
+            {
+                if((i&1023)==0)ct.ThrowIfCancellationRequested();
+                int index=source[i],digit=(int)((~BitConverter.DoubleToUInt64Bits(values[index].Depth)>>shift)&255);
+                destination[histogram[digit]++]=index;
+            }
+            Span<int> temp=source;source=destination;destination=temp;sourceIsIndices=!sourceIsIndices;
+        }
+        if(!sourceIsIndices)for(int i=0;i<indices.Length;i+=Math.Min(1024,indices.Length-i))
+        {
+            ct.ThrowIfCancellationRequested();int length=Math.Min(1024,indices.Length-i);source.Slice(i,length).CopyTo(indices.Slice(i,length));
+        }
         ct.ThrowIfCancellationRequested();
     }
     private static bool BeforeOrEqual(in GaussianProjectedValue left, in GaussianProjectedValue right) =>
