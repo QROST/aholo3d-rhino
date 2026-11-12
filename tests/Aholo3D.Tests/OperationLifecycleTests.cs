@@ -8,16 +8,22 @@ public sealed class OperationLifecycleTests
         var registry=new OperationRegistry();var oldDone=new TaskCompletionSource<int>();
         var replacementDone=new TaskCompletionSource<int>();LocalOperationHandle<int>? replacement=null;
         Task<int>? old=null;bool replacementCancelled=false;
+        var firstCancelled=new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         var first=registry.Start("document:1:first","First",async ct=>
         {
             using var registration=ct.Register(()=>
             {
-                oldDone.SetResult(1);
-                old!.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
-                replacement=registry.Start("document:1:second","Replacement",token=>
-                {token.Register(()=>replacementCancelled=true);return replacementDone.Task;});
+                try
+                {
+                    oldDone.SetResult(1);
+                    old!.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+                    replacement=registry.Start("document:1:second","Replacement",token=>
+                    {token.Register(()=>replacementCancelled=true);return replacementDone.Task;});
+                }
+                finally { firstCancelled.TrySetCanceled(ct); }
             });
-            await Task.Delay(Timeout.Infinite,ct);return 0;
+            // Keep this registration alive until its reentrant replacement has been attempted.
+            return await firstCancelled.Task;
         });
         old=registry.RunAsync("document:1:second","Old",_=>oldDone.Task);
         registry.CancelPrefix("document:1:");

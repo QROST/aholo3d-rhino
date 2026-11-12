@@ -73,15 +73,30 @@ public sealed class AssetUploadTests : IDisposable
         Assert.Equal(0,handler.Requests);
     }
     [Fact]
-    public async Task TimeoutIncludesPendingStatusHttpAndCallerCancellationStaysCancellation()
+    public async Task CompletionDeadlineIncludesPendingStatusHttp()
     {
         var handler=new UploadHandler("[]"){StallStatus=true};using var api=Api();using var http=new HttpClient(handler);
-        var client=new Aholo3DApiClient(api,http){UploadCompletionTimeout=TimeSpan.FromMilliseconds(80)};
-        var error=await Assert.ThrowsAsync<ProviderException>(()=>client.UploadAsync(Key,file));
+        var client=new Aholo3DApiClient(api,http){UploadCompletionTimeout=TimeSpan.FromSeconds(1)};
+        var error=await Assert.ThrowsAsync<ProviderException>(()=>client.UploadAsync(Key,file).WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.Equal("upload_timeout",error.Code);
-        using var cancellation=new CancellationTokenSource(TimeSpan.FromMilliseconds(80));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>client.UploadAsync(Key,file,cancellation.Token));
+        Assert.True(handler.StatusEntered.Task.IsCompletedSuccessfully);
         Assert.Empty(handler.Blocks);
+    }
+    [Fact]
+    public async Task CallerCancellationDuringPendingStatusStaysCancellation()
+    {
+        var handler=new UploadHandler("[]"){StallStatus=true};using var api=Api();using var http=new HttpClient(handler);
+        var client=new Aholo3DApiClient(api,http){UploadCompletionTimeout=TimeSpan.FromMinutes(1)};
+        using var cancellation=new CancellationTokenSource();
+        var pending=client.UploadAsync(Key,file,cancellation.Token);
+        try
+        {
+            await handler.StatusEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>pending.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Empty(handler.Blocks);
+        }
+        finally { cancellation.Cancel(); }
     }
     [Fact]
     public async Task LostPartResponseIsNotBlindlyReplayed()
@@ -123,6 +138,7 @@ public sealed class AssetUploadTests : IDisposable
     private sealed class UploadHandler(string ranges):HttpMessageHandler
     {
         public string? InitResult,StatusResult;
+        public TaskCompletionSource StatusEntered { get; }=new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Uri? Init;public int Requests;public bool StallStatus,FailPart;
         public List<long> Blocks=new();public List<string> Bodies=new();
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
@@ -138,7 +154,7 @@ public sealed class AssetUploadTests : IDisposable
                 return Response("{\"c\":\"0\",\"d\":null}");
             }
             if(StatusResult is not null)return Response("{\"c\":\"0\",\"d\":"+StatusResult+"}");
-            if(StallStatus)await Task.Delay(Timeout.Infinite,ct);
+            if(StallStatus){StatusEntered.TrySetResult();await Task.Delay(Timeout.Infinite,ct);}
             return Response("{\"c\":\"0\",\"d\":{\"status\":5,\"url\":\"https://assets.example.test/result.glb\"}}");
         }
     }
