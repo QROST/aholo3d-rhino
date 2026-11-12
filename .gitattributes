@@ -1,0 +1,5 @@
+# Keep source and reproducible text fixtures identical on macOS and Windows.
+* text=auto eol=lf
+
+# Official snapshots are checked against their original download hashes.
+docs/api/** -text

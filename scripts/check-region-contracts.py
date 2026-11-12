@@ -28,21 +28,21 @@ def shape(value):
     return normalize({"paths": paths, "components": value.get("components", {})})
 
 def check():
-    inventory = json.loads((API / "china/sources.json").read_text())
+    inventory = json.loads((API / "china/sources.json").read_text(encoding="utf-8"))
     for entry in inventory["sources"]:
         path = API / "china" / entry["file"]
         if hashlib.sha256(path.read_bytes()).hexdigest() != entry["sha256"]:
             raise ValueError("Official snapshot bytes changed: " + entry["file"])
     for name in SERVICES:
-        international = json.loads((API / (name + ".openapi.json")).read_text())
-        china = json.loads((API / "china" / (name + ".openapi.json")).read_text())
+        international = json.loads((API / (name + ".openapi.json")).read_text(encoding="utf-8"))
+        china = json.loads((API / "china" / (name + ".openapi.json")).read_text(encoding="utf-8"))
         if china["servers"][0]["url"] != "https://api.aholo3d.cn":
             raise ValueError("Unexpected China gateway")
         if shape(international) != shape(china):
             raise ValueError("Regional request/response contract differs: " + name)
         print(name + ": " + str(len(china["paths"])) + " paths; normalized request/response/security shapes match")
-    resource = json.loads((API / "china/oauth-resource.json").read_text())
-    authorization = json.loads((API / "china/oauth-authorization-server.json").read_text())
+    resource = json.loads((API / "china/oauth-resource.json").read_text(encoding="utf-8"))
+    authorization = json.loads((API / "china/oauth-authorization-server.json").read_text(encoding="utf-8"))
     assert resource["resource"] == "https://api.aholo3d.cn"
     assert resource["authorization_servers"] == ["https://www.aholo3d.cn"]
     assert authorization["issuer"] == "https://www.aholo3d.cn"
@@ -52,7 +52,7 @@ def check():
     assert "S256" in authorization["code_challenge_methods_supported"]
     assert "none" in authorization["token_endpoint_auth_methods_supported"]
     assert {"authorization_code", "refresh_token"} <= set(authorization["grant_types_supported"])
-    asset = json.loads((API / "china/asset.openapi.json").read_text())
+    asset = json.loads((API / "china/asset.openapi.json").read_text(encoding="utf-8"))
     ous_servers = {server["url"] for path in asset["paths"].values() for operation in path.values() if isinstance(operation, dict) for server in operation.get("servers", [])}
     assert "https://ous-cos.kujiale.com" in ous_servers
     print("China gateway, OUS and public-client PKCE discovery snapshots verified. Runtime region support and live account acceptance are separate gates.")
