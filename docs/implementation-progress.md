@@ -543,3 +543,9 @@ Two remote reviews (`aholo3d-layout-design-audit-20261112-02`, `aholo3d-workflow
 Parent implemented and reviewed shared scrolling/dialog layouts, stable action groups, proportional matrix inputs, Settings sections, preserved operation identities with shorter captions, and actual availability for recovery/poll/candidate actions. Local checks cover language resources, metadata, task/history navigation and invocation isolation; native layout, keyboard/high-DPI and resize acceptance still require the user. No new service feature, paid service call, Rhino automation or publication is part of this step.
 
 Final local verification: Release build zero warnings/errors; **137 focused tests passed**, zero failures/skips, covering language/resources, actual-plugin metadata, Library/workspace navigation, invocation isolation, cloud history and application lifecycle. Native controls are not executed by these tests.
+
+## Workspace usability candidate alpha.33
+
+`926163d` adds a journal read index with fresh recovery states and page-copy isolation. `ef8a5a7` adds contextual Library actions, schema-backed live form validation, debounced/cancellable search and opt-in per-document restart drafts. Common GS/render preferences restore without retaining credentials or automatic placement. Safe saved-document identity, private atomic JSON, corruption retention, revision conflicts and untitled/Save As behavior are documented in [workspace navigation](workspace-navigation.md).
+
+Final versioned build is warning/error free; 1,565 .NET tests pass with one Windows-only skip, and all existing Python CI checks pass. Remote Kimi supplied a history candidate that was corrected and verified locally; persistence/review requests failed without usable answers. Timing, delegation scope and manual acceptance boundaries are recorded in [validation](validation.md). This is a local candidate; native Mac/Windows acceptance and public release remain separate.

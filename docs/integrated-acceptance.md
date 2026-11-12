@@ -1,6 +1,6 @@
 # Integrated alpha acceptance
 
-CuriousArc · qrost. Candidate: 0.2.0-alpha.32. Native and service acceptance: pending.
+CuriousArc · qrost. Candidate: 0.2.0-alpha.33. Native and service acceptance: pending.
 
 ## Offline Rhino checks
 
@@ -12,6 +12,10 @@ Run separately on Apple Silicon Mac and Windows Rhino 8.32+, in English and Chin
 4. Place a downloaded static GLB: visible native Block on the selected construction plane/point, intended height, materials retained, one Undo/Redo cycle. Repeat the click and reopen the panel: no duplicate. Delete/Undo the result: no automatic re-insertion. Save/reopen 3DM and repeat identity check. Test another unit system, wrong active document and units changed during preparation.
 5. Use GS probe and a known PLY/SPLAT/SPZ/USD scene. Test SPZ World placement twice, Undo/Redo and export to USDZ; verify all parts, opacity, SH colors and source axis. Verify source count, color, clipping and navigation as in the GS checklist. Unsupported PLY/animated GLB must fail with the original file retained.
 6. While busy, open Settings and attempt connection changes: key entry must not disappear silently. Settings status must update after a connection operation. Inspect numeric plug-in version 0.2.0.0 and publisher CuriousArc.
+
+## Alpha.33 workspace checks
+
+Follow the five [alpha.33 manual checks](workspace-navigation.md#alpha33-manual-checks): primary result action and More at narrow widths; inline validation for all 13 forms; latest-wins search; opt-in per-document restart recovery and safe settings; Forget, untitled/Save As and revision conflicts. No automated native result is claimed.
 
 ## Authorized service checks
 

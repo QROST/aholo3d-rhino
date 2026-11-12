@@ -1,0 +1,12 @@
+{
+  "records": 2000,
+  "pageSize": 50,
+  "coldMs": 166.9209,
+  "cachedMedianMs": 5.2772,
+  "forcedMedianMs": 68.9974,
+  "iterations": 15,
+  "runtime": ".NET 8.0.29",
+  "architecture": "Arm64",
+  "sourceCommit": "ef8a5a7",
+  "scope": "Synthetic terminal-task journal reads only; 15 alternating cached/forced reads, no Rhino UI or live service."
+}

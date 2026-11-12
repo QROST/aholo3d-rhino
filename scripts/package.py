@@ -78,7 +78,7 @@ def main():
     for name in ['LICENSE','NOTICE','readme.md','readme.zh-CN.md','fixtures/tiny-world.ply','fixtures/mesh-core.3mf','fixtures/mesh-textured.3mf','fixtures/create-textured-3mf.py',
                  'fixtures/create-obj-sample.py','fixtures/mesh-obj/scene.obj','fixtures/mesh-obj/materials.mtl','fixtures/mesh-obj/checker.png','fixtures/mesh-obj-multiple.zip','docs/obj-import-development.md',
                  'fixtures/mixed-scene.usda','fixtures/mesh-subsets.usda','fixtures/mesh-shading.usda','fixtures/gaussian-anisotropic.ply','fixtures/gaussian-sh3.ply','assets/gaussian-alpha.png','assets/gaussian-opacity-atlas.png',
-                 'docs/gs-antialiasing.md','docs/gs-sort-performance.md','docs/benchmarks/gs-sort-2026-11-11-arm64.json','fixtures/gaussian-antialiasing.usda','docs/gs-host-acceptance.md','docs/gs-freeze-repair.md','docs/gs-visibility-stability.md','docs/decisions/0001-native-gaussian-viewport.md',
+                 'docs/gs-antialiasing.md','docs/gs-sort-performance.md','docs/benchmarks/gs-sort-2026-11-11-arm64.json','docs/benchmarks/history-index-2026-11-12-arm64.json','fixtures/gaussian-antialiasing.usda','docs/gs-host-acceptance.md','docs/gs-freeze-repair.md','docs/gs-visibility-stability.md','docs/decisions/0001-native-gaussian-viewport.md',
                  'docs/architecture.md','docs/repository-rename.md','docs/host-acceptance.md','docs/validation.md','docs/api/README.md',
                  'docs/api/world.openapi.json','docs/api/rendercloud.openapi.json','docs/api/asset.openapi.json',
                  'docs/api/lux3d.openapi.json','docs/api/spatialunderstanding.openapi.json','docs/api-capabilities.md',

@@ -1,6 +1,18 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.32. Earlier entries below retain their original scope.
+Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.33. Earlier entries below retain their original scope.
+
+## Workspace usability — alpha.33
+
+Sources `926163d` and `ef8a5a7` implement a fixed Library primary result action, collapsed secondary actions, pure shared inline/final form validation, cancellable debounced history with a conservative terminal-record index, and opt-in per-document draft persistence with safe import/render preferences. Input URLs/files, credentials, upload overrides and automatic placement are excluded from disk UI state. Original task identities, service limits and placement admission remain authoritative. [Scope and native checks](workspace-navigation.md#alpha33-manual-checks).
+
+Final versioned Release build has **zero warnings/errors**. **1,565 .NET tests pass**, zero failures, with one Windows filesystem-only case skipped on macOS. This adds 53 checks over alpha.32, including all 13 service-create draft fixtures, numeric boundaries, external journal changes, deep-copy isolation, lock-sensitive recovery, corrupt/oversized state, opt-out/forget, stale writers, untitled/Save As and reentrant owner flushing. All seven existing Python CI checks pass: five installer migration cases, regional contracts, separate-process synthetic OAuth, mesh geometry, Gaussian math and fixture integrity. No real API Key, paid request or Rhino UI automation was used.
+
+The 2,000-record synthetic journal benchmark measured 5.28 ms cached versus 69.00 ms forced-read median (15 alternating reads; 166.92 ms cold scan) on Apple Silicon .NET 8. [Raw measurements](benchmarks/history-index-2026-11-12-arm64.json). This is not a native UI or end-to-end speed guarantee; active tasks are deliberately not cached.
+
+Remote delegation was exercised with uncapped gateway requests. `remote/kimi-k3.1-pro` completed the history-index candidate with provider-reported 3,025 prompt and 5,873 completion tokens (including 2,944 reasoning tokens). The parent corrected terminal status names, deep-copy handling, cancellation and test assumptions before integration. A separate persistence draft timed out (HTTP 524). The later review auto-selected `remote/gemini-4-carbon`, which was unavailable; the gateway's configured fallback to Kimi also timed out. Status was checked after failures; the parent did not recreate or manually retry those requests. Neither failed task supplied usable review evidence.
+
+The parent inspected changes and ran all verification. New Mac/Windows layout, primary-action and restart behavior remain manual acceptance gates. Local archive/installation receipts bind exact bytes separately; this candidate is not publicly published.
 
 ## Aholo3D product and path rename — alpha.32
 
@@ -86,7 +98,7 @@ An independent local OpenUSD check parsed a production-generated scene with Rect
 
 Packaging verifies both platform-tagged archives against the allowlisted files and records commit/dirty state, SHA-256 and pending host/service acceptance in `artifacts/latest-package-{mac,win}.json`. Those receipts are the authority for whether an archive was produced; source compilation on a Mac does not prove Windows execution. No GUI automation, installation, push or publication is part of this candidate preparation.
 
-The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha32) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
+The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha33) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
 
 ## Integrated development candidate — 2026-11-09
 
