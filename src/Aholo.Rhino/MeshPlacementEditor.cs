@@ -12,8 +12,8 @@ internal sealed class MeshPlacementEditor : IDisposable
     private readonly uint serial;
     private readonly MeshPlacementService placement;
     private readonly Action<string> report;
-    private readonly Func<CancellationToken> currentToken;
     private readonly CandidatePreview preview=new();
+    private readonly DeferredDisposals retired=new();
     private readonly List<Candidate> candidates=new();
     private readonly DropDown selected=new();
     private readonly DropDown mode=new(){DataStore=new[]{UiText.Get("Fit height on construction plane"),UiText.Get("Original size on construction plane"),UiText.Get("Preserve scene coordinates")},SelectedIndex=0};
@@ -28,16 +28,16 @@ internal sealed class MeshPlacementEditor : IDisposable
     internal long Revision=>revision;
     internal Control View{get;}
     internal string HeightText{get=>height.Text;set=>height.Text=value;}
-    internal MeshPlacementEditor(uint serial,MeshPlacementService placement,Action<string> report,Func<string,Func<Task>,Task> run,Func<CancellationToken> currentToken)
+    internal MeshPlacementEditor(uint serial,MeshPlacementService placement,Action<string> report,Func<string,Func<PanelInvocation,Task>,Task> run)
     {
-        this.serial=serial;this.placement=placement;this.report=report;this.currentToken=currentToken;
+        this.serial=serial;this.placement=placement;this.report=report;
         var doc=Document();var initial=MeshPlacementService.DefaultPlacement(doc);plane=initial.Plane;point=initial.Point;height.Text=initial.Height.ToString("R",CultureInfo.InvariantCulture);
-        Button Button(string title,Action work)
+        Button Button(string title,Action<CancellationToken> work)
         {
             var button=new Button{Text=UiText.Get(title)};
-            button.Click+=(_,_)=>_=run(title,()=>{work();return Task.CompletedTask;});return button;
+            button.Click+=(_,_)=>_=run(title,context=>{work(context.Cancellation);return Task.CompletedTask;});return button;
         }
-        pick=Button("Pick placement point",Pick);constructionPlane=Button("Use current construction plane",UsePlane);
+        pick=Button("Pick placement point",_=>Pick());constructionPlane=Button("Use current construction plane",_=>UsePlane());
         mode.SelectedIndexChanged+=(_,_)=>{UpdateMode();Schedule();};
         selected.SelectedIndexChanged+=(_,_)=>Schedule();height.TextChanged+=(_,_)=>Schedule();rotation.TextChanged+=(_,_)=>Schedule();
         timer.Elapsed+=(_,_)=>ShowPreview();
@@ -45,7 +45,7 @@ internal sealed class MeshPlacementEditor : IDisposable
             new Label{Text=UiText.Get("Mesh placement and candidates")},mode,
             new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={new Label{Text=UiText.Get("Height (document units)")},height,new Label{Text=UiText.Get("Rotation (degrees)")},rotation}},
             new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={pick,constructionPlane}},position,
-            selected,new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={Button("Accept candidate",Accept),Button("Remove candidate",Remove),Button("Clear candidates",Clear)}}}};
+            selected,new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={Button("Accept candidate",Accept),Button("Remove candidate",_=>Remove()),Button("Clear candidates",_=>Clear())}}}};
         UpdateMode();
     }
     private RhinoDoc Document()=>RhinoDoc.FromRuntimeSerialNumber(serial)??throw new InvalidOperationException(UiText.Get("The target document has closed."));
@@ -76,7 +76,7 @@ internal sealed class MeshPlacementEditor : IDisposable
     {
         if(disposed)return;visible=shown;if(shown)Schedule();else{timer.Stop();preview.Clear();}
     }
-    internal async Task AddAsync(string path,string? hash,string name,Guid? taskId,CancellationToken ct,Guid? importId=null,long? expectedRevision=null)
+    internal async Task AddAsync(string path,string? hash,string name,Guid? taskId,CancellationToken ct,Guid? importId=null,long? expectedRevision=null,MeshPlacementTarget? capturedTarget=null)
     {
         var request=await AholoHost.OnUi(()=>
         {
@@ -85,7 +85,8 @@ internal sealed class MeshPlacementEditor : IDisposable
             int duplicate=importId.HasValue?candidates.FindIndex(c=>c.ImportId==importId.Value):-1;
             if(duplicate>=0){Select(duplicate);report(UiText.Get("This result is already loaded as a candidate."));return (revision,(MeshPlacementTarget?)null);}
             if(candidates.Count>=3)throw new InvalidOperationException(UiText.Get("Up to 3 candidates per group. Remove an unwanted candidate first."));
-            return (revision,(MeshPlacementTarget?)Capture());
+            var target=capturedTarget??Capture();placement.Validate(target);
+            return (revision,(MeshPlacementTarget?)target);
         }).ConfigureAwait(false);
         if(request.Item2 is null)return;
         PreparedAsset asset=await placement.PrepareAsync(path,hash,request.Item2,ct).ConfigureAwait(false);
@@ -116,31 +117,42 @@ internal sealed class MeshPlacementEditor : IDisposable
         try{placement.Validate(candidates[index].Target);preview.Show(candidates[index].Asset,Intent());}
         catch(Exception error){preview.Clear();report(AholoHost.FriendlyError(error));}
     }
-    private void Accept()
+    private void Accept(CancellationToken ct)
     {
         int index=selected.SelectedIndex;if(index<0||index>=candidates.Count)throw new InvalidOperationException(UiText.Get("Load and select a candidate first."));
         var candidate=candidates[index];long expected=revision;
-        using var resultClaim=placement.AcquireResult(candidate.Target,candidate.ImportId,currentToken());
-        var result=placement.Commit(candidate.Asset,candidate.Target with{Placement=Intent()},candidate.ImportId,candidate.TaskId,ct:currentToken(),allowed:()=>!disposed&&visible&&revision==expected);
-        try{Clear();}catch{report(result.Message+"\n"+UiText.Get("Preview cleanup did not finish. The imported block is retained."));return;}
+        using var resultClaim=placement.AcquireResult(candidate.Target,candidate.ImportId,ct);
+        MeshPlacementResult? result=null;
+        try
+        {
+            result=retired.RunBorrowed(()=>
+            {
+                result=placement.Commit(candidate.Asset,candidate.Target with{Placement=Intent()},candidate.ImportId,candidate.TaskId,ct:ct,allowed:()=>!disposed&&visible&&revision==expected);
+                Clear();return result;
+            });
+        }
+        catch(Exception) when(result is not null)
+        {report(result.Message+"\n"+UiText.Get("Preview cleanup did not finish. The imported block is retained."));return;}
         report(result.Message);
     }
+
     private void Remove()
     {
         int index=selected.SelectedIndex;if(index<0||index>=candidates.Count)return;
         timer.Stop();preview.Clear();var asset=candidates[index].Asset;candidates.RemoveAt(index);
-        try{asset.Dispose();}finally{Select(Math.Min(index,candidates.Count-1));}
+        try{retired.Retire(asset);}finally{Select(Math.Min(index,candidates.Count-1));}
     }
     internal void Clear()
     {
         revision++;timer.Stop();Exception? failure=null;try{preview.Clear();}catch(Exception error){failure=error;}
-        foreach(var candidate in candidates)try{candidate.Asset.Dispose();}catch(Exception error){failure??=error;}
-        candidates.Clear();selected.DataStore=Array.Empty<string>();selected.SelectedIndex=-1;
+        var assets=candidates.Select(candidate=>candidate.Asset).ToArray();candidates.Clear();
+        foreach(var asset in assets)try{retired.Retire(asset);}catch(Exception error){failure??=error;}
+        selected.DataStore=Array.Empty<string>();selected.SelectedIndex=-1;
         if(failure is not null)throw new InvalidOperationException(UiText.Get("Preview cleanup did not finish. The imported block is retained."),failure);
     }
     public void Dispose()
     {
-        if(disposed)return;disposed=true;
+        if(disposed)return;disposed=true;retired.Close();
         try{Clear();}catch(Exception error){global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(error));}
         finally{timer.Dispose();try{preview.Dispose();}catch(Exception error){global::Rhino.RhinoApp.WriteLine(AholoHost.FriendlyError(error));}}
     }

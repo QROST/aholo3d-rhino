@@ -22,7 +22,9 @@ Mesh, GS and mixed-scene USD writers share process-local destination admission t
 
 Task mesh preparation/placement now shares a resource keyed by original document serial/session and the existing result import ID. Direct placement, command placement, preview preparation and candidate acceptance cannot concurrently prepare or commit the same result slot. The claim remains held through native prepared-asset cleanup, even after cancellation. Independent result slots and documents do not share it. Automatic attempts use separate per-panel/task operation scopes; contention returns `Deferred` and retains the original automatic intent instead of forgetting it. This is process-local coordination, not persistent authority or automatic replay of cloud work.
 
-The panel still admits one foreground action at a time. Removing that constraint requires explicit per-operation UI context and shared candidate/document resources; these guards alone do not establish general parallel editing support.
+The panel now allows task refresh/download/continuation, local exports and USD readiness checks to run alongside interactive work. Every invocation owns its cancellation token, task/result selection, navigation/owner revision, progress and start time. Same-action duplicates are rejected; operations on the same task share a session claim, including background polling. Create/render/import/placement and candidate actions currently retain one interaction group per panel. This does not parallelize native document commits or the ordinary RPC pipe.
+
+Only the latest initiated reveal can automatically focus Library; newer explicit navigation or panel ownership revokes that permission. Late progress cannot revive completed work, and finishing one invocation cannot clear another's token or display Ready prematurely. Panel disposal cancels work and delays cancellation-source disposal until every invocation has finished cleanup. Candidate Clear/Dispose immediately revokes acceptance, while native assets borrowed by a synchronous commit are retired and released only when that commit exits.
 
 ## Evidence and manual acceptance
 
@@ -42,5 +44,8 @@ On both supported hosts, manually check:
 
 9. In document A, start local scene preparation for rendering, then change the account or region from document B before submission. The old click must not submit using the new connection. Keep any task already acknowledged by the service and recover it from Library instead of resubmitting. Test only in the authorized live-service scope.
 10. Start two USD exports to the same destination from separate panels/commands. The second should report that the destination is busy. Cancel the first and verify the original output is intact; a deliberate later export should work. Repeat with parent-folder aliases where supported.
+
+11. While a large import/candidate load or generation is running, refresh/download another task, export a captured scene or check USD readiness. Each should retain its own elapsed/progress/cancellation state. Same-task and duplicate actions should stay unavailable until release. Verify background polling releases buttons after completion.
+12. Complete two reveal-capable operations out of order, navigate manually, and recreate the panel. No old result should steal the new page or selection. Close the panel during candidate acceptance/preparation; verify no native asset is freed while commit uses it and no late prepared candidate is appended. These paths still need native interaction acceptance.
 
 These native checks have not been executed for this candidate. No package installation, cloud submission or publication is implied by local test results.

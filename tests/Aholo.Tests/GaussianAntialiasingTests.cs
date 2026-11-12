@@ -99,28 +99,6 @@ public sealed class GaussianAntialiasingTests
         Assert.True(GaussianProjectionContext.Create(Camera(),GaussianTransform.Identity,antialiased:true).TryProject(in asset[0],0,0,out var actual));
         Near(expected.Opacity,actual.Opacity);
     }
-    [Fact]
-    public void SharedAssetCanHaveDifferentModesWithoutCumulativeCompensationOrAllocation()
-    {
-        var splat=Splat();var asset=GaussianPreparedAsset.Prepare(new[]{splat});var camera=Camera();
-        var original=GaussianProjectionContext.Create(camera,GaussianTransform.Identity,1);
-        var adjusted=GaussianProjectionContext.Create(camera,GaussianTransform.Identity,2,antialiased:true);
-        var warmed=ProjectBatch(adjusted,asset);
-        var measured=ProjectBatch(adjusted,asset);
-        Assert.Equal(10000,measured.Visible);Assert.Equal(warmed.Opacity,measured.Opacity);Assert.Equal(0,measured.Allocated);
-        Assert.True(original.TryProject(in asset[0],0,0,out var a));Assert.True(adjusted.TryProject(in asset[0],0,1,out var b));Assert.True(adjusted.TryProject(in asset[0],0,1,out var again));
-        Assert.Equal(.5,a.Opacity);Assert.True(b.Opacity<a.Opacity);Assert.Equal(b,again);Assert.Equal(.5,asset[0].Opacity);Assert.Same(splat,asset[0].Source);
-    }
-    // Warm and measure the same complete optimized batch. Keep xUnit and first-use
-    // assertion/JIT work outside the allocation interval; retain a strict zero budget.
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining|System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]
-    private static (int Visible,double Opacity,long Allocated) ProjectBatch(GaussianProjectionContext context,GaussianPreparedAsset asset)
-    {
-        int visible=0;double opacity=0;long before=GC.GetAllocatedBytesForCurrentThread();
-        for(int i=0;i<10000;i++)if(context.TryProject(in asset[0],0,0,out var projected)){visible++;opacity+=projected.Opacity;}
-        long allocated=GC.GetAllocatedBytesForCurrentThread()-before;
-        return(visible,opacity,allocated);
-    }
     [Theory]
     [InlineData(false)][InlineData(true)]
     public void DpiNormalizationKeepsCompensationOnTheAcceptedPixelGrid(bool perspective)

@@ -162,6 +162,8 @@ public sealed class AholoSession : IAsyncDisposable
             if(Operations.IsActive(scope))return;
             query=Operations.Start(scope,"Refresh task",async token=>
             {
+                using var taskClaim=Resources.TryAcquire(new[]{new OperationResource("task",task.Id.ToString("N"))},token);
+                if(taskClaim is null)return false;
                 if(paused.ContainsKey(task.Id))throw new LocalOperationCanceledException();
                 var updated=await Client.RefreshAsync(task.Id,token).ConfigureAwait(false);Observe(updated);
                 bool canContinue;

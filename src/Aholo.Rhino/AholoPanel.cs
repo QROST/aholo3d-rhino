@@ -48,17 +48,17 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
     private readonly CheckBox renderTextures=new(){Text=T("Include direct base-color bitmaps (mesh UVs / sRGB PNG or JPEG)"),Checked=true};
     private readonly CheckBox renderLights=new(){Text=T("Include selected rectangular / point lights")};
     private readonly TextBox lightRadius=new(){Text="50"},lightMultiplier=new(){Text="1"};
-    private readonly List<Button> actions=new();
+    private enum WorkKind { Interaction,Task,Export,Connection,Readiness }
+    private readonly List<(Button Button,string Name,WorkKind Kind)> actions=new();
+    private readonly PanelInvocations invocations;
+    private OperationResource InteractionResource=>new("panel-interaction",panelId.ToString("N"));
     private readonly Button submit,render,refresh,download,place,continueRender,openImage,openFolder;
     private readonly UITimer elapsed=new(){Interval=1};
     private readonly UITimer taskElapsed=new(){Interval=1};
-    private readonly Stopwatch clock=new();
     private readonly CancellationTokenSource lifetime=new();
-    private CancellationToken token;
-    private bool busy,disposed;
-    private long operationGeneration;
+    private bool disposed;
+    private bool busy=>session.Resources.IsHeld(InteractionResource);
     private int offset;
-    private string workName="";
     private LocalTask? Selected=>tasks.SelectedValue as LocalTask;
     private TaskArtifact? SelectedArtifact=>(artifacts.SelectedValue as LibraryResultRow)?.Artifact;
     private static string T(string value)=>UiText.Get(value);
@@ -67,7 +67,7 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
     private string Scope=>AholoPlugin.DocumentScope(serial);
     public AholoPanel(uint documentSerialNumber)
     {
-        serial=documentSerialNumber;
+        serial=documentSerialNumber;invocations=new(session.Resources,panelId.ToString("N"));
         var document=RhinoDoc.FromRuntimeSerialNumber(serial);
         workspace=document is not null&&!document.IsClosing?PanelNavigation.Workspaces.Open(serial):new PanelWorkspace();
         workspaceLease=PanelNavigation.Workspaces.Claim(serial,workspace,this);
@@ -77,11 +77,11 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         creation.SelectedIndexChanged+=(_,_)=>{WorkspaceUserNavigated();ChangeForm();};ChangeForm();
         submit=Action("Create · Uses service credits",CreateAsync);
         render=Action("Upload selection and render · Uses service credits",RenderAsync);
-        refresh=Action("Refresh selected task",RefreshAsync);
-        download=Action("Download selected result",DownloadAsync);
+        refresh=Action("Refresh selected task",RefreshAsync,WorkKind.Task);
+        download=Action("Download selected result",DownloadAsync,WorkKind.Task);
         place=Action("Place in current document",PlaceAsync);
         previewResult=Action("Preview mesh candidate",PreviewSelectedAsync);
-        continueRender=Action("Continue original render · Uses service credits",ContinueAsync);
+        continueRender=Action("Continue original render · Uses service credits",ContinueAsync,WorkKind.Task);
         var createPage=Column(creation,formHost,autoPlace,submit,Info("Each click creates one paid task. Follow its progress in Library."));
         tasks.SelectedIndexChanged+=(_,_)=>{if(!reloadingHistory){WorkspaceUserNavigated();Describe();}};
         artifacts.SelectedIndexChanged+=(_,_)=>
@@ -97,12 +97,12 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         var worldId=new TextBox{PlaceholderText=T("Existing Aholo World ID")};
         meshSection=Section("Placement and mesh candidates",meshEditor.View);meshSection.Expanded=true;
         var localFiles=Section("Local file exchange",
-            Row(Action("Import USD scene",ImportSceneAsync),Action("Export selected scene USD",ExportSceneAsync)),
-            Action("Export selected mesh USD",ExportMeshAsync),meshExportTextures,
-            Row(Action("Import GS",ImportGsAsync),Action("Export GS",ExportGsAsync)),exportScope);
+            Row(Action("Import USD scene",ImportSceneAsync),Action("Export selected scene USD",ExportSceneAsync,WorkKind.Export)),
+            Action("Export selected mesh USD",ExportMeshAsync,WorkKind.Export),meshExportTextures,
+            Row(Action("Import GS",ImportGsAsync),Action("Export GS",ExportGsAsync,WorkKind.Export)),exportScope);
         var taskTools=Section("Task tools and recovery",Row(Local("Pause local polling",Pause),Local("Resume polling",Resume)),
-            Action("Cloud history and recovery",async()=>{using var dialog=new CloudLibraryDialog(session,Scope,token);var restored=dialog.ShowModal(this);if(restored is not null)await RevealAsync(restored);}),
-            worldId,Action("Restore World ID",async()=>{var task=await session.Client.ImportWorldAsync(worldId.Text.Trim(),token);session.Observe(task);await RevealAsync(task);}));
+            Action("Cloud history and recovery",async context=>{using var dialog=new CloudLibraryDialog(session,Scope,context.Cancellation);var restored=dialog.ShowModal(this);if(restored is not null)await RevealAsync(restored,context);}),
+            worldId,Action("Restore World ID",async context=>{var task=await session.Client.ImportWorldAsync(worldId.Text.Trim(),context.Cancellation);session.Observe(task);await RevealAsync(task,context);}));
         var gsTools=Section("GS display and diagnostics",Row(Local("GS viewport",()=>GaussianViewport.Activate(Document())),Local("Diagnostics",()=>Report(GaussianViewport.Diagnostics(Document())))));
         var libraryPage=Column(search,filter,tasks,Row(previous,pageInfo,next),
             Row(Local("Load history",()=>_=ReloadAsync()),refresh),Action("Load local mesh",LoadLocalMeshAsync),detail,artifacts,artifactDetail,
@@ -115,7 +115,7 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         tabs.Pages.Add(new(){Text=T("Create"),Content=createPage});tabs.Pages.Add(new(){Text=T("Library"),Content=libraryPage});tabs.Pages.Add(new(){Text=T("Render"),Content=renderPage});
         cancel.Click+=(_,_)=>AholoPlugin.CancelDocumentOperations(serial);
         taskElapsed.Elapsed+=(_,_)=>{if(!disposed&&shown&&Selected is{} task&&TaskCapabilities.For(task).IsRunning)UpdateTaskDetail();};
-        elapsed.Elapsed+=(_,_)=>{if(!disposed&&busy)operation.Text=workName+" · "+(int)clock.Elapsed.TotalSeconds+" s";};
+        elapsed.Elapsed+=(_,_)=>{if(!disposed)UpdateOperationStatus();};
         Content=new StackLayout{Padding=10,Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
             Row(new Label{Text="Aholo3D",Font=new Font(SystemFont.Bold,16)},Local("Settings",ShowSettings)),connection,new StackLayoutItem(tabs,true),Row(operation,cancel),feedback}};
         RestoreWorkspace();workspaceReady=true;tabs.SelectedIndexChanged+=(_,_)=>WorkspaceUserNavigated();
@@ -128,8 +128,8 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
     private static Expander Section(string title,params Control[] controls)=>new(){Header=Info(title),Content=Stack(controls),Expanded=false};
     private static Control Row(params Control[] controls)
     {var row=new StackLayout{Orientation=Orientation.Horizontal,Spacing=6};foreach(var control in controls)row.Items.Add(new StackLayoutItem(control,true));return row;}
-    private Button Action(string title,Func<Task> work)
-    {var button=new Button{Text=T(title)};button.Click+=(_,_)=>_=RunAsync(title,work);actions.Add(button);return button;}
+    private Button Action(string title,Func<PanelInvocation,Task> work,WorkKind kind=WorkKind.Interaction)
+    {var button=new Button{Text=T(title)};button.Click+=(_,_)=>_=RunAsync(title,work,kind);actions.Add((button,title,kind));return button;}
     private Button Local(string title,System.Action work)
     {var button=new Button{Text=T(title)};button.Click+=(_,_)=>{if(disposed)return;try{work();}catch(Exception ex){Report(AholoHost.FriendlyError(ex));}};return button;}
     private void ChangeForm()
@@ -140,20 +140,45 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         if(workspaceReady&&!restoringWorkspace)PanelNavigation.Workspaces.TryUpdate(serial,workspace,workspaceLease,w=>w.SelectOperation(id));
     }
     private void Report(string text){if(!disposed)feedback.Text=text;}
-    private async Task RunAsync(string name,Func<Task> work)
+    private OperationResource[] Claims(WorkKind kind,LocalTask? selected)=>kind switch
     {
-        if(disposed||busy||autoBusy)return;busy=true;operationGeneration++;operationNavigationRevision=workspace.NavigationRevision;workName=T(name);clock.Restart();elapsed.Start();UpdateActions();
+        WorkKind.Interaction=>new[]{InteractionResource},
+        WorkKind.Task when selected is not null=>new[]{new OperationResource("task",selected.Id.ToString("N"))},
+        WorkKind.Connection=>new[]{new OperationResource("connection","session")},
+        _=>Array.Empty<OperationResource>()
+    };
+    private static string ActionKey(string name,WorkKind kind,LocalTask? selected)=>kind==WorkKind.Task?name+":"+selected?.Id.ToString("N"):name;
+    private bool CanRun(string name,WorkKind kind=WorkKind.Interaction)=>!disposed&&invocations.CanStart(ActionKey(name,kind,Selected),Claims(kind,Selected));
+    private async Task RunAsync(string name,Func<PanelInvocation,Task> work,WorkKind kind=WorkKind.Interaction)
+    {
+        if(disposed)return;
+        var selected=Selected;var artifact=SelectedArtifact;var claims=Claims(kind,selected);string key=ActionKey(name,kind,selected);
+        long navigation=workspace.NavigationRevision,owner=workspaceLease;
         try
         {
-            await session.Operations.RunAsync(Scope+"foreground",name,async ct=>{token=ct;try{await work();}finally{token=default;}},lifetime.Token);
+            await session.Operations.RunAsync(Scope+"panel:"+panelId.ToString("N")+":"+key,name,async ct=>
+            {
+                bool reveal=name is "Create · Uses service credits" or "Upload selection and render · Uses service credits" or "Restore World ID" or "Cloud history and recovery";
+                using var context=invocations.Begin(key,T(name),claims,navigation,owner,ct,reveal,selected,artifact);
+                elapsed.Start();UpdateActions();await work(context);
+            },lifetime.Token);
         }
         catch(OperationCanceledException) when(name is "Export selected mesh USD" or "Export selected scene USD" or "Export GS"){AholoHost.Ui(()=>Report(T("Local export cancelled. The previous output was preserved.")));}
         catch(OperationCanceledException) when(name=="Import USD scene"){AholoHost.Ui(()=>Report(T("Local scene import cancelled before completion.")));}
-        catch(Exception ex){AholoHost.Ui(()=>Report(AholoHost.FriendlyError(ex)));}
-        finally
-        {
-            AholoHost.Ui(()=>{busy=false;clock.Stop();if(disposed){lifetime.Dispose();return;}elapsed.Stop();operation.Text=T("Ready");UpdateActions();});
-        }
+        catch(Exception ex){AholoHost.Ui(()=>Report(T(name)+" · "+AholoHost.FriendlyError(ex)));}
+        finally{AholoHost.Ui(()=>{if(disposed)return;if(invocations.Count==0)elapsed.Stop();UpdateActions();});}
+    }
+    private void UpdateOperationStatus()
+    {
+        if(disposed)return;
+        var local=invocations.Snapshot();
+        var active=session.Operations.Snapshot().Where(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal)).ToArray();
+        cancel.Enabled=active.Length>0||placementIntents.Count>0;
+        string panelScope=Scope+"panel:"+panelId.ToString("N")+":";
+        string autoScope=Scope+"automatic-placement:"+panelId.ToString("N")+":";
+        var labels=local.Select(x=>x.Progress+" · "+(int)(DateTimeOffset.UtcNow-x.StartedAt).TotalSeconds+" s")
+            .Concat(active.Where(x=>!x.Scope.StartsWith(panelScope,StringComparison.Ordinal)&&!x.Scope.StartsWith(autoScope,StringComparison.Ordinal)).Select(x=>T(x.Name))).ToArray();
+        operation.Text=labels.Length>0?string.Join(" · ",labels):placementIntents.Count>0?UiText.Format("Waiting to place {0} generated meshes",placementIntents.Count):T("Ready");
     }
     private void UpdateActions()
     {
@@ -163,21 +188,19 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         bool working=busy||autoBusy;meshEditor.SetBusy(working);
         connection.ToolTip=UiText.TranslateKnownMessage(session.LastError??"");
         connection.Text=ConnectionLabel();
-        foreach(var button in actions)button.Enabled=!working;
-        submit.Enabled=render.Enabled=!working&&connected;
+        foreach(var action in actions)action.Button.Enabled=CanRun(action.Name,action.Kind);
+        submit.Enabled=connected&&CanRun("Create · Uses service credits");render.Enabled=connected&&CanRun("Upload selection and render · Uses service credits");
         var task=Selected;var capability=task is null?null:TaskCapabilities.For(task);var artifact=SelectedArtifact;
         var access=LibraryResultPolicy.Access(task,resultRows,artifact,session.Connection,File.Exists);
         artifactDetail.Text=access.Status+(artifact?.LocalPath is {Length:>0} path?"\n"+path:"")+(access.NextStep.Length>0?"\n"+access.NextStep:"");
         bool sameAccount=task?.Region==session.Connection.Region&&task?.ConnectionId==session.Connection.ConnectionId;
-        refresh.Enabled=!working&&connected&&sameAccount&&capability?.CanQuery==true;
-        download.Enabled=!working&&access.CanDownload;place.Enabled=!working&&access.CanPlace;previewResult.Enabled=!working&&access.CanPreview;
+        refresh.Enabled=CanRun("Refresh selected task",WorkKind.Task)&&connected&&sameAccount&&capability?.CanQuery==true;
+        download.Enabled=CanRun("Download selected result",WorkKind.Task)&&access.CanDownload;place.Enabled=CanRun("Place in current document")&&access.CanPlace;previewResult.Enabled=CanRun("Preview mesh candidate")&&access.CanPreview;
         openImage.Enabled=access.CanOpenImage;openFolder.Enabled=access.CanOpenFolder;
         download.ToolTip=place.ToolTip=previewResult.ToolTip=access.NextStep;
-        continueRender.Enabled=!working&&connected&&sameAccount&&capability?.CanContinueRender==true;
+        continueRender.Enabled=CanRun("Continue original render · Uses service credits",WorkKind.Task)&&connected&&sameAccount&&capability?.CanContinueRender==true;
         continueRender.Visible=task?.Kind=="render"&&capability?.CanContinueRender==true;
-        var active=session.Operations.Snapshot().Where(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal)).ToArray();
-        cancel.Enabled=active.Length>0||placementIntents.Count>0;
-        if(!busy)operation.Text=active.Length>0?string.Join(" · ",active.Select(x=>T(x.Name))):placementIntents.Count>0?UiText.Format("Waiting to place {0} generated meshes",placementIntents.Count):T("Ready");
+        UpdateOperationStatus();
     }
     private readonly LibraryNavigation history=new();
     private bool reloadingHistory,rebindingHistoryQuery;
@@ -249,8 +272,8 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         string queried=task.LastQueriedAt.HasValue?task.LastQueriedAt.Value.ToLocalTime().ToString("g"):T("Not queried yet");
         detail.Text=task.Name+"\n"+T(task.Kind)+" · "+UiText.Status(task.Status)+progress+age+"\nID: "+(TaskIdentity.From(task).RemoteId??"—")+"\n"+T("Local task ID")+": "+task.Id+"\n"+T("Last query")+": "+queried+(session.IsPaused(task.Id)?" · "+T("Polling paused"):"")+(task.Error is null?"":"\n"+UiText.TranslateKnownMessage(task.Error));
     }
-    private async Task CreateAsync()
-    {
+    private async Task CreateAsync(PanelInvocation context)
+    {var token=context.Cancellation;
         var request=form.Capture() with {Upload=uploadOptions};var intent=CaptureAutomatic(request);var creationToken=token;
         LocalTask? task=null;
         try
@@ -258,7 +281,7 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
             task=await session.Client.CreateServiceAsync(request,creationToken);
             // Keep a late provider result in history, but never restore cancelled insertion authority.
             session.Observe(task);creationToken.ThrowIfCancellationRequested();
-            RememberAutomatic(task,intent);await RevealAsync(task);
+            RememberAutomatic(task,intent);await RevealAsync(task,context);
         }
         finally
         {
@@ -266,14 +289,14 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
             if(task is not null&&creationToken.IsCancellationRequested)AholoHost.Ui(()=>ForgetPlacement(task.Id));
         }
     }
-    private async Task RevealAsync(LocalTask task)
+    private async Task RevealAsync(LocalTask task,PanelInvocation context)
     {
         Task reload=Task.CompletedTask;
         AholoHost.Ui(()=>
         {
             if(disposed)return;
             // A later explicit navigation wins over this operation's completion.
-            if(operationNavigationRevision!=workspace.NavigationRevision){reload=ReloadAsync();return;}
+            if(!PanelNavigation.Workspaces.IsOwner(serial,workspace,workspaceLease)||!invocations.CanReveal(context,workspace.NavigationRevision,workspaceLease)){reload=ReloadAsync();return;}
             // Keep the visible page/query intact until the target snapshot is accepted.
             history.Reveal(task.Id);SetPage(WorkspacePage.Library);
             Report(task.Error is null?T("Task recorded. Library follows the original task; no automatic resubmission."):UiText.TranslateKnownMessage(task.Error));
@@ -281,13 +304,13 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         });
         await reload;
     }
-    private async Task RefreshAsync()
-    {var task=Selected??throw new InvalidOperationException(T("Select a task first."));var updated=await session.Client.RefreshAsync(task.Id,token);session.Observe(updated);await ReloadAsync();}
-    private async Task ContinueAsync()
-    {var task=Selected??throw new InvalidOperationException(T("Select a task first."));var updated=await session.ContinueRenderAsync(task.Id,token);session.Observe(updated);await ReloadAsync();}
-    private async Task DownloadAsync()
-    {
-        var task=Selected??throw new InvalidOperationException(T("Select a task first."));var asset=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
+    private async Task RefreshAsync(PanelInvocation context)
+    {var token=context.Cancellation;var task=context.SelectedTask??throw new InvalidOperationException(T("Select a task first."));var updated=await session.Client.RefreshAsync(task.Id,token);session.Observe(updated);await ReloadAsync();}
+    private async Task ContinueAsync(PanelInvocation context)
+    {var token=context.Cancellation;var task=context.SelectedTask??throw new InvalidOperationException(T("Select a task first."));var updated=await session.ContinueRenderAsync(task.Id,token);session.Observe(updated);await ReloadAsync();}
+    private async Task DownloadAsync(PanelInvocation context)
+    {var token=context.Cancellation;
+        var task=context.SelectedTask??throw new InvalidOperationException(T("Select a task first."));var asset=context.SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
         var updated=await session.Client.DownloadAsync(new(task.Id,(task.Kind is "world" or "render")&&(asset.Key is "ply" or "spz" or "image")?asset.Key:"artifact:"+asset.Key),token);session.Observe(updated);
         string? path=Outputs(updated).FirstOrDefault(a=>a.Key==asset.Key)?.LocalPath;AholoHost.Ui(()=>Report(T("Saved locally")+" · "+task.Name+" · "+asset.Label+":\n"+path+"\n"+T("A download saves the file locally; it does not place it in the document.")));await ReloadAsync();
     }
@@ -300,20 +323,14 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
     {string? path=SelectedArtifact?.LocalPath;string folder=path is not null?Path.GetDirectoryName(path)!:Path.Combine(session.Store.Root,"assets");Process.Start(new ProcessStartInfo(folder){UseShellExecute=true});}
     private void Pause(){if(Selected is{} task){session.PauseTask(task.Id);ForgetPlacement(task.Id);Describe();Report(T("Local polling paused. The remote task continues."));}}
     private void Resume(){if(Selected is{} task){session.ResumeQueries(task.Id);Describe();}}
-    private IProgress<string> StageProgress()
-    {
-        long generation=operationGeneration;
-        return new Progress<string>(message=>AholoHost.Ui(()=>
-        {
-            if(!disposed&&busy&&generation==operationGeneration){workName=message;operation.Text=message;}
-        }));
-    }
+    private IProgress<string> StageProgress(PanelInvocation context)
+        =>new Progress<string>(message=>AholoHost.Ui(()=>{if(!disposed&&context.Report(message))UpdateOperationStatus();}));
     private double Scale()
     {if(!(double.TryParse(scale.Text,NumberStyles.Float,CultureInfo.CurrentCulture,out double value)||double.TryParse(scale.Text,NumberStyles.Float,CultureInfo.InvariantCulture,out value))||!double.IsFinite(value)||value<=0)throw new ArgumentException(T("Enter an import scale greater than zero, such as 1 or 1000."));return value;}
     private string Axis()=>axis.SelectedIndex==1?"Z":axis.SelectedIndex==2?"Y":"Auto";
-    private async Task PlaceAsync()
-    {
-        var task=Selected??throw new InvalidOperationException(T("Select a task first."));var artifact=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
+    private async Task PlaceAsync(PanelInvocation context)
+    {var token=context.Cancellation;
+        var task=context.SelectedTask??throw new InvalidOperationException(T("Select a task first."));var artifact=context.SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
         if(MeshPlacementPolicy.CanPlaceMesh(task,artifact))
         {
             var result=await AholoPlugin.Placement.PlaceTaskAsync(task.Id,artifact.Key,meshEditor.Capture(),token);
@@ -323,30 +340,31 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         var target=AholoHost.CaptureTarget(Document());
         if(artifact.Format=="dsl")
         {string message=await SpatialDocument.PlaceAsync(artifact.LocalPath,artifact.Sha256,target,task.Id,artifact.Key,token);AholoHost.Ui(()=>Report(message));return;}
+        double importScale=Scale();string importAxis=Axis();bool useSourceUnits=sourceUnits.SelectedIndex==0;
         if(artifact.Format=="ply")
         {
             var content=await Task.Run(()=>PlyReader.Inspect(artifact.LocalPath,token),token);
             if(content.Kind==PlyContentKind.Gaussian)
-            {string up=Axis()=="Auto"?task.UpAxis??"Z":Axis();string message=await GaussianDocument.ImportAsync(artifact.LocalPath,target,Scale(),up,task.Id,token);AholoHost.Ui(()=>Report(message));return;}
+            {string up=importAxis=="Auto"?task.UpAxis??"Z":importAxis;string message=await GaussianDocument.ImportAsync(artifact.LocalPath,target,importScale,up,task.Id,token);AholoHost.Ui(()=>Report(message));return;}
             if(content.Kind!=PlyContentKind.Mesh)throw new InvalidDataException(T("This PLY is neither a complete Gaussian scene nor an ordinary mesh with faces."));
         }
         if(artifact.Format=="spz")
-        {string message=await GaussianDocument.ImportSceneAsync(artifact.LocalPath,target,Scale(),Axis(),sourceUnits.SelectedIndex==0,token,StageProgress(),taskId:task.Id);AholoHost.Ui(()=>Report(message));return;}
+        {string message=await GaussianDocument.ImportSceneAsync(artifact.LocalPath,target,importScale,importAxis,useSourceUnits,token,StageProgress(context),taskId:task.Id);AholoHost.Ui(()=>Report(message));return;}
         throw new InvalidOperationException(T("This result format cannot be placed directly."));
     }
-    private async Task ImportGsAsync()
-    {
+    private async Task ImportGsAsync(PanelInvocation context)
+    {var token=context.Cancellation;
         using var dialog=new OpenFileDialog{Title=T("Import GS"),MultiSelect=false};dialog.Filters.Add(new FileFilter("Gaussian scene",".ply",".splat",".spz",".usd",".usda",".usdc",".usdz"));
         if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
-        var target=AholoHost.CaptureTarget(Document());string message=await GaussianDocument.ImportSceneAsync(dialog.FileName,target,Scale(),Axis(),sourceUnits.SelectedIndex==0,token,StageProgress());AholoHost.Ui(()=>Report(message));
+        var target=AholoHost.CaptureTarget(Document());string message=await GaussianDocument.ImportSceneAsync(dialog.FileName,target,Scale(),Axis(),sourceUnits.SelectedIndex==0,token,StageProgress(context));AholoHost.Ui(()=>Report(message));
     }
-    private async Task ExportGsAsync()
-    {
+    private async Task ExportGsAsync(PanelInvocation context)
+    {var token=context.Cancellation;
         var snapshot=GaussianDocument.CaptureExport(Document(),selectedOnly:exportScope.SelectedIndex==0);using var dialog=GaussianExportDialogs.CreateSaveDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
-        string message=await GaussianDocument.ExportAsync(GaussianExportDialogs.NormalizePath(dialog),snapshot,token,StageProgress());AholoHost.Ui(()=>Report(message));
+        string message=await GaussianDocument.ExportAsync(GaussianExportDialogs.NormalizePath(dialog),snapshot,token,StageProgress(context));AholoHost.Ui(()=>Report(message));
     }
-    private async Task RenderAsync()
-    {
+    private async Task RenderAsync(PanelInvocation context)
+    {var token=context.Cancellation;
         int width=resolution.SelectedIndex==1?1920:1280,height=resolution.SelectedIndex==1?1080:720;
         double ParseLightValue(string text)
         {if(!double.TryParse(text,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.CurrentCulture,out double value)||!double.IsFinite(value)||value<=0)throw new ArgumentException(T("Light radius and intensity multiplier must be positive numbers."));return value;}
@@ -367,7 +385,7 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);GlbWriter.Write(path,meshes,renderToken);
             },renderToken);
             return new(snapshot.Name,path,snapshot.Camera,width,height,Upload:upload,Lights:snapshot.Lights);
-        },operationToken);await RevealAsync(task);
+        },operationToken);await RevealAsync(task,context);
     }
     private string ConnectionLabel()=>AholoRegions.Label(session.Connection.Region)+" · "+T(session.Connection.Connected?"Connected":"Not connected");
     private void ShowSettings()
@@ -384,14 +402,14 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         string SelectedRegion()=>regions.SelectedIndex==1?AholoRegions.China:AholoRegions.International;
         var switchRegion=Local("Apply service region",()=>
         {
-            if(busy)return;string selected=SelectedRegion();if(selected==session.Connection.Region)return;key.Text="";
-            _=RunAsync("Switching service region",async()=>{await session.SwitchRegionAsync(selected,token);});
+            if(busy||!CanRun("Switching service region",WorkKind.Connection))return;string selected=SelectedRegion();if(selected==session.Connection.Region)return;key.Text="";
+            _=RunAsync("Switching service region",async context=>{await session.SwitchRegionAsync(selected,context.Cancellation);},WorkKind.Connection);
         });
         var connectionError=Info(session.LastError??"");
         using var dialog=new Dialog{Title=T("Settings"),ClientSize=new Size(460,620),Resizable=true};
-        var connect=Local("Validate and connect",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}string selected=SelectedRegion();string value=key.Text;bool save=remember.Checked==true;string service=validation.SelectedIndex switch{1=>"lux",2=>"spatial",_=>"world"};key.Text="";_=RunAsync("Connecting",async()=>{await session.ConnectAsync(new(value,save,service,selected),token);AholoHost.Ui(()=>Report(T("Connected. Service permissions and credits are checked per operation.")));});});
-        var disconnect=Local("Disconnect and clear credentials",()=>{if(busy){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}_=RunAsync("Disconnecting",async()=>{await session.DisconnectAsync(token);AholoHost.Ui(()=>Report(T("Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.")));});});
-        var restore=Local("Restore saved connection",()=>{if(busy)return;_=RunAsync("Restoring connection",async()=>{await session.ReadConnectionAsync(token);});});
+        var connect=Local("Validate and connect",()=>{if(busy||!CanRun("Connecting",WorkKind.Connection)){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}string selected=SelectedRegion();string value=key.Text;bool save=remember.Checked==true;string service=validation.SelectedIndex switch{1=>"lux",2=>"spatial",_=>"world"};key.Text="";_=RunAsync("Connecting",async context=>{await session.ConnectAsync(new(value,save,service,selected),context.Cancellation);AholoHost.Ui(()=>Report(T("Connected. Service permissions and credits are checked per operation.")));},WorkKind.Connection);});
+        var disconnect=Local("Disconnect and clear credentials",()=>{if(busy||!CanRun("Disconnecting",WorkKind.Connection)){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}_=RunAsync("Disconnecting",async context=>{await session.DisconnectAsync(context.Cancellation);AholoHost.Ui(()=>Report(T("Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.")));},WorkKind.Connection);});
+        var restore=Local("Restore saved connection",()=>{if(busy||!CanRun("Restoring connection",WorkKind.Connection))return;_=RunAsync("Restoring connection",async context=>{await session.ReadConnectionAsync(context.Cancellation);},WorkKind.Connection);});
         var uploadMetadata=new TextBox{Text=uploadOptions.Metadata??""};var uploadPrefix=new TextBox{Text=uploadOptions.CustomPrefix??""};var uploadFilename=new TextBox{Text=uploadOptions.CustomFilename??""};
         var uploadFields=new StackLayout{Spacing=6,Visible=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={Info("Multipart upload options apply to every local input. Leave blank for automatic storage. Small files do not support these fields."),Info("Upload metadata"),uploadMetadata,Info("Storage prefix"),uploadPrefix,Info("Stored filename"),uploadFilename}};
         var uploadAdvanced=new CheckBox{Text=T("Advanced upload settings")};uploadAdvanced.CheckedChanged+=(_,_)=>uploadFields.Visible=uploadAdvanced.Checked==true;
@@ -400,11 +418,11 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         try{setup=UsdRuntime.SetupCommand(UsdRuntime.SetupScript,OperatingSystem.IsWindows());}
         catch(FileNotFoundException){setup=T("The USD setup script is missing. Reinstall the complete plugin package.");}
         var usdSetup=new TextArea{ReadOnly=true,Height=65,Text=setup};
-        var usdCheck=Local("Check USD readiness",()=>{if(busy)return;_=RunAsync("Checking USD runtime",async()=>
+        var usdCheck=Local("Check USD readiness",()=>{_=RunAsync("Checking USD runtime",async context=>
         {
-            var result=await UsdRuntime.CheckAsync(ct:token);
+            var result=await UsdRuntime.CheckAsync(ct:context.Cancellation);
             AholoHost.Ui(()=>{if(!closed)usdStatus.Text=UiText.TranslateKnownMessage(result.Detail)+"\n"+result.PythonPath;});
-        });});
+        },WorkKind.Readiness);});
         var settingsCancel=Local("Cancel local operation",()=>AholoPlugin.CancelDocumentOperations(serial));
         settingsCancel.Enabled=placementIntents.Count>0||session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
         var close=new Button{Text=T("Close")};close.Click+=(_,_)=>dialog.Close();
@@ -431,6 +449,7 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
     public void PanelHidden(uint documentSerialNumber,ShowPanelReason reason){SaveWorkspace();shown=false;placementTimer.Stop();taskElapsed.Stop();meshEditor.SetVisible(false);}
     public void PanelClosing(uint documentSerialNumber,bool onCloseDocument)
     {if(onCloseDocument)PanelNavigation.Close(serial);else SaveWorkspace();shown=false;RevokePlacements();placementTimer.Stop();taskElapsed.Stop();meshEditor.Clear();if(onCloseDocument){lifetime.Cancel();session.Operations.CancelPrefix(Scope);}}
+    private async Task DisposeLifetimeAsync(){await invocations.CloseAsync().ConfigureAwait(false);lifetime.Dispose();}
     protected override void Dispose(bool disposing)
     {
         try
@@ -440,7 +459,7 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
                 SaveWorkspace();disposed=true;lifetime.Cancel();RevokePlacements();session.Changed-=SessionChanged;session.TaskChanged-=TaskChanged;AholoPlugin.DocumentCancellationRequested-=DocumentCancellationRequested;
                 placementTimer.Stop();placementTimer.Dispose();elapsed.Stop();elapsed.Dispose();taskElapsed.Stop();taskElapsed.Dispose();
                 try{meshEditor.Dispose();}
-                finally{foreach(var draft in drafts.Values)draft.Dispose();drafts.Clear();if(!busy&&!autoBusy)lifetime.Dispose();}
+                finally{foreach(var draft in drafts.Values)draft.Dispose();drafts.Clear();_=DisposeLifetimeAsync();}
             }
         }
         finally{base.Dispose(disposing);}

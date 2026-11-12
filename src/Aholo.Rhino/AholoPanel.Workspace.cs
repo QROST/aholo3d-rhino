@@ -6,7 +6,7 @@ public sealed partial class AholoPanel
 {
     private readonly PanelWorkspace workspace;
     private bool workspaceReady,restoringWorkspace;
-    private long workspaceLease,operationNavigationRevision;
+    private long workspaceLease;
     private void WorkspaceUserNavigated()
     {
         if(!workspaceReady||restoringWorkspace)return;

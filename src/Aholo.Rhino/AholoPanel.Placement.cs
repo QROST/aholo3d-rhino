@@ -16,7 +16,7 @@ public sealed partial class AholoPanel
     private readonly CheckBox meshExportTextures=new(){Text=T("Include direct base-color bitmaps in mesh USD"),Checked=true};
     private void InitializePlacement()
     {
-        meshEditor=new(serial,AholoPlugin.Placement,Report,RunAsync,()=>token);
+        meshEditor=new(serial,AholoPlugin.Placement,Report,(name,work)=>RunAsync(name,work));
         meshEditor.HeightText=objectHeight.Text;placementConnection=session.Connection;
         autoPlace.CheckedChanged+=(_,_)=>{if(autoPlace.Checked!=true){RevokePlacements();UpdateActions();}};
         placementTimer.Elapsed+=(_,_)=>_=PlaceReadyAsync();
@@ -57,19 +57,24 @@ public sealed partial class AholoPanel
         autoBusy=true;UpdateActions();
         try
         {
-            var result=await session.Operations.RunAsync(MeshPlacementPolicy.AutomaticOperationScope(Scope,panelId,task.Id),"Place generated mesh",ct=>
-                AholoPlugin.Placement.PlaceTaskAsync(task.Id,null,intent!.Target,ct,()=>!disposed&&shown&&!session.IsPaused(task.Id)&&placementIntents.IsCurrent(task.Id,intent,session.Connection)),lifetime.Token);
+            var result=await session.Operations.RunAsync(MeshPlacementPolicy.AutomaticOperationScope(Scope,panelId,task.Id),"Place generated mesh",async ct=>
+            {
+                using var context=invocations.Begin("automatic",T("Place generated mesh"),new[]{InteractionResource},workspace.NavigationRevision,workspaceLease,ct);
+                elapsed.Start();UpdateActions();
+                return await AholoPlugin.Placement.PlaceTaskAsync(task.Id,null,intent!.Target,ct,()=>!disposed&&shown&&!session.IsPaused(task.Id)&&placementIntents.IsCurrent(task.Id,intent,session.Connection));
+            },lifetime.Token);
             if(result.State!="Deferred")ForgetPlacement(task.Id);
             if(!disposed)Report(result.Message);
         }
+        catch(OperationResourceBusyException){/* Retain original intent until the competing local operation finishes. */}
         catch(Exception error){ForgetPlacement(task.Id);if(!disposed)Report(AholoHost.FriendlyError(error));}
-        finally{autoBusy=false;if(!disposed)UpdateActions();else if(!busy)lifetime.Dispose();}
+        finally{autoBusy=false;if(!disposed){if(invocations.Count==0)elapsed.Stop();UpdateActions();}}
     }
-    private async Task PreviewSelectedAsync()
-    {
+    private async Task PreviewSelectedAsync(PanelInvocation context)
+    {var token=context.Cancellation;
         meshSection.Expanded=true;
-        var task=Selected??throw new InvalidOperationException(T("Select a task first."));
-        var artifact=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
+        var task=context.SelectedTask??throw new InvalidOperationException(T("Select a task first."));
+        var artifact=context.SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
         var selection=MeshTaskSelection.Capture(task,artifact.Key);
         var target=meshEditor.Capture();long revision=meshEditor.Revision;
         using var resultClaim=AholoPlugin.Placement.AcquireResult(target,selection.ImportId,token);
@@ -80,26 +85,26 @@ public sealed partial class AholoPanel
             return true;
         });
         artifact=await MeshTaskSource.AcquireAsync(selection,task,()=>session.Connection,session.Client.DownloadAsync,session.Observe,Validate,token);
-        await meshEditor.AddAsync(artifact.LocalPath!,artifact.Sha256,task.Name,task.Id,token,selection.ImportId,revision);
+        await meshEditor.AddAsync(artifact.LocalPath!,artifact.Sha256,task.Name,task.Id,token,selection.ImportId,revision,target);
     }
-    private async Task ImportSceneAsync()
-    {
+    private async Task ImportSceneAsync(PanelInvocation context)
+    {var token=context.Cancellation;
         using var dialog=AholoImportSceneCommand.FileDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
         var target=GaussianDocument.CaptureSceneImport(Document());
-        var progress=StageProgress();
+        var progress=StageProgress(context);
         string message=await GaussianDocument.ImportUsdSceneAsync(dialog.FileName,target,token,progress);
         AholoHost.Ui(()=>Report(message));
     }
-    private async Task ExportSceneAsync()
-    {
+    private async Task ExportSceneAsync(PanelInvocation context)
+    {var token=context.Cancellation;
         using var dialog=SceneUsdExport.SaveDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
         var snapshot=AholoHost.CaptureSceneExport(Document(),meshExportTextures.Checked==true);
-        var progress=StageProgress();
+        var progress=StageProgress(context);
         string message=await SceneUsdExport.ExportAsync(GaussianExportDialogs.NormalizePath(dialog),snapshot,token,progress);
         AholoHost.Ui(()=>Report(message));
     }
-    private async Task ExportMeshAsync()
-    {
+    private async Task ExportMeshAsync(PanelInvocation context)
+    {var token=context.Cancellation;
         using var dialog=MeshUsdExport.SaveDialog();if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
         var snapshot=AholoHost.CaptureMeshExport(Document(),meshExportTextures.Checked==true);
         string message=await MeshUsdExport.ExportAsync(GaussianExportDialogs.NormalizePath(dialog),snapshot,token);
@@ -112,10 +117,10 @@ public sealed partial class AholoPanel
         if(busy||autoBusy)throw new InvalidOperationException(T("The panel is busy. Wait for the current operation or cancel it, then load the mesh."));
         if(workspace.NavigationRevision!=expectedNavigation)throw new LocalOperationCanceledException();
         SetPage(WorkspacePage.Library);meshSection.Expanded=true;
-        return RunAsync("Load local mesh",()=>meshEditor.AddAsync(path,null,Path.GetFileName(path),null,token));
+        return RunAsync("Load local mesh",context=>meshEditor.AddAsync(path,null,Path.GetFileName(path),null,context.Cancellation));
     }
-    private async Task LoadLocalMeshAsync()
-    {
+    private async Task LoadLocalMeshAsync(PanelInvocation context)
+    {var token=context.Cancellation;
         using var dialog=AholoImportMeshCommand.FileDialog();
         if(dialog.ShowDialog(this)!=DialogResult.Ok)return;
         meshSection.Expanded=true;

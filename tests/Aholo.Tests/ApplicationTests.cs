@@ -298,6 +298,15 @@ public sealed class ApplicationTests : IDisposable
         Assert.Same(timeout,await Assert.ThrowsAsync<OperationCanceledException>(()=>rendering));
     }
 
+    [Fact] public async Task BackgroundPollSkipsTaskOwnedByAVisibleOperationAndResumesAfterRelease()
+    {
+        var store=Store;var client=new FakeClient(store);await using var session=new AholoSession(client,store);await session.ReadConnectionAsync();await session.RenderAsync(Request);
+        using(var claim=session.Resources.Acquire(new[]{new OperationResource("task",client.Task.Id.ToString("N"))}))
+        {await session.PollOnceAsync();Assert.Equal(0,client.Queries);Assert.Equal(0,client.Continuations);}
+        var observed=new List<bool>();session.Changed+=()=>observed.Add(session.Resources.IsHeld(new OperationResource("task",client.Task.Id.ToString("N"))));
+        await session.PollOnceAsync();Assert.Equal(1,client.Queries);Assert.Equal(1,client.Continuations);
+        Assert.NotEmpty(observed);Assert.False(observed[^1]);
+    }
     private sealed class FakeClient(TaskStore store) : IAholoServiceClient
     {
         public event Action? TransportReset;
