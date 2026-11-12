@@ -4966,5 +4966,21 @@
   {
     "English": "The background request timed out. Recover the original task from history; do not resubmit an unconfirmed operation.",
     "Chinese": "后台请求超时。请从历史记录恢复原任务，不要重新提交结果尚未确认的操作。"
+  },
+  {
+    "English": "Cannot prepare the GS occlusion test geometry. The document has not been modified.",
+    "Chinese": "无法准备 GS 遮挡测试几何，文档未被修改。"
+  },
+  {
+    "English": "Create GS occlusion probe",
+    "Chinese": "创建 GS 遮挡测试场景"
+  },
+  {
+    "English": "Cannot add the GS occlusion test geometry.",
+    "Chinese": "无法添加 GS 遮挡测试几何。"
+  },
+  {
+    "English": "One Undo removes the GS probe and its opaque test geometry together. Visual acceptance is not automatic; run AholoGsDiagnostics for status.",
+    "Chinese": "一次 Undo 同时移除 GS 测试场景及其不透明遮挡几何。视觉验收不会自动通过，请运行 AholoGsDiagnostics 查看状态。"
   }
 ]

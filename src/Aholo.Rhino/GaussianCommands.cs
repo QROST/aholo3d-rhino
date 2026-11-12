@@ -83,35 +83,7 @@ public sealed class AholoGsProbeCommand : Command
     private static async Task<string> CreateAsync(ImportTarget target,CancellationToken ct)
     {
         string path=await Task.Run(WriteFixture,ct).ConfigureAwait(false);
-        string result=await GaussianDocument.ImportAsync(path,target,1,"Z",null,ct).ConfigureAwait(false);
-        return await AholoHost.OnUi(()=>
-        {
-            ct.ThrowIfCancellationRequested();
-            RhinoDoc doc=RhinoDoc.FromRuntimeSerialNumber(target.Serial)??throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The probe target document has closed."));
-            if(RhinoDoc.ActiveDoc?.RuntimeSerialNumber!=target.Serial||doc.ModelUnitSystem!=target.Units||doc.IsClosing||doc.IsReadOnly||doc.IsCommandRunning||doc.UndoRecordingIsActive)
-                throw new InvalidOperationException(global::Aholo.Core.UiText.Get("The target document changed. GS was imported, but occlusion test geometry was not added."));
-            uint undo=doc.BeginUndoRecord(global::Aholo.Core.UiText.Get("Add GS occlusion test geometry"));
-            if(undo==0)throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create the test geometry Undo record."));
-            try
-            {
-                using Brep cube=new BoundingBox(new Point3d(-.35,-.8,-1.5),new Point3d(.35,.8,1.5)).ToBrep();
-                using var attrs=new ObjectAttributes{LayerIndex=GaussianDocument.VisibleLayer(doc),Name="Aholo GS probe · opaque Brep",ObjectColor=Color.FromArgb(65,95,160),ColorSource=ObjectColorSource.ColorFromObject};
-                if(doc.Objects.AddBrep(cube,attrs)==Guid.Empty) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot add the Brep occlusion test geometry."));
-                using var mesh=Mesh.CreateFromBox(new BoundingBox(new Point3d(1.2,-1.0,-.25),new Point3d(2.3,1.0,.25)),1,1,1);
-                attrs.Name="Aholo GS probe · opaque Mesh";attrs.ObjectColor=Color.FromArgb(170,140,65);
-                if(doc.Objects.AddMesh(mesh,attrs)==Guid.Empty) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot add the Mesh occlusion test geometry. Use Undo to remove geometry already added."));
-            }
-            finally{doc.EndUndoRecord(undo);}
-            var viewport=doc.Views.ActiveView?.ActiveViewport;
-            if(viewport is not null)
-            {
-                viewport.ChangeToPerspectiveProjection(true,50);
-                viewport.SetCameraLocations(Point3d.Origin,new Point3d(5,-12,4));
-                viewport.ZoomBoundingBox(new BoundingBox(new Point3d(-3,-2,-2.5),new Point3d(3,2,2.5)));
-            }
-            doc.Objects.UnselectAll();doc.Views.Redraw();
-            return result+"\n"+UiText.Get("Use Undo twice: first remove the occlusion geometry, then the GS blocks. Visual acceptance is not automatic; run AholoGsDiagnostics for status.");
-        }).ConfigureAwait(false);
+        return await GaussianDocument.ImportProbeAsync(path,target,ct).ConfigureAwait(false);
     }
     private static string WriteFixture()
     {

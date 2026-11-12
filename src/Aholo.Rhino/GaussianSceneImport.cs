@@ -13,8 +13,13 @@ internal static partial class GaussianDocument
     private sealed record PreparedPart(string Name, AssetData Asset, GaussianTransform Transform, bool Antialiased);
     private sealed record PreparedImport(SourceArchive Source, GaussianScene Scene, PreparedPart[] Parts);
 
-    internal static async Task<string> ImportSceneAsync(string path, ImportTarget target, double scale, string upAxis,
+    internal static Task<string> ImportSceneAsync(string path, ImportTarget target, double scale, string upAxis,
         bool useSourceUnits, CancellationToken ct, IProgress<string>? progress = null, Guid? taskId = null)
+        =>ImportSceneCoreAsync(path,target,scale,upAxis,useSourceUnits,ct,progress,taskId,false);
+    internal static Task<string> ImportProbeAsync(string path,ImportTarget target,CancellationToken ct)
+        =>ImportSceneCoreAsync(path,target,1,"Z",false,ct,null,null,true);
+    private static async Task<string> ImportSceneCoreAsync(string path,ImportTarget target,double scale,string upAxis,
+        bool useSourceUnits,CancellationToken ct,IProgress<string>? progress,Guid? taskId,bool probe)
     {
         if (!double.IsFinite(scale) || scale <= 0) throw new ArgumentException(global::Aholo.Core.UiText.Get("GS scale must be finite and greater than zero."));
         if (upAxis is not ("Auto" or "Y" or "Z")) throw new ArgumentException(global::Aholo.Core.UiText.Get("The up axis must be Auto, Y or Z."));
@@ -33,7 +38,7 @@ internal static partial class GaussianDocument
             }).ConfigureAwait(false);
             PreparedImport prepared = await Task.Run(() => PrepareImport(path, token, progress), token).ConfigureAwait(false);
             progress?.Report(global::Aholo.Core.UiText.Get("Complete assets are ready; writing to the target document…"));
-            return await AholoHost.OnUi(() => CommitImport(prepared, target, scale, upAxis, useSourceUnits, taskId, token)).ConfigureAwait(false);
+            return await AholoHost.OnUi(() => CommitImport(prepared, target, scale, upAxis, useSourceUnits, taskId, token,probe)).ConfigureAwait(false);
         }
         finally
         {
@@ -83,7 +88,7 @@ internal static partial class GaussianDocument
         return new(original, scene, parts);
     }
     private static string CommitImport(PreparedImport prepared, ImportTarget target, double scale, string axis,
-        bool useSourceUnits, Guid? taskId, CancellationToken ct)
+        bool useSourceUnits, Guid? taskId, CancellationToken ct,bool probe=false)
     {
         ct.ThrowIfCancellationRequested();
         RhinoDoc doc = RequireTarget(target.Serial);
@@ -104,9 +109,14 @@ internal static partial class GaussianDocument
         var placement=ValidateGsPlacement(prepared,doc,scale,axis,useSourceUnits);
         var transforms=placement.Transforms;var overall=placement.Bounds;
         string upAxis=placement.UpAxis;double effectiveScale=placement.Scale;
-        uint undo = doc.BeginUndoRecord(global::Aholo.Core.UiText.Get("Import Aholo Gaussian Splat"));
+        // Probe geometry is prepared before opening Undo; all native additions share one synchronous transaction.
+        using Brep? probeBrep=probe?new BoundingBox(new Point3d(-.35,-.8,-1.5),new Point3d(.35,.8,1.5)).ToBrep():null;
+        using Mesh? probeMesh=probe?Mesh.CreateFromBox(new BoundingBox(new Point3d(1.2,-1.0,-.25),new Point3d(2.3,1.0,.25)),1,1,1):null;
+        if(probe&&(probeBrep?.IsValid!=true||probeMesh?.IsValid!=true))throw new InvalidOperationException(UiText.Get("Cannot prepare the GS occlusion test geometry. The document has not been modified."));
+        uint undo = doc.BeginUndoRecord(global::Aholo.Core.UiText.Get(probe?"Create GS occlusion probe":"Import Aholo Gaussian Splat"));
         if (undo == 0) throw new InvalidOperationException(global::Aholo.Core.UiText.Get("Cannot create the import Undo record. The document has not been modified."));
         var added = new List<(Guid Id, int Definition)>();
+        var extraObjects=new List<Guid>();
         bool undoEnded;
         int layer = -1;
         bool createdLayer = !(doc.Layers.CurrentLayer.IsVisible && !doc.Layers.CurrentLayer.IsLocked);
@@ -119,11 +129,26 @@ internal static partial class GaussianDocument
                 added.Add(AddBlock(doc, prepared.Parts[i], transforms[i], prepared.Source, prepared.Scene,
                     effectiveScale, upAxis, layer, taskId));
             }
+            if(probe)
+            {
+                AddProbeObject(probeBrep!,"Aholo GS probe · opaque Brep",Color.FromArgb(65,95,160));
+                AddProbeObject(probeMesh!,"Aholo GS probe · opaque Mesh",Color.FromArgb(170,140,65));
+            }
             ct.ThrowIfCancellationRequested();
+            void AddProbeObject(GeometryBase geometry,string name,Color color)
+            {
+                ct.ThrowIfCancellationRequested();
+                using var attributes=new ObjectAttributes{LayerIndex=layer,Name=name,ObjectColor=color,ColorSource=ObjectColorSource.ColorFromObject};
+                Guid id=doc.Objects.Add(geometry,attributes);
+                if(id==Guid.Empty)throw new InvalidOperationException(UiText.Get("Cannot add the GS occlusion test geometry."));
+                extraObjects.Add(id);
+            }
         }
         catch (Exception failure)
         {
             bool rollbackFailed = false;
+            foreach(Guid id in extraObjects.AsEnumerable().Reverse())
+                try{if(!doc.Objects.Delete(id,true))rollbackFailed=true;}catch(Exception){rollbackFailed=true;}
             foreach (var item in added.AsEnumerable().Reverse())
             {
                 try
@@ -160,10 +185,21 @@ internal static partial class GaussianDocument
         if (prepared.Scene.Warnings is not null) messages.AddRange(prepared.Scene.Warnings.Select(w=>UiText.TranslateKnownMessage(w)));
         try
         {
-            doc.Views.ActiveView?.ActiveViewport.ZoomBoundingBox(overall);
+            var viewport=doc.Views.ActiveView?.ActiveViewport;
+            if(probe&&viewport is not null)
+            {
+                viewport.ChangeToPerspectiveProjection(true,50);viewport.SetCameraLocations(Point3d.Origin,new Point3d(5,-12,4));
+                overall.Union(new BoundingBox(new Point3d(-3,-2,-2.5),new Point3d(3,2,2.5)));
+            }
+            viewport?.ZoomBoundingBox(overall);
             GaussianViewport.Activate(doc);
         }
         catch (Exception ex) { messages.Add(global::Aholo.Core.UiText.Get("The model is in the document, but the display mode is not ready. Bounds are retained. ") + AholoHost.FriendlyError(ex)); }
+        if(probe)
+        {
+            doc.Objects.UnselectAll();
+            messages.Add(UiText.Get("One Undo removes the GS probe and its opaque test geometry together. Visual acceptance is not automatic; run AholoGsDiagnostics for status."));
+        }
         doc.Views.Redraw();
         return string.Join(System.Environment.NewLine, messages);
     }
