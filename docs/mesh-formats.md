@@ -52,7 +52,7 @@ Preview acceptance and direct placement share the same task/output receipt. A re
 
 ## Local mesh command and placement modes
 
-`AholoImportMesh` accepts a path in scripted mode or opens a file picker interactively. It opens the original document's Library and waits for the command/Undo cycle to finish before preparing a candidate. It retains the panel's chosen placement mode and does not commit automatically. A busy/closed panel, changed document or expired wait produces explicit feedback. `AholoCancel`, document closure and plugin shutdown clear the pending request.
+`Aholo3DImportMesh` accepts a path in scripted mode or opens a file picker interactively. It opens the original document's Library and waits for the command/Undo cycle to finish before preparing a candidate. It retains the panel's chosen placement mode and does not commit automatically. A busy/closed panel, changed document or expired wait produces explicit feedback. `Aholo3DCancel`, document closure and plugin shutdown clear the pending request.
 
 Fit-height and original-size modes anchor the source XY midpoint/minimum Z to the selected point on the captured CPlane, then apply Z rotation. Scene coordinates disable those controls and use identity placement. Switching/removing/accepting candidates preserves the mode. Acceptance now passes the panel operation cancellation token and revision/visibility guard through the native commit checkpoints.
 

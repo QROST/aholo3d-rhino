@@ -1,0 +1,341 @@
+using Aholo3D.Core;
+using Aholo3D.Provider;
+namespace Aholo3D.Sidecar;
+
+/// <summary>Owns paid session intent, a single latest frame, and durable server cleanup obligations.</summary>
+public sealed class RealtimePreviewManager
+{
+    private sealed record Update(long Revision,string Content,bool Scene,RealtimeSceneLayout? Candidate=null);
+    private sealed class Entry
+    {
+        internal Entry(RealtimePreviewRecord record,RealtimeStartRequest start,IRealtimePreviewBackend backend,FileStream lease)
+        {
+            Record=record;Start=start;Backend=backend;Lease=lease;CommittedScene=RealtimeLayout.FromStart(start);
+            UsedAssets.UnionWith(CommittedScene.Assets.Select(a=>a.Id));UsedLights.UnionWith(CommittedScene.Lights.Select(l=>l.Id));
+        }
+        internal readonly object Gate=new();
+        internal RealtimePreviewRecord Record;
+        internal readonly RealtimeStartRequest Start;
+        internal readonly IRealtimePreviewBackend Backend;
+        internal RealtimeSceneLayout CommittedScene;
+        internal readonly HashSet<string> UsedAssets=new(StringComparer.Ordinal),UsedLights=new(StringComparer.Ordinal);
+        internal string? AcceptedSceneFingerprint;
+        internal readonly CancellationTokenSource Cancel=new();
+        internal FileStream? Lease;
+        internal Task Worker=Task.CompletedTask,UpdateWorker=Task.CompletedTask;
+        internal byte[]? Frame;
+        internal DateTimeOffset? Received;
+        internal long Sequence,AcceptedCamera,AcknowledgedCamera,AcceptedScene,AcknowledgedScene;
+        internal readonly LinkedList<Update> PendingUpdates=new();
+        internal bool Initialized,UpdatesRunning,ScenePending;
+    }
+    private readonly Dictionary<Guid,Entry> entries=new();
+    private readonly object gate=new();
+    private readonly SemaphoreSlim lifecycle=new(1);
+    private readonly CredentialCoordinator credentials;
+    private readonly RealtimeJournal journal;
+    private readonly Func<ApiKeyCredential,string,IRealtimePreviewBackend> backendFactory;
+    private readonly TimeSpan pollInterval;
+    private bool stopped;
+    public RealtimePreviewManager(CredentialCoordinator credentials,RealtimeJournal journal,
+        Func<ApiKeyCredential,string,IRealtimePreviewBackend> backendFactory,TimeSpan? pollInterval=null)
+    {this.credentials=credentials;this.journal=journal;this.backendFactory=backendFactory;this.pollInterval=pollInterval??TimeSpan.FromSeconds(2);}
+
+    public async Task<RealtimePreviewPacket> StartAsync(RealtimeStartRequest request,string? epoch,CancellationToken ct)
+    {
+        if(request.Id==Guid.Empty)throw new ArgumentException("A preview identity is required.");
+        request=RealtimeScene.Snapshot(request);
+        string usda=RealtimeScene.Build(request);
+        await lifecycle.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if(stopped)throw new InvalidOperationException("Realtime control has stopped.");
+            var key=await credentials.RequireAsync(epoch,ct).ConfigureAwait(false);
+            lock(gate)
+            {
+                if(entries.TryGetValue(request.Id,out var existing))return Packet(existing,0);
+                if(entries.Values.Any(e=>!e.Worker.IsCompleted))throw new InvalidOperationException("Stop the active cloud preview before starting another.");
+            }
+            using var startAdmission=journal.LockAdmission();
+            if(journal.Pending().Any(r=>r.Region==key.Region&&r.ConnectionId==key.ConnectionId))
+                throw new InvalidOperationException("Resolve pending cloud preview cleanup before starting another paid session.");
+            using var admission=await credentials.AcquireRequestAsync(epoch,ct).ConfigureAwait(false);
+            var lease=journal.Lock(request.Id);
+            try
+            {
+                if(journal.Exists(request.Id))throw new InvalidOperationException("This preview already has a journal. Inspect or close the original session; it will not be created again.");
+                var record=new RealtimePreviewRecord{Id=request.Id,Region=key.Region,ConnectionId=key.ConnectionId,Epoch=epoch!,MeshId=RealtimeLayout.FromStart(request).Assets[0].MeshId};
+                var entry=new Entry(record,request,backendFactory(key,epoch!),lease);
+                journal.Save(record); // Paid creation must never precede its durable intent.
+                lock(gate){entries.Add(request.Id,entry);entry.Worker=Task.Run(()=>RunAsync(entry,usda));}
+                return Packet(entry,0);
+            }
+            catch{lease.Dispose();throw;}
+        }
+        finally{lifecycle.Release();}
+    }
+    private async Task RunAsync(Entry entry,string usda)
+    {
+        Task monitor=MonitorCredentialsAsync(entry);
+        try
+        {
+            if(entry.Cancel.IsCancellationRequested)throw new RequestNotSentCanceledException(entry.Cancel.Token);
+            var operation=await entry.Backend.CreateAsync(entry.Record.Id.ToString("N"),usda,entry.Cancel.Token).ConfigureAwait(false);
+            Set(entry,r=>r with{SessionId=operation.OperationId,Stage="Connecting"});
+            using var initialization=CancellationTokenSource.CreateLinkedTokenSource(entry.Cancel.Token);
+            initialization.CancelAfter(TimeSpan.FromSeconds(120));
+            while(!operation.Done)
+            {
+                await Task.Delay(pollInterval,initialization.Token).ConfigureAwait(false);
+                operation=await entry.Backend.QueryAsync(operation.OperationId,initialization.Token).ConfigureAwait(false);
+            }
+            if(operation.Status!=RealtimeSessionStatus.Active)throw new InvalidOperationException("The realtime session did not become active.");
+            await entry.Backend.ConnectAsync(operation,initialization.Token).ConfigureAwait(false);
+            while(true)
+            {
+                var message=await entry.Backend.ReadAsync(entry.Initialized?entry.Cancel.Token:initialization.Token).ConfigureAwait(false);
+                switch(message)
+                {
+                    case RealtimeJpegFrame frame:
+                        lock(entry.Gate){entry.Frame=frame.Bytes;entry.Sequence++;entry.Received=DateTimeOffset.UtcNow;}
+                        break;
+                    case RealtimeStatusMessage{Code:RealtimeStatusCode.Initialized}:
+                        lock(entry.Gate){entry.Initialized=true;StartUpdateWorker(entry);}
+                        Set(entry,r=>r with{Stage="Streaming",Error=null});break;
+                    case RealtimeStatusMessage{Code:RealtimeStatusCode.RenderError or RealtimeStatusCode.EngineError}:
+                        Set(entry,r=>r with{Error="The cloud renderer reported an error. The session remains open; stop it when finished."});break;
+                    case RealtimeStatusMessage{Code:RealtimeStatusCode.NodeOverloaded or RealtimeStatusCode.InitializationFailed or RealtimeStatusCode.SlaveLimitExceeded}:
+                        throw new InvalidOperationException("Realtime streaming initialization failed.");
+                    case RealtimeStreamClosed:
+                        throw new InvalidOperationException("The realtime stream closed.");
+                }
+            }
+        }
+        catch(Exception error)
+        {
+            bool knownNotSent=error is RequestNotSentCanceledException||error is ProviderException{SubmissionMayHaveSucceeded:false};
+            TrySet(entry,r=>r with{Stage=r.SessionId is null?(knownNotSent?"NotSubmitted":"SubmissionUnknown"):"Stopping",
+                NeedsCleanup=r.SessionId is not null||!knownNotSent,
+                Error=error is OperationCanceledException?"Realtime waiting stopped. Check cleanup status before starting again.":SafeError(error)});
+        }
+        finally
+        {
+            entry.Cancel.Cancel();
+            lock(entry.Gate)entry.Initialized=false;
+            try{await monitor.ConfigureAwait(false);}catch{}
+            if(entry.Record.SessionId is{} sessionId)
+            {
+                try{await entry.Backend.CloseAsync(sessionId,false).ConfigureAwait(false);TrySet(entry,r=>r with{NeedsCleanup=false,Stage="Closed"});}
+                catch(Exception){TrySet(entry,r=>r with{NeedsCleanup=true,Stage="CleanupRequired",Error="Server cleanup is not confirmed. Retry closing the original session."});}
+            }
+            try{await entry.UpdateWorker.ConfigureAwait(false);}catch{}
+            lock(entry.Gate){entry.Frame=null;entry.PendingUpdates.Clear();}
+            entry.Lease?.Dispose();entry.Lease=null;
+        }
+    }
+    private async Task MonitorCredentialsAsync(Entry entry)
+    {
+        try
+        {
+            while(true)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2),entry.Cancel.Token).ConfigureAwait(false);
+                using var acknowledgementAdmission=await credentials.AcquireRequestAsync(entry.Record.Epoch,entry.Cancel.Token).ConfigureAwait(false);
+            }
+        }
+        catch(OperationCanceledException)when(entry.Cancel.IsCancellationRequested){}
+        catch{TrySet(entry,r=>r with{Error="The preview connection changed. Server cleanup may require restoring the original account."});entry.Cancel.Cancel();}
+    }
+    public RealtimePreviewPacket Get(Guid id,long afterFrame,bool includeScene=false)
+    {
+        Entry? entry;lock(gate)entries.TryGetValue(id,out entry);
+        return entry is null?new(new(State:new(journal.Read(id)))):Packet(entry,afterFrame,includeScene);
+    }
+    public RealtimePreviewPacket Pending()=>new(new(Records:journal.Pending()));
+    public async Task<RealtimePreviewPacket> CameraAsync(RealtimeCameraRequest request,string? epoch,CancellationToken ct)
+    {
+        if(request.Revision<=0)throw new ArgumentException("An increasing positive edit revision is required.");
+        ArgumentNullException.ThrowIfNull(request.Camera);ArgumentNullException.ThrowIfNull(request.Camera.Transform);
+        request=request with{Camera=request.Camera with{Transform=(double[])request.Camera.Transform.Clone()}};
+        var entry=await EditEntryAsync(request.Id,epoch,ct).ConfigureAwait(false);
+        string content=RealtimeScene.CameraPatch(entry.Start with{Camera=request.Camera});
+        lock(entry.Gate)
+        {
+            ct.ThrowIfCancellationRequested();
+            if(entry.Worker.IsCompleted||entry.Cancel.IsCancellationRequested)throw new InvalidOperationException("The original preview is closing or closed.");
+            if(request.Revision>entry.AcceptedCamera)
+            {
+                entry.AcceptedCamera=request.Revision;var update=new Update(request.Revision,content,false);
+                if(entry.PendingUpdates.Last?.Value is {Scene:false})entry.PendingUpdates.Last.Value=update;
+                else entry.PendingUpdates.AddLast(update);
+                StartUpdateWorker(entry);
+            }
+        }
+        return Packet(entry,long.MaxValue);
+    }
+    public async Task<RealtimePreviewPacket> SceneAsync(RealtimeSceneRequest request,string? epoch,CancellationToken ct)
+    {
+        if(request.Revision<=0)throw new ArgumentException("An increasing positive edit revision is required.");
+        ArgumentNullException.ThrowIfNull(request.Lights);
+        // Legacy clients still edit the original one-model/fixed-light scene, with the same snapshot boundary.
+        request=request with{Lights=request.Lights.Select(l=>l is null?throw new ArgumentException("Light cannot be null."):
+            l with{Transform=(double[])l.Transform.Clone(),Color=(double[])l.Color.Clone()}).ToArray()};
+        var entry=await EditEntryAsync(request.Id,epoch,ct).ConfigureAwait(false);
+        var candidate=RealtimeLayout.LegacyChange(entry.Start,request);
+        return QueueScene(entry,request.Revision,null,candidate,true,ct);
+    }
+    public async Task<RealtimePreviewPacket> CompositionAsync(RealtimeCompositionRequest request,string? epoch,CancellationToken ct)
+    {
+        if(request.Revision<=0||request.BaseSceneRevision<0)throw new ArgumentException("An increasing positive edit revision is required.");
+        var candidate=RealtimeLayout.Snapshot(request.Scene); // Before the first credential wait; never keep caller arrays.
+        var entry=await EditEntryAsync(request.Id,epoch,ct).ConfigureAwait(false);
+        return QueueScene(entry,request.Revision,request.BaseSceneRevision,candidate,false,ct);
+    }
+    private async Task<Entry> EditEntryAsync(Guid id,string? epoch,CancellationToken ct)
+    {
+        var key=await credentials.RequireAsync(epoch,ct).ConfigureAwait(false);
+        Entry entry;lock(gate)entry=entries.GetValueOrDefault(id)??throw new InvalidOperationException("The original preview is not active.");
+        if(entry.Record.Epoch!=epoch||entry.Record.Region!=key.Region||entry.Record.ConnectionId!=key.ConnectionId)throw new InvalidOperationException("The preview belongs to the original connection.");
+        return entry;
+    }
+    private RealtimePreviewPacket QueueScene(Entry entry,long revision,long? basis,RealtimeSceneLayout candidate,bool legacy,CancellationToken ct)
+    {
+        string fingerprint=(legacy?"legacy:":"composition:"+basis!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)+":")+RealtimeLayout.Fingerprint(candidate);
+        lock(entry.Gate)
+        {
+            ct.ThrowIfCancellationRequested();
+            if(entry.Worker.IsCompleted||entry.Cancel.IsCancellationRequested)throw new InvalidOperationException("The original preview is closing or closed.");
+            if(revision==entry.AcceptedScene)
+            {
+                if(fingerprint!=entry.AcceptedSceneFingerprint)throw new InvalidOperationException("This scene revision already describes a different edit.");
+                return Packet(entry,long.MaxValue);
+            }
+            if(revision<entry.AcceptedScene)throw new InvalidOperationException("This scene edit is older than the current preview.");
+            if(entry.ScenePending)throw new InvalidOperationException("Wait for the previous scene adjustment to be acknowledged before applying another.");
+            if(basis is long expected&&expected!=entry.AcknowledgedScene)throw new InvalidOperationException("The confirmed scene changed. Reload the scene before applying this edit.");
+            if(legacy)
+            {
+                var initial=RealtimeLayout.FromStart(entry.Start);
+                if(entry.Start.Scene is not null||!entry.CommittedScene.Assets.Select(a=>a.Id).SequenceEqual(initial.Assets.Select(a=>a.Id))||
+                    !entry.CommittedScene.Lights.Select(l=>l.Id).SequenceEqual(initial.Lights.Select(l=>l.Id)))
+                    throw new InvalidOperationException("Use the scene editor for this multi-object preview.");
+            }
+            string content=RealtimeLayout.Patch(entry.CommittedScene,candidate,entry.UsedAssets,entry.UsedLights);
+            entry.AcceptedScene=revision;entry.AcceptedSceneFingerprint=fingerprint;entry.ScenePending=true;
+            entry.PendingUpdates.AddLast(new Update(revision,content,true,candidate));StartUpdateWorker(entry);
+        }
+        return Packet(entry,long.MaxValue);
+    }
+    // Caller holds entry.Gate. Coalesce only adjacent camera edits; scene edits are ordered barriers.
+    // One outstanding scene edit bounds pending storage to camera/scene/camera plus an in-flight item.
+    private void StartUpdateWorker(Entry entry)
+    {
+        if(!entry.Initialized||entry.UpdatesRunning||entry.PendingUpdates.Count==0)return;
+        entry.UpdatesRunning=true;entry.UpdateWorker=Task.Run(async()=>
+        {
+            try
+            {
+                while(true)
+                {
+                    Update patch;
+                    lock(entry.Gate)
+                    {
+                        if(!entry.Initialized||entry.PendingUpdates.First is null){entry.UpdatesRunning=false;return;}
+                        patch=entry.PendingUpdates.First.Value;entry.PendingUpdates.RemoveFirst();
+                    }
+                    if(patch.Scene)await entry.Backend.SceneAsync(patch.Content,entry.Cancel.Token).ConfigureAwait(false);
+                    else await entry.Backend.CameraAsync(patch.Content,entry.Cancel.Token).ConfigureAwait(false);
+                    entry.Cancel.Token.ThrowIfCancellationRequested();
+                    using var acknowledgementAdmission=await credentials.AcquireRequestAsync(entry.Record.Epoch,entry.Cancel.Token).ConfigureAwait(false);
+                    lock(entry.Gate)
+                    {
+                        entry.Cancel.Token.ThrowIfCancellationRequested();
+                        if(patch.Scene)
+                        {
+                            entry.CommittedScene=patch.Candidate!;
+                            entry.UsedAssets.UnionWith(entry.CommittedScene.Assets.Select(a=>a.Id));entry.UsedLights.UnionWith(entry.CommittedScene.Lights.Select(l=>l.Id));
+                            entry.AcknowledgedScene=patch.Revision;entry.ScenePending=false;
+                        }
+                        else entry.AcknowledgedCamera=Math.Max(entry.AcknowledgedCamera,patch.Revision);
+                    }
+                }
+            }
+            catch(Exception error){TrySet(entry,r=>r with{Error=SafeError(error)});entry.Cancel.Cancel();lock(entry.Gate)entry.UpdatesRunning=false;}
+        });
+    }
+    public async Task<RealtimePreviewPacket> StopAsync(Guid id,string? epoch,CancellationToken ct)
+    {
+        await lifecycle.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            Entry? entry;lock(gate)entries.TryGetValue(id,out entry);
+            if(entry is not null&&!entry.Worker.IsCompleted)
+            {
+                entry.Cancel.Cancel();await entry.Worker.WaitAsync(ct).ConfigureAwait(false);return Packet(entry,long.MaxValue);
+            }
+            using var lease=journal.Lock(id);
+            if(!journal.Exists(id))
+            {
+                var originalKey=await credentials.RequireAsync(epoch,ct).ConfigureAwait(false);
+                var tombstone=new RealtimePreviewRecord{Id=id,Region=originalKey.Region,ConnectionId=originalKey.ConnectionId,Epoch=epoch!,Stage="NotSubmitted",NeedsCleanup=false,Error="Stopped before preview creation was admitted."};
+                journal.Save(tombstone);return new(new(State:new(tombstone)));
+            }
+            var record=journal.Read(id);
+            if(entry is not null&&entry.Record.SessionId is not null&&record.SessionId is null)record=entry.Record;
+            if(!record.NeedsCleanup)return new(new(State:new(record)));
+            if(record.SessionId is null)throw new InvalidOperationException("The create response was lost and the session may exist. Reconcile the original request on the official platform; creation will not be retried.");
+            var key=await credentials.RequireAsync(epoch,ct).ConfigureAwait(false);
+            if(record.Region!=key.Region||key.ConnectionId!=record.ConnectionId)throw new InvalidOperationException("Restore the preview's original account before retrying server cleanup.");
+            try
+            {
+                // Fresh explicit cleanup uses the reconnected original identity, never a different account.
+                await backendFactory(key,epoch!).CloseAsync(record.SessionId,true).ConfigureAwait(false);
+                record=record with{NeedsCleanup=false,Stage="Closed",Error=null,UpdatedAt=DateTimeOffset.UtcNow};journal.Save(record);
+                if(entry is not null)lock(entry.Gate)entry.Record=record;
+            }
+            catch{if(entry is not null)TrySet(entry,r=>r with{NeedsCleanup=true,Stage="CleanupRequired"});throw;}
+            return new(new(State:new(record)));
+        }
+        finally{lifecycle.Release();}
+    }
+    public async Task<RealtimePreviewPacket> ConfirmExternalResolutionAsync(Guid id,string? epoch,CancellationToken ct)
+    {
+        await lifecycle.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var key=await credentials.RequireAsync(epoch,ct).ConfigureAwait(false);
+            using var lease=journal.Lock(id);var record=journal.Read(id);
+            if(record.Region!=key.Region||record.ConnectionId!=key.ConnectionId||record.SessionId is not null||!record.NeedsCleanup)
+                throw new InvalidOperationException("Only an unknown session from the original account can be marked externally resolved.");
+            record=record with{NeedsCleanup=false,Stage="ExternallyResolved",Error="The user confirmed resolution on the official platform; no server close was verified by this plugin.",UpdatedAt=DateTimeOffset.UtcNow};
+            journal.Save(record);lock(gate)if(entries.TryGetValue(id,out var entry))lock(entry.Gate)entry.Record=record;
+            return new(new(State:new(record)));
+        }
+        finally{lifecycle.Release();}
+    }
+    public async Task<IDisposable> BeforeCredentialChangeAsync(CancellationToken ct)
+    {
+        await lifecycle.WaitAsync(ct).ConfigureAwait(false);
+        try{await StopActiveAsync(ct).ConfigureAwait(false);return new Lease(lifecycle);}
+        catch{lifecycle.Release();throw;}
+    }
+    public async Task ShutdownAsync(CancellationToken ct)
+    {
+        await lifecycle.WaitAsync(ct).ConfigureAwait(false);
+        try{stopped=true;await StopActiveAsync(ct).ConfigureAwait(false);}finally{lifecycle.Release();}
+    }
+    private async Task StopActiveAsync(CancellationToken ct)
+    {
+        Entry[] active;lock(gate)active=entries.Values.Where(e=>!e.Worker.IsCompleted).ToArray();
+        foreach(var entry in active)entry.Cancel.Cancel();
+        await Task.WhenAll(active.Select(e=>e.Worker)).WaitAsync(ct).ConfigureAwait(false);
+    }
+    private void Set(Entry entry,Func<RealtimePreviewRecord,RealtimePreviewRecord> change)
+    {lock(entry.Gate){entry.Record=change(entry.Record) with{UpdatedAt=DateTimeOffset.UtcNow};journal.Save(entry.Record);}}
+    private void TrySet(Entry entry,Func<RealtimePreviewRecord,RealtimePreviewRecord> change)
+    {try{Set(entry,change);}catch(IOException){lock(entry.Gate)entry.Record=entry.Record with{Error="Realtime journal could not be saved. Retain the session ID and check server cleanup."};}catch(UnauthorizedAccessException){lock(entry.Gate)entry.Record=entry.Record with{Error="Realtime journal could not be saved. Retain the session ID and check server cleanup."};}}
+    private static RealtimePreviewPacket Packet(Entry entry,long after,bool includeScene=false)
+    {lock(entry.Gate)return new(new(State:new(entry.Record,entry.Sequence,entry.Received,entry.AcknowledgedCamera,entry.AcceptedScene,entry.AcknowledgedScene,includeScene?RealtimeLayout.Snapshot(entry.CommittedScene):null)),entry.Sequence>after?entry.Frame:null);}
+    private static string SafeError(Exception error)=>error is ProviderException or InvalidOperationException?error.Message:"Realtime preview failed. Check the original session and cleanup status.";
+    private sealed class Lease(SemaphoreSlim gate):IDisposable{private int disposed;public void Dispose(){if(Interlocked.Exchange(ref disposed,1)==0)gate.Release();}}
+}

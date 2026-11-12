@@ -194,7 +194,7 @@ class Integration(unittest.TestCase):
     def test_mixed_mesh_requires_complete_scene_import(self):
         path = self.directory / "usd-mixed.usda"
         scene = stage(path); gs(scene, "/Splat"); UsdGeom.Mesh.Define(scene, "/Mesh"); scene.GetRootLayer().Save()
-        with self.assertRaisesRegex(bridge.UnsupportedUsd, "AholoImportScene"):
+        with self.assertRaisesRegex(bridge.UnsupportedUsd, "Aholo3DImportScene"):
             self.decode(path)
 
     def test_time_samples_fail_instead_of_importing_wrong_frame(self):

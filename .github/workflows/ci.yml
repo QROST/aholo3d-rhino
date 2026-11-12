@@ -25,11 +25,13 @@ jobs:
         with:
           dotnet-version: 8.0.x
       - name: Restore
-        run: dotnet restore Aholo.sln
+        run: dotnet restore Aholo3D.sln
       - name: Build
-        run: dotnet build Aholo.sln -c Release --no-restore
+        run: dotnet build Aholo3D.sln -c Release --no-restore
       - name: Test including hostless plug-in metadata
-        run: dotnet test Aholo.sln -c Release --no-build
+        run: dotnet test Aholo3D.sln -c Release --no-build
+      - name: Verify product rename and installation recovery offline
+        run: python scripts/test-product-rename.py
       - name: Verify regional contract snapshots
         run: python scripts/check-region-contracts.py
       - name: Verify account coordination across processes (synthetic storage)

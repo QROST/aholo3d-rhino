@@ -97,7 +97,7 @@ def geometry_checks():
 def integration_checks():
     from pxr import Gf,Sdf,Usd,UsdGeom,UsdShade,UsdUtils,UsdVol
     assert Usd.GetVersion()==(0,26,11)
-    with tempfile.TemporaryDirectory(prefix='aholo-shading-') as temporary:
+    with tempfile.TemporaryDirectory(prefix='aholo3d-shading-') as temporary:
         work=Path(temporary)
         demo=work/'demo';demo.mkdir();reader.convert(ROOT/'fixtures/mesh-shading.usda',demo)
         import json
@@ -143,7 +143,7 @@ def integration_checks():
                 if fmt=='usdz':assert UsdUtils.CreateNewUsdzPackage(Sdf.AssetPath(str(source)),str(path))
                 elif path!=source:assert stage.GetRootLayer().Export(str(path))
                 mode='--mesh-shading-scene-fixture' if mixed else '--mesh-shading-fixture'
-                subprocess.run(['dotnet',str(ROOT/'tools/Aholo.Reference/bin/Release/net8.0/Aholo.Reference.dll'),mode,str(path)],check=True,env=dict(os.environ,AHOLO_USD_PYTHON=sys.executable))
+                subprocess.run(['dotnet',str(ROOT/'tools/Aholo3D.Reference/bin/Release/net8.0/Aholo3D.Reference.dll'),mode,str(path)],check=True,env=dict(os.environ,AHOLO3D_USD_PYTHON=sys.executable))
         verify_formats('shading',False)
         gs=UsdVol.ParticleField3DGaussianSplat.Define(stage,'/World/Gaussian');gs.CreatePositionsAttr([(0,0,0)]);gs.CreateScalesAttr([(1,1,1)])
         gs.CreateOrientationsAttr([Gf.Quatf(1,0,0,0)]);gs.CreateOpacitiesAttr([.5]);gs.CreateRadianceSphericalHarmonicsDegreeAttr(0);gs.CreateRadianceSphericalHarmonicsCoefficientsAttr([(0,0,0)])

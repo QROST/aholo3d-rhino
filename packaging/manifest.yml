@@ -1,5 +1,5 @@
-name: aholo-rhino
-version: 0.2.0-alpha.31
+name: aholo3d-rhino
+version: 0.2.0-alpha.32
 authors:
   - CuriousArc
   - qrost
@@ -16,7 +16,7 @@ description: >-
 url: https://github.com/QROST/aholo3d-rhino
 keywords:
   - D1D17217-1169-41BB-B63A-FEE17DFA777F
-  - aholo
+  - aholo3d
   - manycore
   - world
   - gaussian-splatting

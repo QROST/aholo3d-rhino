@@ -8,7 +8,7 @@ import xml.sax.saxutils
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PROGRAM = r'''
-using Aholo.Provider;
+using Aholo3D.Provider;
 using System.Text;
 string role=args[0],root=args[1];Directory.CreateDirectory(root);
 var store=new FixtureStore(root,role=="hold-save");
@@ -79,13 +79,13 @@ def finish(child):
 
 def main():
     children = []
-    with tempfile.TemporaryDirectory(prefix="aholo-oauth-process-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="aholo3d-oauth-process-") as temporary:
         directory = pathlib.Path(temporary)
         references = []
-        for name, project, framework in [("Aholo.Provider", "Aholo.Provider", "net8.0"), ("Aholo.Core", "Aholo.Core", "net7.0")]:
+        for name, project, framework in [("Aholo3D.Provider", "Aholo3D.Provider", "net8.0"), ("Aholo3D.Core", "Aholo3D.Core", "net7.0")]:
             dll = ROOT / "src" / project / "bin/Release" / framework / (name + ".dll")
             if not dll.is_file():
-                raise RuntimeError("Build Aholo.sln Release before running this fixture")
+                raise RuntimeError("Build Aholo3D.sln Release before running this fixture")
             references.append(f'<Reference Include="{name}"><HintPath>{xml.sax.saxutils.escape(str(dll))}</HintPath></Reference>')
         (directory / "Fixture.csproj").write_text('<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup><ItemGroup>' + "".join(references) + '</ItemGroup></Project>')
         # The harness restores framework references from the installed SDK only; no packages/feeds.

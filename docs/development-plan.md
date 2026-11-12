@@ -1,4 +1,4 @@
-# Aholo for Rhino 开发推进计划：Lux3D 集成与交互重构
+# Aholo3D for Rhino 开发推进计划：Lux3D 集成与交互重构
 
 维护：**CuriousArc · qrost**
 
@@ -10,7 +10,7 @@
 
 ## 1. 目标与范围
 
-将 Aholo for Rhino 发展为一个围绕 **创建内容 → 管理资产 → 放入当前文档 → 渲染场景** 的完整插件：
+将 Aholo3D for Rhino 发展为一个围绕 **创建内容 → 管理资产 → 放入当前文档 → 渲染场景** 的完整插件：
 
 - **World**：生成和查看 GS 世界；继续提供本地 GS 导入、导出与原生视窗显示。
 - **Object / Lux3D**：生成单个网格模型，校验、预览、放置为 Rhino Block。
@@ -19,15 +19,15 @@
 
 首个集成预览的交付范围是 World + Lux3D + 本地 GS + 基础离线渲染。实时云视窗和完整 PBR 另设门槛，不阻塞前述能力交付。不将“加入 Lux3D 标签页”当作集成完成。
 
-保留 Aholo 的插件 GUID、包名、已有命令及用户数据。Lux3D 独立插件仍可共存。GSRhino 保持独立，**不修改其品牌、文档或代码，不引入对其已安装插件或邻接源码目录的运行依赖**。在 Aholo 内选择性迁入经过审查的实现、测试和许可说明；跨项目经验不等于当前版本已通过实机验收。
+保留 Aholo3D 的插件 GUID、包名、已有命令及用户数据。Lux3D 独立插件仍可共存。GSRhino 保持独立，**不修改其品牌、文档或代码，不引入对其已安装插件或邻接源码目录的运行依赖**。在 Aholo3D 内选择性迁入经过审查的实现、测试和许可说明；跨项目经验不等于当前版本已通过实机验收。
 
 ## 2. 审计基线与证据边界
 
 | 项目 | 本轮读取基线 | 已有能力与证据 | 不能据此推定的结果 |
 | --- | --- | --- | --- |
-| Aholo | `fce2de7`，`0.1.1-beta.2` | World、离线 RenderCloud、GS PLY/USD 交换、实时协议库、自动中英语言。既有验证文档记录 314 项测试；用户已反馈较早版本 World/GS 基本流程通过 | 新版原生布局、完整 GS 生命周期、云渲染尺度/相机、Windows/Intel Mac 尚未全面验收 |
+| Aholo3D | `fce2de7`，`0.1.1-beta.2` | World、离线 RenderCloud、GS PLY/USD 交换、实时协议库、自动中英语言。既有验证文档记录 314 项测试；用户已反馈较早版本 World/GS 基本流程通过 | 新版原生布局、完整 GS 生命周期、云渲染尺度/相机、Windows/Intel Mac 尚未全面验收 |
 | Lux3D | `29a73ab`，`0.1.4-beta.4` | REST 生成、OAuth 账户登录、GLB 校验、预览、Block 放置、恢复与凭据隔离。既有记录 162 项测试 | OAuth 登录不等于生成授权；完整材质、当前界面及所有平台不等于已实测通过 |
-| GSRhino | `dc90e5d`；功能代码基线 `a6f090a`，`0.1.0-beta.5` | 新增提交仅为图片；功能基线含更完整的显示状态、分数 DPI、缓存修复、SPZ/SPLAT、USD 语义验证。既有记录 296 项 .NET 测试及上一阶段 25 项真实 OpenUSD 检查 | 不能把自动化、图片或其他插件的成功反馈当成 Aholo 的完整宿主验收 |
+| GSRhino | `dc90e5d`；功能代码基线 `a6f090a`，`0.1.0-beta.5` | 新增提交仅为图片；功能基线含更完整的显示状态、分数 DPI、缓存修复、SPZ/SPLAT、USD 语义验证。既有记录 296 项 .NET 测试及上一阶段 25 项真实 OpenUSD 检查 | 不能把自动化、图片或其他插件的成功反馈当成 Aholo3D 的完整宿主验收 |
 
 本轮不重新运行上述测试，数字用于定位既有证据。执行者开始前须核对工作区和 HEAD，阅读 [架构](architecture.md)、[验证记录](validation.md)、[宿主验收](host-acceptance.md)、[GS 验收](gs-host-acceptance.md)。它们描述既有行为；本文描述下一阶段目标，不能将目标反写成现状。
 
@@ -37,7 +37,7 @@
 
 ### 3.1 面板已有可用流程，但扩展空间不足
 
-入口是 [AholoPanel.cs](../src/Aholo.Rhino/AholoPanel.cs)，当前为约 415 行单体面板，三个页签：World、RenderCloud、Connection。
+入口是 [Aholo3DPanel.cs](../src/Aholo3D.Rhino/Aholo3DPanel.cs)，当前为约 415 行单体面板，三个页签：World、RenderCloud、Connection。
 
 | 已核实行为 | 对体验的影响 | 推进方向 |
 | --- | --- | --- |
@@ -51,19 +51,19 @@
 
 ### 3.2 三个必须前置的集成断点
 
-**A. 刷新并非纯查询。** [Workflows.RefreshCoreAsync / DownloadAsync](../src/Aholo.Sidecar/Workflows.cs) 在 mesh processing 成功后会提交 RenderCloud；下载先调用相同刷新逻辑。当前初次“上传并渲染”本来授权整个流程，不应破坏它，但必须把“查询状态”和“继续已授权流程”拆开，否则新任务中心的刷新、下载或重试可能产生用户未预期的收费动作。
+**A. 刷新并非纯查询。** [Workflows.RefreshCoreAsync / DownloadAsync](../src/Aholo3D.Sidecar/Workflows.cs) 在 mesh processing 成功后会提交 RenderCloud；下载先调用相同刷新逻辑。当前初次“上传并渲染”本来授权整个流程，不应破坏它，但必须把“查询状态”和“继续已授权流程”拆开，否则新任务中心的刷新、下载或重试可能产生用户未预期的收费动作。
 
-**B. Lux3D 的结果目前不能直接走 Aholo 云渲染。** Lux3D 放置结果是 Block；[AholoHost.CaptureRender](../src/Aholo.Rhino/AholoHost.cs) 只接受 Mesh/Brep/Extrusion，明确拒绝实例。集成需要导出快照中的实例展开、变换与材质处理，不能要求用户破坏性 Explode。World GS Block 则是另一种资产，不能按普通三角网格处理。
+**B. Lux3D 的结果目前不能直接走 Aholo3D 云渲染。** Lux3D 放置结果是 Block；[Aholo3DHost.CaptureRender](../src/Aholo3D.Rhino/Aholo3DHost.cs) 只接受 Mesh/Brep/Extrusion，明确拒绝实例。集成需要导出快照中的实例展开、变换与材质处理，不能要求用户破坏性 Explode。World GS Block 则是另一种资产，不能按普通三角网格处理。
 
-**C. 同名字段不是同一合同。** Lux `TaskRecord.OperationId` 是本地 Guid、`TaskId` 是远端数字字符串；Aholo `LocalTask.Id` 是本地 Guid、`OperationId` 是远端 RenderCloud operation。两边 RPC 均写 `Version=1`，但协议并不兼容。禁止按字段名自动拼接、将服务 ID 转为浮点数、或直接连接另一个 sidecar。
+**C. 同名字段不是同一合同。** Lux `TaskRecord.OperationId` 是本地 Guid、`TaskId` 是远端数字字符串；Aholo3D `LocalTask.Id` 是本地 Guid、`OperationId` 是远端 RenderCloud operation。两边 RPC 均写 `Version=1`，但协议并不兼容。禁止按字段名自动拼接、将服务 ID 转为浮点数、或直接连接另一个 sidecar。
 
 ### 3.3 任务服务和命令的实际欠缺
 
-- [AholoClient](../src/Aholo.Core/AholoClient.cs) 当前随面板创建独立 sidecar，以单个 semaphore 串行 RPC；取消/通信错误会停止进程。仅调整按钮不能解决长请求阻塞。
-- [TaskStore](../src/Aholo.Core/TaskStore.cs) 的全局 `.mutation.lock` 被长网络流程持有；不同面板不是自动排队。`Get/Recover` 不区分真实活跃 owner 与已中断操作，可能把另一面板仍在上传/提交的记录解释为中断或未知。
+- [Aholo3DClient](../src/Aholo3D.Core/Aholo3DClient.cs) 当前随面板创建独立 sidecar，以单个 semaphore 串行 RPC；取消/通信错误会停止进程。仅调整按钮不能解决长请求阻塞。
+- [TaskStore](../src/Aholo3D.Core/TaskStore.cs) 的全局 `.mutation.lock` 被长网络流程持有；不同面板不是自动排队。`Get/Recover` 不区分真实活跃 owner 与已中断操作，可能把另一面板仍在上传/提交的记录解释为中断或未知。
 - `List` 仅最近 100 条，`ImportWorldAsync` 又以此去重。较旧 World ID 恢复可能产生重复本地记录；分页与全量身份查找应分离。
 - 凭据存储共享、各 sidecar 内存连接分离；一个面板“断开并清除”不等于其他面板的内存凭据同时失效。
-- [GaussianCommands](../src/Aholo.Rhino/GaussianCommands.cs) 异步导入/导出立即返回 `Result.Success`，使用 `CancellationToken.None`。导出命令提示可用面板取消，但面板的取消句柄并不属于该次命令操作。这是应修正的具体体验缺陷。
+- [GaussianCommands](../src/Aholo3D.Rhino/GaussianCommands.cs) 异步导入/导出立即返回 `Result.Success`，使用 `CancellationToken.None`。导出命令提示可用面板取消，但面板的取消句柄并不属于该次命令操作。这是应修正的具体体验缺陷。
 - `CaptureRender` 在 UI 线程读取、复制和网格化几何；后台只有后续 GLB 写盘。须测量并拆分可安全后台执行的阶段，不能称为“已全部异步”。
 
 ## 4. 推荐信息架构与按钮位置
@@ -71,7 +71,7 @@
 继续使用原生 **Eto** 面板。先提取状态和操作服务，不在首阶段更换 WebView 技术栈。桌面原生选择、文件对话框、文档绑定和命令复用比新增前端框架更直接解决现有问题。
 
 ```text
-Aholo                         [连接状态 / 设置]
+Aholo3D                         [连接状态 / 设置]
 目标文档：模型名 · 单位         [查看连接能力]
 ------------------------------------------------
 [创建] [资产与任务] [渲染] [设置]
@@ -141,15 +141,15 @@ Aholo                         [连接状态 / 设置]
 
 | 命令 | 状态 | 目标职责 |
 | --- | --- | --- |
-| `AholoPanel` | 已有，保留 | 打开同一文档的面板，恢复上次页签 |
-| `AholoImportGs` / `AholoExportGs` | 已有，统一实现 | 调用操作服务；记录 operation ID，面板可查看/取消；脚本模式使用明确路径/选项而非强制弹窗 |
-| `AholoGsMode` | 已有，保留 | 切显示模式/重试初始化，不负责生成、下载或重复插入 |
-| `AholoGsDiagnostics` / `AholoGsProbe` | 已有，放高级入口 | 状态诊断与离线验收；probe 明示会新增测试几何 |
-| `AholoImportPly` | 已有，保留兼容 | 仅点中心诊断，退出正常 GS 主流程，不能成为失败后的静默降级 |
-| `AholoWorld` / `AholoModel` / `AholoRender` / `AholoTasks` | 已实现，原生验收待完成 | 导航到对应页、按文档保留内存草稿；执行命令本身不提交任务，详见 [工作区范围](workspace-navigation.md) |
-| `AholoPlaceTask` | 已有 | 以本地 task ID 恢复原任务的静态模型，使用稳定结果标识定位已有放置；不重新生成 |
-| `AholoImportMesh` | 已有 | 本地网格进入原文档资产库候选，命令结束后准备；在面板选择高度、原尺寸或场景坐标模式后确认 |
-| `AholoCancel` / `AholoCancelOperation` | 已实现，原生验收待完成 | 前者取消当前文档的本地工作及待自动放置；后者按本地 operation ID 精确取消，不表示云端任务取消 |
+| `Aholo3DPanel` | 已有，保留 | 打开同一文档的面板，恢复上次页签 |
+| `Aholo3DImportGs` / `Aholo3DExportGs` | 已有，统一实现 | 调用操作服务；记录 operation ID，面板可查看/取消；脚本模式使用明确路径/选项而非强制弹窗 |
+| `Aholo3DGsMode` | 已有，保留 | 切显示模式/重试初始化，不负责生成、下载或重复插入 |
+| `Aholo3DGsDiagnostics` / `Aholo3DGsProbe` | 已有，放高级入口 | 状态诊断与离线验收；probe 明示会新增测试几何 |
+| `Aholo3DImportPly` | 已有，保留兼容 | 仅点中心诊断，退出正常 GS 主流程，不能成为失败后的静默降级 |
+| `Aholo3DWorld` / `Aholo3DModel` / `Aholo3DRender` / `Aholo3DTasks` | 已实现，原生验收待完成 | 导航到对应页、按文档保留内存草稿；执行命令本身不提交任务，详见 [工作区范围](workspace-navigation.md) |
+| `Aholo3DPlaceTask` | 已有 | 以本地 task ID 恢复原任务的静态模型，使用稳定结果标识定位已有放置；不重新生成 |
+| `Aholo3DImportMesh` | 已有 | 本地网格进入原文档资产库候选，命令结束后准备；在面板选择高度、原尺寸或场景坐标模式后确认 |
+| `Aholo3DCancel` / `Aholo3DCancelOperation` | 已实现，原生验收待完成 | 前者取消当前文档的本地工作及待自动放置；后者按本地 operation ID 精确取消，不表示云端任务取消 |
 
 面板和命令不得保有各自独立的取消、busy、重复放置判定。异步 command 返回“已启动”时输出 operation ID，最终完成/失败通过同一记录和命令行反馈；Rhino 宿主的即时 `Result.Success` 不作为业务完成证据。凭据不作为可记录在命令历史中的明文参数。
 
@@ -171,9 +171,9 @@ flowchart TD
   Host --> Mesh[GLB 预览与 Block 放置]
 ```
 
-- `Aholo.Core` 保留可移植合同、资产/GS逻辑；拟新增 `Aholo.Application`（或先用清晰目录）放不依赖 Rhino/Eto 的状态归约、动作能力、操作登记。是否独立程序集在 M1 决定，不能为了分层先搬动全部代码。
-- `Aholo.Rhino` 负责 Eto 绑定、文档读写、原生选择/预览/显示；只有 UI 线程接触必须由宿主线程访问的对象。
-- `Aholo.Provider` 与 `Aholo.Sidecar` 承载三种服务及凭据。迁入 Lux 功能后不要求用户安装独立 Lux 插件，不直接引用其 `.rhp`。
+- `Aholo3D.Core` 保留可移植合同、资产/GS逻辑；拟新增 `Aholo3D.Application`（或先用清晰目录）放不依赖 Rhino/Eto 的状态归约、动作能力、操作登记。是否独立程序集在 M1 决定，不能为了分层先搬动全部代码。
+- `Aholo3D.Rhino` 负责 Eto 绑定、文档读写、原生选择/预览/显示；只有 UI 线程接触必须由宿主线程访问的对象。
+- `Aholo3D.Provider` 与 `Aholo3D.Sidecar` 承载三种服务及凭据。迁入 Lux 功能后不要求用户安装独立 Lux 插件，不直接引用其 `.rhp`。
 - 一个 Rhino 进程内的面板和 commands 共享协调器；先保持受控串行写入，再增加有界查询/下载并发。接口先解耦，不要求首批全面重写 IPC。UI 不应靠同步等待后台请求才能展示本地历史。
 - 任务级 mutation ownership、文档提交锁和凭据作用域分别管理。缩短 journal 锁临界区；长网络调用不能占全库锁。持久 owner/租约恢复必须区分活跃进程和确实中断的操作，防止 PID 重用、崩溃或第二面板误接管。
 - 同一用户启动两个 Rhino 进程时仍共用 TaskStore；进程内协调器不足以保证跨进程安全。任务所有权、原子发布和恢复需有跨进程证据，不能仅依赖内存锁；凭据清理也须明确跨进程生效范围。
@@ -185,12 +185,12 @@ flowchart TD
 
 | 迁移对象 | 决策 |
 | --- | --- |
-| 现有 Aholo journal | 向后兼容读取；增量添加 schema version；写新格式前备份，记录迁移版本/hash，失败不覆盖原件。保留未知字段/未支持版本并给恢复提示 |
+| 现有 Aholo3D journal | 向后兼容读取；增量添加 schema version；写新格式前备份，记录迁移版本/hash，失败不覆盖原件。保留未知字段/未支持版本并给恢复提示 |
 | Lux 历史/缓存 | 首版可不迁移；若提供，必须用户显式导入副本或只读查看，保存来源标识/hash，不移动、覆盖或删除独立插件的数据 |
-| API Key / OAuth | 不静默复制或接管旧插件凭据。Aholo 连接配置可由用户选择用于多服务，但分别验证能力；旧连接指纹不得“规范化”后导致历史失联 |
-| Region | 新接口用明确枚举，适配 Lux `global/cn` 与旧指纹 `international/cn`；Aholo 当前仅 international。首版优先国际区；中国区若后续开放，只启用已核实的服务 |
+| API Key / OAuth | 不静默复制或接管旧插件凭据。Aholo3D 连接配置可由用户选择用于多服务，但分别验证能力；旧连接指纹不得“规范化”后导致历史失联 |
+| Region | 新接口用明确枚举，适配 Lux `global/cn` 与旧指纹 `international/cn`；Aholo3D 当前仅 international。首版优先国际区；中国区若后续开放，只启用已核实的服务 |
 | 旧 GS 文档引用 | 只读识别中性、版本化 schema，校验资产 SHA 与现有 placement；保留各自 GUID、显示模式、缓存/runtime 根目录。共存不双重绘制、不改写另一插件的引用 |
-| Mesh 放置回执 | 新增版本化 Aholo receipt 与 user-string 命名空间。Lux 当前使用 `Lux3D.DirectPlacement.v1:` 身份种子及 `Lux3D.ImportId`、`Lux3D.AssetSha256`、`Lux3D.DocumentSession`、`Lux3D.GenerationOperationId`；不可原样复制后接管独立 Lux 对象。若兼容旧对象，采用明确的只读 adapter，并验证去重归属 |
+| Mesh 放置回执 | 新增版本化 Aholo3D receipt 与 user-string 命名空间。Lux 当前使用 `Lux3D.DirectPlacement.v1:` 身份种子及 `Lux3D.ImportId`、`Lux3D.AssetSha256`、`Lux3D.DocumentSession`、`Lux3D.GenerationOperationId`；不可原样复制后接管独立 Lux 对象。若兼容旧对象，采用明确的只读 adapter，并验证去重归属 |
 | 文档身份 | runtime serial 只在当前 Rhino 会话有效；重启后恢复历史不能自动插入“看起来相同”的文档。正式提交前重新校验文档、会话、单位、可写性、command/Undo 状态 |
 
 ### 6.3 连接与能力模型
@@ -211,7 +211,7 @@ flowchart TD
 
 ### 7.1 优先吸收 GSRhino 已有修复
 
-| 工作 | 借鉴的源文件/测试（位于独立 GSRhino 仓库） | Aholo 验收重点 |
+| 工作 | 借鉴的源文件/测试（位于独立 GSRhino 仓库） | Aholo3D 验收重点 |
 | --- | --- | --- |
 | 准确显示状态 | `GaussianDisplayStatus.cs`、`GaussianDisplayStatusTests.cs` | 空文档、隐藏、缺源、加载、零投影、部分成功、完整帧分别显示；空场景不启动无意义投影任务 |
 | 分数 DPI 与视窗采样 | `GaussianFramePolicy.cs`、`GaussianViewport.cs`、`GaussianFramePolicyTests.cs` | 125%/150%、逻辑/设备像素交替、跨屏、真实 resize/camera变化；不能放松真正相机变化判断；缩略图不触发大场景重建 |
@@ -247,13 +247,13 @@ USD/USDZ 在此阶段指静态 GS 交换，不等于任意 Mesh/Brep USDZ、所�
 
 | ID / 顺序 | 交付物与主要写范围 | 依赖 | 必须通过的完成条件 |
 | --- | --- | --- | --- |
-| **M0 基线与 CI** | 记录 HEAD/能力/命令/数据版本；补 Aholo 的 macOS+Windows build/test/package 工作流；元数据测试与 fixture 门禁；`docs`、`.github/workflows`、tests/scripts | 无 | 完整现有套件通过；直接解析 PE 校验 GUID/Publisher；检查实际包中资源/sidecar/runtime；不把构建或安装成功当宿主通过。agent 指令文件不进入包/版本控制 |
-| **M1 合同与兼容层** | action capability、typed IDs、schema reader、服务能力表、全量身份查找+分页；`Aholo.Core` 与合同测试 | M0 | 旧 World/Render/Lux 样例可读；未知 schema 保留；大 ID 无损；恢复第 100 条以外任务不重复；未知提交不重新 POST |
-| **M2 操作协调器与命令** | operation registry、面板订阅、取消、owner恢复、受控锁、拆 query/continuation；`Aholo.Application`（如采用）、Client/Sidecar、command adapters | M1 | 两文档及两个 Rhino 进程并行不会误判活跃任务、重复创建或覆盖 journal；长下载不阻塞本地浏览；命令启动能在面板取消；关闭/改单位/Undo竞争安全；Refresh/Download 不创建收费任务 |
+| **M0 基线与 CI** | 记录 HEAD/能力/命令/数据版本；补 Aholo3D 的 macOS+Windows build/test/package 工作流；元数据测试与 fixture 门禁；`docs`、`.github/workflows`、tests/scripts | 无 | 完整现有套件通过；直接解析 PE 校验 GUID/Publisher；检查实际包中资源/sidecar/runtime；不把构建或安装成功当宿主通过。agent 指令文件不进入包/版本控制 |
+| **M1 合同与兼容层** | action capability、typed IDs、schema reader、服务能力表、全量身份查找+分页；`Aholo3D.Core` 与合同测试 | M0 | 旧 World/Render/Lux 样例可读；未知 schema 保留；大 ID 无损；恢复第 100 条以外任务不重复；未知提交不重新 POST |
+| **M2 操作协调器与命令** | operation registry、面板订阅、取消、owner恢复、受控锁、拆 query/continuation；`Aholo3D.Application`（如采用）、Client/Sidecar、command adapters | M1 | 两文档及两个 Rhino 进程并行不会误判活跃任务、重复创建或覆盖 journal；长下载不阻塞本地浏览；命令启动能在面板取消；关闭/改单位/Undo竞争安全；Refresh/Download 不创建收费任务 |
 | **M3A Eto 原型与正式绑定** | 四页结构、创建类型切换、固定主动作、任务详情、连接能力、渐进错误；先 fake data，后接 M2 | M1；正式接线依赖 M2 | 首次连接→生成→等待→放入、离线导入、失败恢复各有明确下一步；窄/宽、中/英、HiDPI、键盘验收；无全局 `_busy` 锁整页 |
-| **M3B Lux3D 服务迁入** | 在 Aholo 内迁入 Provider/workflow/GLB validation/fixture；集成连接能力和任务 adapter | M1；交付依赖 M2 | G1-Turbo 文/单图合同、区域隔离、未知回复、下载坏包、大模型、取消、原文件保留均验证；不引用邻仓、不接管旧凭据 |
+| **M3B Lux3D 服务迁入** | 在 Aholo3D 内迁入 Provider/workflow/GLB validation/fixture；集成连接能力和任务 adapter | M1；交付依赖 M2 | G1-Turbo 文/单图合同、区域隔离、未知回复、下载坏包、大模型、取消、原文件保留均验证；不引用邻仓、不接管旧凭据 |
 | **M3C GS 可靠性与格式** | 按第 7.1 节迁入纯逻辑及对应测试，先状态/DPI/cache，再 SPZ/SPLAT/USD | M0；应用接线依赖 M2 | 三项 P0 修复回归；真实 OpenUSD fixture；SPZ 从下载到显示走完整 GS；旧文档和共存不回退 |
-| **M4 统一预览与放置** | GS/mesh 类型化预览与 placement receipt；位置/尺寸参数同屏；`Aholo.Rhino` host/services | M2、M3A/B；GS部分结合 M3C | 重复点击定位、显式副本、Undo/Redo、关闭/重开、单位变化；预览零正式对象；插入成功但 Zoom 失败可恢复；全量大模型不人为限面 |
+| **M4 统一预览与放置** | GS/mesh 类型化预览与 placement receipt；位置/尺寸参数同屏；`Aholo3D.Rhino` host/services | M2、M3A/B；GS部分结合 M3C | 重复点击定位、显式副本、Undo/Redo、关闭/重开、单位变化；预览零正式对象；插入成功但 Zoom 失败可恢复；全量大模型不人为限面 |
 | **M5 离线渲染闭环** | Block 快照展开、预检摘要、原意图续跑、结果预览/路径；Host/Geometry/Render workflow | M4 | 生成模型→放入→选中→云渲染贯通；已知尺寸/轴/相机实测；仅选中对象上传；未知渲染回复不重试创建；GS不被当网格误导出 |
 | **M6 性能与发行验收** | 固定 benchmark、UI/文档生命周期矩阵、双语 README、打包/安装/发布证据 | M3C、M4、M5 | 完整 CI、实际安装包原生验收、逐文件一致性；按实际验收平台发包；所有未通过项明确保留为限制 |
 | **R1 后置研究** | 云预览→原生全场景视窗→混合遮挡；或本地 GPU renderer；分别提交 ADR、原型和证据 | M2；不阻塞 M6 | 每一级先证明能力；不以 JPEG 展示、CPU 数值测试或空场景截图替代真实遮挡/性能证明 |
@@ -289,10 +289,10 @@ USD/USDZ 在此阶段指静态 GS 交换，不等于任意 Mesh/Brep USDZ、所�
 基础执行入口（以执行时仓库脚本为准，不声称本轮已运行）：
 
 ```sh
-dotnet build Aholo.sln -c Release
-dotnet test Aholo.sln -c Release --no-build
+dotnet build Aholo3D.sln -c Release
+dotnet test Aholo3D.sln -c Release --no-build
 python3 scripts/create-gs-assets.py --check
-dotnet run --project tools/Aholo.Reference -c Release -- --output artifacts/gs-reference
+dotnet run --project tools/Aholo3D.Reference -c Release -- --output artifacts/gs-reference
 ./scripts/build-package.sh --platform mac
 ```
 
@@ -336,7 +336,7 @@ Apple Silicon、Intel Mac、Windows 分开记录；不能把 portable managed bu
 
 以下源码链接用于核对行为；跨仓链接固定审计 revision，执行前再检查实际版本。
 
-- Aholo：[Panel](../src/Aholo.Rhino/AholoPanel.cs)、[Plugin/基础命令](../src/Aholo.Rhino/AholoPlugin.cs)、[GS commands](../src/Aholo.Rhino/GaussianCommands.cs)、[Host/CaptureRender](../src/Aholo.Rhino/AholoHost.cs)、[Workflows](../src/Aholo.Sidecar/Workflows.cs)、[Contracts](../src/Aholo.Core/Contracts.cs)、[TaskStore](../src/Aholo.Core/TaskStore.cs)、[Client](../src/Aholo.Core/AholoClient.cs)、[实时会话](../src/Aholo.Provider/RealtimeSession.cs)、[GS设计与能力门槛](decisions/0001-native-gaussian-viewport.md)。
+- Aholo3D：[Panel](../src/Aholo3D.Rhino/Aholo3DPanel.cs)、[Plugin/基础命令](../src/Aholo3D.Rhino/Aholo3DPlugin.cs)、[GS commands](../src/Aholo3D.Rhino/GaussianCommands.cs)、[Host/CaptureRender](../src/Aholo3D.Rhino/Aholo3DHost.cs)、[Workflows](../src/Aholo3D.Sidecar/Workflows.cs)、[Contracts](../src/Aholo3D.Core/Contracts.cs)、[TaskStore](../src/Aholo3D.Core/TaskStore.cs)、[Client](../src/Aholo3D.Core/Aholo3DClient.cs)、[实时会话](../src/Aholo3D.Provider/RealtimeSession.cs)、[GS设计与能力门槛](decisions/0001-native-gaussian-viewport.md)。
 - Lux3D：[固定源码树](https://github.com/QROST/lux3D-rhino/tree/29a73abbdd50587036930ba6c45436dcd6da2ea9/src)。优先阅读 `Lux3D.Core/Workflow.cs`、`TaskStore.cs`、`Contracts.cs`、`GlbContainerValidator.cs`、`GlbImportSnapshot.cs`；`Lux3D.Rhino/TaskPlacementService.cs`、`Lux3DHostService.cs`、`PlaceTaskCommand.cs`、`Lux3DPanel.cs`；`Lux3D.Provider/ManycoreOAuthService.cs`、`OAuthMcpProbe.cs`、`Contracts.cs`，以及同 revision 的 `docs/provider-contract.md`、`docs/verification.md`。
 - GSRhino：[固定功能源码树](https://github.com/QROST/GaussianSplattingRhino/tree/a6f090a3749dc1308ded04473028db956910ee9f/src)。第 7.1 节纯逻辑文件主要位于 `GSRhino.Core`，宿主适配位于 `GSRhino.Rhino`；对应 `tests/GSRhino.Tests`、`scripts/usd_bridge.py` 和 `fixtures/usd-verify.py` 随修复一起评审，不只复制生产代码。
 

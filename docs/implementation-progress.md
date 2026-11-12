@@ -2,7 +2,7 @@
 
 Maintainer: CuriousArc · qrost. Started: 2026-11-08.
 
-This tracks implementation of [the development plan](development-plan.md), not native acceptance or a new public release. Baseline: `a7e8e73`, 314 passing tests; source checkout `aholo3d-rhino`. Yak `0.1.1-beta.2` was unlisted at the user's request. Keep the existing package, plug-in, command, credential and saved-document identities.
+This tracks implementation of [the development plan](development-plan.md), not native acceptance or a new public release. Baseline: `a7e8e73`, 314 passing tests; source checkout `aholo3d-rhino`. Yak `0.1.1-beta.2` was unlisted at the user's request. The later alpha.32 product rename changes the package/build names and adds canonical Aholo3D commands with legacy forwarding; plug-in, credential and saved-document identities remain compatible. See [rename details](repository-rename.md).
 
 ## Delivery sequence
 

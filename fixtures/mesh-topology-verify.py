@@ -134,14 +134,14 @@ def gaussian(stage,name):
     gs.CreateOpacitiesAttr([.5]);gs.CreateRadianceSphericalHarmonicsDegreeAttr(0);gs.CreateRadianceSphericalHarmonicsCoefficientsAttr([(0,0,0)])
 
 
-with tempfile.TemporaryDirectory(prefix='aholo-topology-') as temporary:
+with tempfile.TemporaryDirectory(prefix='aholo3d-topology-') as temporary:
     work=Path(temporary);source=work/'topology.usda';stage,mesh,binding=create(source);stage.GetRootLayer().Save()
     for fmt in ('usda','usd','usdc','usdz'):
         path=work/('topology.'+fmt)
         if fmt=='usdz':assert UsdUtils.CreateNewUsdzPackage(Sdf.AssetPath(str(source)),str(path))
         elif fmt!='usda':assert stage.GetRootLayer().Export(str(path))
         out=work/('read-'+fmt);verify(out,extract(path,out))
-        subprocess.run(['dotnet',str(ROOT/'tools/Aholo.Reference/bin/Release/net8.0/Aholo.Reference.dll'),'--mesh-topology-fixture',str(path)],check=True,env=dict(os.environ,AHOLO_USD_PYTHON=sys.executable))
+        subprocess.run(['dotnet',str(ROOT/'tools/Aholo3D.Reference/bin/Release/net8.0/Aholo3D.Reference.dll'),'--mesh-topology-fixture',str(path)],check=True,env=dict(os.environ,AHOLO3D_USD_PYTHON=sys.executable))
 
     demo=ROOT/'fixtures/mesh-subsets.usda';demo_out=work/'packaged-demo';demo_parts=extract(demo,demo_out)
     assert [p['faces'] for p in demo_parts]==[1,3,1]

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup><EmbeddedResource Include="Resources/UiStrings.json" LogicalName="Aholo3D.Core.UiStrings.json" WithCulture="false" /></ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ZstdSharp.Port" />
+    <PackageReference Include="System.IO.Packaging" />
+    <EmbeddedResource Include="../../docs/api/world.openapi.json" LogicalName="Aholo3D.Core.ServiceSchemas.world.json" />
+    <EmbeddedResource Include="../../docs/api/lux3d.openapi.json" LogicalName="Aholo3D.Core.ServiceSchemas.lux3d.json" />
+    <EmbeddedResource Include="../../docs/api/spatialunderstanding.openapi.json" LogicalName="Aholo3D.Core.ServiceSchemas.spatialunderstanding.json" />
+  </ItemGroup>
+</Project>

@@ -4,7 +4,7 @@
 
 ## 目标和不可偷换的概念
 
-在 Rhino 原生建模窗口中显示真正的 3D Gaussian Splatting（GS），保留其外观；与 Mesh、NURBS/Brep 的显示几何及点云发生可验证的遮挡。用户可在原生显示模式菜单中选择 Aholo 模式。世界资产不默认转换成 Rhino PointCloud；已有点云导入仅作为显式诊断工具保留。
+在 Rhino 原生建模窗口中显示真正的 3D Gaussian Splatting（GS），保留其外观；与 Mesh、NURBS/Brep 的显示几何及点云发生可验证的遮挡。用户可在原生显示模式菜单中选择 Aholo3D 模式。世界资产不默认转换成 Rhino PointCloud；已有点云导入仅作为显式诊断工具保留。
 
 “在窗口内看到图片”“能够读取 PLY”“存在一个显示模式名称”均不等于完成该目标。必须分别验证图像数学、深度关系、原生对象生命周期、帧同步和实际性能。
 
@@ -14,7 +14,7 @@
 - Rhino 8.32 的 [DisplayConduit](https://developer.rhino3d.com/guides/rhinocommon/display-conduits/) 与 [DisplayPipeline](https://developer.rhino3d.com/api/rhinocommon/type/rhino.display.displaypipeline/) 提供视口绘制、深度测试/写入状态栈及透明材质绘制。`PostDrawObjects` 和 `DrawForeground` 的深度状态不同，不能随意互换。
 - [Material](https://developer.rhino3d.com/api/rhinocommon/type/rhino.docobjects.material/) 支持 `DisableLighting`、`AlphaTransparency`、纹理和材质透明度。可以据此构造公开 API 的小场景原型；纹理 alpha 组合、绘制排序和后端差异仍需实机验收。
 - [RealtimeDisplayMode](https://developer.rhino3d.com/en/guides/rhinocommon/render-engine-integration-interactive-viewport/) 提供注册自定义原生实时视口模式的入口；旧教程的 Windows 说明不能自动外推到 Mac。8.32 中具体接口是否存在以本机 SDK 为准。
-- 当前 [Aholo RenderCloud 官方规范](https://labs.aholo.ai/api-docs/specifications/services/rendercloud/openapi.en.json) 与仓库快照一致：实时流返回 JPEG；未公开 depth/alpha/AOV、帧号、时间戳或相机版本关联字段。完整场景允许 Mesh 和 `ParticleField3DGaussianSplat`，未列出 Points。
+- 当前 [Aholo3D RenderCloud 官方规范](https://labs.aholo.ai/api-docs/specifications/services/rendercloud/openapi.en.json) 与仓库快照一致：实时流返回 JPEG；未公开 depth/alpha/AOV、帧号、时间戳或相机版本关联字段。完整场景允许 Mesh 和 `ParticleField3DGaussianSplat`，未列出 Points。
 - World 返回 worldId 和 PLY/SPZ 等 URL；云 GS 引用需要独立 meshId。公开文档没有保证 World→meshId 桥接或 PLY/SPZ 入库支持。不得拿 worldId、任务号或 sourceReferId 冒充 meshId。
 
 ## 从像素形成过程推导架构
@@ -27,15 +27,15 @@
 
 本地和云端因此共用场景/相机语义，但不强求共用同一种输出合成方式：
 
-- **本地 Aholo GS**：GS 渲染器与 Rhino 原生深度协同，原生对象继续由 Rhino 绘制。先验证不透明对象，再处理透明混合、选择高亮、裁切、布局细节等情况。
-- **Aholo Cloud**：当前协议下优先整场景渲染；把允许的 Rhino 对象转为云可读的显示网格，原始 NURBS/Brep 仍在文档。点云、选择工具和网格线叠加必须有独立能力判断，不能静默丢弃。
+- **本地 Aholo3D GS**：GS 渲染器与 Rhino 原生深度协同，原生对象继续由 Rhino 绘制。先验证不透明对象，再处理透明混合、选择高亮、裁切、布局细节等情况。
+- **Aholo3D Cloud**：当前协议下优先整场景渲染；把允许的 Rhino 对象转为云可读的显示网格，原始 NURBS/Brep 仍在文档。点云、选择工具和网格线叠加必须有独立能力判断，不能静默丢弃。
 - 如果云服务以后提供对齐的深度/透明度/帧版本，再评估本地-云混合。没有这些能力时，不开放声称通用正确遮挡的 RGB 覆盖模式。
 
 ## 模块和数据边界
 
-1. `Aholo.Core`：完整 Gaussian 资产/PLY 解析；独立相机、变换、SH、协方差投影、参考合成；遮挡能力/帧一致性规则。
-2. `Aholo.Rhino`：文档代理对象、持久引用、变换/可见性/撤销；显示模式注册；原生视口/深度适配；渲染资源按文档/视口隔离。
-3. `Aholo.Provider`：实时会话 REST、WebSocket 握手和图片帧、串行场景更新、显式关闭与错误处理。流 token 不进入日志、文档或持久任务记录。
+1. `Aholo3D.Core`：完整 Gaussian 资产/PLY 解析；独立相机、变换、SH、协方差投影、参考合成；遮挡能力/帧一致性规则。
+2. `Aholo3D.Rhino`：文档代理对象、持久引用、变换/可见性/撤销；显示模式注册；原生视口/深度适配；渲染资源按文档/视口隔离。
+3. `Aholo3D.Provider`：实时会话 REST、WebSocket 握手和图片帧、串行场景更新、显式关闭与错误处理。流 token 不进入日志、文档或持久任务记录。
 4. 后续 GPU 后端：以 CPU 对照为验收依据，分别处理 Windows/OpenGL 与 Mac 实际显示技术。不可在未核实的 Metal 上直接调用 OpenGL，也不可粗暴改全局渲染状态。
 
 实例变换必须同时作用于位置和协方差；SH 的方向要变回源资产坐标。正交相机的视线方向与透视相机不同。多视图各自排序，不共享错误的“当前相机”结果。
@@ -65,7 +65,7 @@ M1/M2 与 M3 可按独立文件范围并行。M4 不绕过 M2 实机门槛；M5 
 
 ## 源码与验证约束
 
-按[公开论文](https://arxiv.org/abs/2308.04079)的数学和文件格式独立实现；不复制 Graphdeco 研究用途许可的 CUDA/训练源码到 Apache-2.0 项目。[官方 Aholo Viewer](https://github.com/manycoretech/aholo-viewer) 可作为另一个公开参考，但 Web viewer 不是 Rhino 原生深度集成的现成方案。
+按[公开论文](https://arxiv.org/abs/2308.04079)的数学和文件格式独立实现；不复制 Graphdeco 研究用途许可的 CUDA/训练源码到 Apache-2.0 项目。[官方 Aholo3D Viewer](https://github.com/manycoretech/aholo3d-viewer) 可作为另一个公开参考，但 Web viewer 不是 Rhino 原生深度集成的现成方案。
 
 本轮不使用 Computer Use 操作 Rhino，不读取/复用用户凭据，不自动进行付费生成或云渲染，不发布 Yak。人工宿主与真实账户验证必须记录实际结果，不能以 mock 或编译代替。
 

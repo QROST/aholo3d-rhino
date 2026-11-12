@@ -27,7 +27,7 @@ These numbers measure only synthetic **CPU sorting**. They exclude parsing, SH p
 ## Reproduce from a source checkout
 
 ```sh
-DOTNET_TieredCompilation=0 dotnet run --project tools/Aholo.Reference -c Release -- --sort-benchmark artifacts/sort-performance
+DOTNET_TieredCompilation=0 dotnet run --project tools/Aholo3D.Reference -c Release -- --sort-benchmark artifacts/sort-performance
 ```
 
 The output file is `artifacts/sort-performance/gaussian-sort.json`. Use the same environment, runtime, source and input suite for comparisons; do not use fixed millisecond thresholds as a CI acceptance gate. Cross-platform unit tests instead check exact ordering for adjacent double values, subnormal/maximum depths, non-contiguous signed ordinal extremes, stable duplicates, unchanged source records, untouched scratch tails, invalid referenced depths, unreferenced invalid records, fast/fallback cancellation and a large equal-depth closed-form transparency case.

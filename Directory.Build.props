@@ -5,12 +5,12 @@
     <LangVersion>latest</LangVersion>
     <Deterministic>true</Deterministic>
     <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
-    <Version>0.2.0-alpha.31</Version>
+    <Version>0.2.0-alpha.32</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <AssemblyVersion>0.2.0.0</AssemblyVersion>
     <Company>CuriousArc</Company>
     <Authors>CuriousArc;qrost</Authors>
-    <Product>Aholo for Rhino</Product>
+    <Product>Aholo3D for Rhino</Product>
     <RepositoryUrl>https://github.com/QROST/aholo3d-rhino</RepositoryUrl>
     <CheckEolTargetFramework>false</CheckEolTargetFramework>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

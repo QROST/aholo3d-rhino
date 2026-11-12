@@ -190,7 +190,7 @@ if __name__ == '__main__':
         else:
             # Isolated Python excludes script-directory imports; load only our installed sibling.
             import importlib.util
-            spec = importlib.util.spec_from_file_location('aholo_mesh_reader', Path(__file__).with_name('usd_mesh_reader.py'))
+            spec = importlib.util.spec_from_file_location('aholo3d_mesh_reader', Path(__file__).with_name('usd_mesh_reader.py'))
             reader = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(reader)
             reader.convert(args.input, args.output)

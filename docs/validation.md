@@ -1,6 +1,14 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.31. Earlier entries below retain their original scope.
+Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.32. Earlier entries below retain their original scope.
+
+## Aholo3D product and path rename — alpha.32
+
+Product/panel/GS titles, source/build/assembly paths, generated names, package identity and canonical commands use Aholo3D. The 18 legacy command spellings dispatch to the same compiled implementation, and the plug-in/panel/canonical command GUIDs remain stable. The saved exact legacy GS mode is renamed with readback while retaining its ID. Data resolution uses one physical directory and shared locks; the installer preserves old absolute references through a directory alias or documented OS fallback. Legacy credential identifiers and document metadata keys are retained. See [migration behavior and limits](repository-rename.md).
+
+Release compilation has zero warnings/errors. **1,512 offline .NET tests pass**, with one Windows filesystem-only test skipped on macOS. The first run exposed a new metadata-test traversal bug for types without command methods; the test was corrected to skip those types, retaining exact compiled-call equivalence checks. Five independent Python migration tests pass, including refusal while Rhino is running, backup outside the package scan and recovery after simulated installation failure. Regional contract snapshots and the separate-process synthetic OAuth fixture pass. No real credentials, service calls or native Rhino operation were used.
+
+The remote `remote/gemini-4-carbon` compatibility review returned HTTP 503 without an answer; status was checked and no retry was issued. The parent performed source/diff inspection, build and tests locally. Mac and Windows native loading, panel titles, old commands/documents and display-mode persistence remain manual acceptance gates. Archive and installation receipts are separate; an archive does not imply installation or publication. Earlier records below retain their original product names, paths and evidence.
 
 ## Wrapped-label height correction — alpha.31
 
@@ -78,7 +86,7 @@ An independent local OpenUSD check parsed a production-generated scene with Rect
 
 Packaging verifies both platform-tagged archives against the allowlisted files and records commit/dirty state, SHA-256 and pending host/service acceptance in `artifacts/latest-package-{mac,win}.json`. Those receipts are the authority for whether an archive was produced; source compilation on a Mac does not prove Windows execution. No GUI automation, installation, push or publication is part of this candidate preparation.
 
-The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha31) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
+The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha32) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
 
 ## Integrated development candidate — 2026-11-09
 

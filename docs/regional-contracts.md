@@ -19,7 +19,7 @@ The [China protected resource](https://api.aholo3d.cn/.well-known/oauth-protecte
 
 ## Implemented runtime and remaining acceptance
 
-Settings now offers explicit International/China selection. AholoRegions controls gateway/prefix, issuer/resource and verified OUS host; language and credential text never infer a region. API identities, saved credentials, tasks/recovery and realtime cleanup retain region. OAuth has independent regional slots and validated envelopes. Unmarked old data remains International.
+Settings now offers explicit International/China selection. Aholo3DRegions controls gateway/prefix, issuer/resource and verified OUS host; language and credential text never infer a region. API identities, saved credentials, tasks/recovery and realtime cleanup retain region. OAuth has independent regional slots and validated envelopes. Unmarked old data remains International.
 
 The shared credential lock/path is preserved, with schema 2 preventing older builds from restoring China as International. Do not mix old/new sidecars. Switching stops local previews, invalidates continuation authority and restores only the target saved Key; other-region saved credentials survive. Admitted requests may finish in their captured region, and unresolved cleanup keeps its original regional identity.
 

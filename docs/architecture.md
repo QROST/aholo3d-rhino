@@ -2,16 +2,16 @@
 
 Maintainer: CuriousArc · qrost. API review date: 2026-11-08. Complete current endpoint inventory: [API coverage](api-capabilities.md).
 
-Canonical source repository: [https://github.com/QROST/aholo3d-rhino](https://github.com/QROST/aholo3d-rhino); checkout directory: `aholo3d-rhino`. The repository rename does not rename installed package or persisted identifiers; see [compatibility details](repository-rename.md).
+Canonical source repository: [https://github.com/QROST/aholo3d-rhino](https://github.com/QROST/aholo3d-rhino); checkout directory: `aholo3d-rhino`. Product, build and package names now use Aholo3D. Persisted identifiers retain explicit compatibility; see [migration details](repository-rename.md).
 
 ## Boundaries
 
-- **Aholo.Rhino**, .NET 7: Eto UI, document identity checks, tessellation, camera capture, native Gaussian block references and an experimental DisplayConduit mode. Only Rhino's UI thread mutates the document.
-- **Aholo.Core**, .NET 7: transport contracts/client, atomic local task journal, streaming point/strict Gaussian PLY readers, full Gaussian parameters, independent SH/projection/CPU compositing, GLB writer, cloud USDA scene builder, and static GS USD/USDZ scene import/export through an isolated OpenUSD process. It has no service credentials or Rhino dependency.
-- **Aholo.Provider**, .NET 8: HTTP clients, exact service-specific envelopes, upload token separation, OS credential protection and experimental REST/WebSocket realtime session lifecycle. API Keys stay here/the sidecar after entry.
-- **Aholo.Sidecar**, .NET 8: private pipe dispatcher, workflow progression, durable submission intent and public-only asset download transport.
+- **Aholo3D.Rhino**, .NET 7: Eto UI, document identity checks, tessellation, camera capture, native Gaussian block references and an experimental DisplayConduit mode. Only Rhino's UI thread mutates the document.
+- **Aholo3D.Core**, .NET 7: transport contracts/client, atomic local task journal, streaming point/strict Gaussian PLY readers, full Gaussian parameters, independent SH/projection/CPU compositing, GLB writer, cloud USDA scene builder, and static GS USD/USDZ scene import/export through an isolated OpenUSD process. It has no service credentials or Rhino dependency.
+- **Aholo3D.Provider**, .NET 8: HTTP clients, exact service-specific envelopes, upload token separation, OS credential protection and experimental REST/WebSocket realtime session lifecycle. API Keys stay here/the sidecar after entry.
+- **Aholo3D.Sidecar**, .NET 8: private pipe dispatcher, workflow progression, durable submission intent and public-only asset download transport.
 
-Rhino can keep its own .NET runtime while the child process runs on .NET 8. Plug-in GUID: `D1D17217-1169-41BB-B63A-FEE17DFA777F`. Keychain service: `ai.aholo.world.rhino`. Package: `aholo-rhino`. These differ from Lux3D's identifiers.
+Rhino can keep its own .NET runtime while the child process runs on .NET 8. Plug-in GUID: `D1D17217-1169-41BB-B63A-FEE17DFA777F`. Keychain service: `ai.aholo.world.rhino`. Package: `aholo3d-rhino`. These differ from Lux3D's identifiers.
 
 ## Verified service contracts
 
@@ -62,7 +62,7 @@ GLB writes triangle meshes with glTF's canonical metres/Y-up convention `(x,z,-y
 
 ## Current integration boundaries
 
-International and China endpoints are wired through the verified AholoRegions table. Optional OAuth is separate from API Key access, with opt-in remembered sessions as described below. Mesh capture includes supported normals/PBR constants/direct UV bitmaps and selected rectangle/point lights. The realtime workflow is connected to a separate JPEG window, not a native depth-composited viewport. Nested ordinary blocks are traversed with their placements; GS bounds are explicitly rejected as mesh geometry. See `api-capabilities.md` for the current remaining implementation scope. Host/UI and service entitlement validation remain manual acceptance items.
+International and China endpoints are wired through the verified Aholo3DRegions table. Optional OAuth is separate from API Key access, with opt-in remembered sessions as described below. Mesh capture includes supported normals/PBR constants/direct UV bitmaps and selected rectangle/point lights. The realtime workflow is connected to a separate JPEG window, not a native depth-composited viewport. Nested ordinary blocks are traversed with their placements; GS bounds are explicitly rejected as mesh geometry. See `api-capabilities.md` for the current remaining implementation scope. Host/UI and service entitlement validation remain manual acceptance items.
 
 ## Realtime protocol foundation
 
@@ -78,11 +78,11 @@ Local USD interchange uses the pinned OpenUSD Gaussian schema, separate from clo
 
 ## Integrated application and workspace
 
-One `AholoSession` per Rhino process owns the pipe, connection state, polling and operation registry. Panels and commands use it; history reads directly from the task store. Task-scoped disk locks serialize writes while unrelated tasks remain independently queryable. Draft forms are kept per operation. The Create / Library / Render workspace keeps credentials, polling and placement defaults in Settings. Library reads are paginated and an explicit restore locates the exact task page.
+One `Aholo3DSession` per Rhino process owns the pipe, connection state, polling and operation registry. Panels and commands use it; history reads directly from the task store. Task-scoped disk locks serialize writes while unrelated tasks remain independently queryable. Draft forms are kept per operation. The Create / Library / Render workspace keeps credentials, polling and placement defaults in Settings. Library reads are paginated and an explicit restore locates the exact task page.
 
 Generic service submission validates the official request schema and local file mapping before uploading. Every input is snapshotted before the first upload. Submission barriers precede each charged request. Local-only Spatial input guarantees the plugin performed its Asset upload. Result decoders preserve ordered output/action identity, avoid raw server errors in diagnostics, and retain signed URLs only in memory. Downloads publish immutable hash-named files before the journal switches references, preserving old bytes across interrupted re-downloads.
 
-Static GLB placement uses adapted container validation, private snapshots, native headless preflight, limited degenerate-face/normal repair and native import/block wrapping from the sibling Lux3D integration. Independent Aholo mesh markers protect duplicate imports, Undo and recovery. The target document, units and state are rechecked before mutation. Render selection expands ordinary nested blocks without exploding user objects. These new native paths await host acceptance.
+Static GLB placement uses adapted container validation, private snapshots, native headless preflight, limited degenerate-face/normal repair and native import/block wrapping from the sibling Lux3D integration. Independent Aholo3D mesh markers protect duplicate imports, Undo and recovery. The target document, units and state are rechecked before mutation. Render selection expands ordinary nested blocks without exploding user objects. These new native paths await host acceptance.
 
 
 ## Optional remembered OAuth account
@@ -96,7 +96,7 @@ A refresh can rotate the server token before its response arrives. Cancellation/
 
 ## Regional identity and transitions
 
-AholoRegions maps International to https://api.aholo.ai/global/ and China to https://api.aholo3d.cn/. Immutable API Key identity selects gateway and verified OUS host. Each new/recovered task and realtime cleanup record stores region; missing legacy fields mean International. Wrong-region operations fail before HTTP. The original global credential lock/state pathname remains stable. Schema 2 stores region even while disconnected; legacy schema 1 migrates as International. Older builds reject schema 2 restoration; concurrent old/new sidecars are unsupported.
+Aholo3DRegions maps International to https://api.aholo.ai/global/ and China to https://api.aholo3d.cn/. Immutable API Key identity selects gateway and verified OUS host. Each new/recovered task and realtime cleanup record stores region; missing legacy fields mean International. Wrong-region operations fail before HTTP. The original global credential lock/state pathname remains stable. Schema 2 stores region even while disconnected; legacy schema 1 migrates as International. Older builds reject schema 2 restoration; concurrent old/new sidecars are unsupported.
 
 Connection changes publish a new non-ready epoch before touching that region's secure slot. Other-region remembered credentials survive, while a process-only Key is discarded when leaving its region. Same-region selection preserves that Key. Connect compares a pre-validation state fingerprint under the final mutation lock to reject stale validation. Failed mutations reconcile host state without reviving render intents or overwriting newer generations.
 

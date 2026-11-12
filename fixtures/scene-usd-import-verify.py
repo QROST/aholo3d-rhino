@@ -14,9 +14,9 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, UsdVol, Vt
 
 ROOT=Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--reference',type=Path,default=ROOT/'tools/Aholo.Reference/bin/Release/net8.0/Aholo.Reference.dll')
+parser.add_argument('--reference',type=Path,default=ROOT/'tools/Aholo3D.Reference/bin/Release/net8.0/Aholo3D.Reference.dll')
 args=parser.parse_args()
-spec=importlib.util.spec_from_file_location('aholo_scene_bridge',ROOT/'scripts/usd_scene_bridge.py')
+spec=importlib.util.spec_from_file_location('aholo3d_scene_bridge',ROOT/'scripts/usd_scene_bridge.py')
 bridge=importlib.util.module_from_spec(spec);spec.loader.exec_module(bridge)
 
 
@@ -32,8 +32,8 @@ def scene(path):
     return stage,g,m
 
 
-with tempfile.TemporaryDirectory(prefix='aholo-scene-import-') as tmp:
-    work=Path(tmp);original=work/'production';env=dict(os.environ,AHOLO_USD_PYTHON=sys.executable)
+with tempfile.TemporaryDirectory(prefix='aholo3d-scene-import-') as tmp:
+    work=Path(tmp);original=work/'production';env=dict(os.environ,AHOLO3D_USD_PYTHON=sys.executable)
     subprocess.run(['dotnet',str(args.reference),'--scene-fixtures',str(original)],env=env,check=True)
     subprocess.run(['dotnet',str(args.reference),'--scene-import-fixtures',str(original)],env=env,check=True)
     # Once frozen, the complete source tree disappears. Neither data path may read it again.

@@ -49,10 +49,10 @@ def surface(stage,mesh):
     return mat,shader
 
 
-with tempfile.TemporaryDirectory(prefix='aholo-mesh-usd-import-') as temporary:
-    work=Path(temporary).resolve();env=os.environ.copy();env['AHOLO_USD_PYTHON']=sys.executable
+with tempfile.TemporaryDirectory(prefix='aholo3d-mesh-usd-import-') as temporary:
+    work=Path(temporary).resolve();env=os.environ.copy();env['AHOLO3D_USD_PYTHON']=sys.executable
     exported=work/'exported'
-    subprocess.run(['dotnet','run','--project',str(root/'tools/Aholo.Reference'),'-c','Release','--no-build','--','--mesh-fixtures',str(exported)],check=True,env=env)
+    subprocess.run(['dotnet','run','--project',str(root/'tools/Aholo3D.Reference'),'-c','Release','--no-build','--','--mesh-fixtures',str(exported)],check=True,env=env)
     for fmt in ('usda','usd','usdc','usdz'):
         path=exported/('meshes.'+fmt);out=work/('read-'+fmt);data=extract(path,out);parts=data['parts'];assert len(parts)==3
         assert data['sourceSha256']==hashlib.sha256(path.read_bytes()).hexdigest()
@@ -63,7 +63,7 @@ with tempfile.TemporaryDirectory(prefix='aholo-mesh-usd-import-') as temporary:
         assert parts[0]['texture']['file']==parts[1]['texture']['file'] and parts[0]['doubleSided']
         assert binary(out,parts[0])==[0,0,0,.125,0,0,0,.25,.5]
         # The public C# reader independently validates protocol/bitmap bytes and physical transforms.
-        subprocess.run(['dotnet','run','--project',str(root/'tools/Aholo.Reference'),'-c','Release','--no-build','--','--mesh-import-fixture',str(path)],check=True,env=env)
+        subprocess.run(['dotnet','run','--project',str(root/'tools/Aholo3D.Reference'),'-c','Release','--no-build','--','--mesh-import-fixture',str(path)],check=True,env=env)
 
     def seams(stage,mesh):
         mesh.CreateNormalsAttr([(0,0,1),(0,1,1)]);mesh.SetNormalsInterpolation('uniform')

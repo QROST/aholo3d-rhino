@@ -1,14 +1,14 @@
 # Integrated alpha acceptance
 
-CuriousArc · qrost. Candidate: 0.2.0-alpha.31. Native and service acceptance: pending.
+CuriousArc · qrost. Candidate: 0.2.0-alpha.32. Native and service acceptance: pending.
 
 ## Offline Rhino checks
 
 Run separately on Apple Silicon Mac and Windows Rhino 8.32+, in English and Chinese. The user operates Rhino; automated source tests do not mark these passed.
 
-1. Start `AholoPanel`. Verify Create / Library / Render and Settings at narrow panel widths. Choose all 13 operations; required controls and advanced options must remain usable. Enter a draft, switch operation, switch back: name, prompt, files and options survive.
+1. Start `Aholo3DPanel`. Verify Create / Library / Render and Settings at narrow panel widths. Choose all 13 operations; required controls and advanced options must remain usable. Enter a draft, switch operation, switch back: name, prompt, files and options survive.
 2. Read local history without connecting. Search/filter/page; restore-selection tests must select the requested task, not the first unrelated entry. Existing old journals remain readable. Open a downloaded file's directory and compare the displayed location.
-3. Start a long local import, close the panel and reopen. Verify one shared operation and accessible cancellation. Repeat via `AholoImportGs` / `AholoExportGs` and `AholoCancel`. Close the target document: no work may mutate a different document.
+3. Start a long local import, close the panel and reopen. Verify one shared operation and accessible cancellation. Repeat via `Aholo3DImportGs` / `Aholo3DExportGs` and `Aholo3DCancel`. Close the target document: no work may mutate a different document.
 4. Place a downloaded static GLB: visible native Block on the selected construction plane/point, intended height, materials retained, one Undo/Redo cycle. Repeat the click and reopen the panel: no duplicate. Delete/Undo the result: no automatic re-insertion. Save/reopen 3DM and repeat identity check. Test another unit system, wrong active document and units changed during preparation.
 5. Use GS probe and a known PLY/SPLAT/SPZ/USD scene. Test SPZ World placement twice, Undo/Redo and export to USDZ; verify all parts, opacity, SH colors and source axis. Verify source count, color, clipping and navigation as in the GS checklist. Unsupported PLY/animated GLB must fail with the original file retained.
 6. While busy, open Settings and attempt connection changes: key entry must not disappear silently. Settings status must update after a connection operation. Inspect numeric plug-in version 0.2.0.0 and publisher CuriousArc.
@@ -52,7 +52,7 @@ Start a download or refresh for task A, then select task B and one of its result
 - Load three local/result static GLBs. Compare candidate colors; adjust height and rotation repeatedly, use current CPlane and pick a point. Acceptance creates only the chosen Block. Clear/hide/close removes preview geometry without removing an accepted model. Clearing during preparation must not restore the candidate later.
 - Start from a hidden/locked current layer or an invisible ancestor layer. Accept, Undo and Redo; both the Block and any created visible layer belong to one operation, and the original current layer is restored.
 - Generate with automatic placement enabled. While waiting, change the active document, close the target, change units, pause the task, turn the option off or disconnect. No stale automatic placement is allowed. Restoring history and restarting Rhino never grants automatic placement.
-- Use `AholoPlaceTask` with the full local task GUID from Library. It may query/download the original supported static mesh; it must never generate. Repeat after success, delete and Undo: no duplicate is inserted. Cached static mesh placement works without a cloud connection.
+- Use `Aholo3DPlaceTask` with the full local task GUID from Library. It may query/download the original supported static mesh; it must never generate. Repeat after success, delete and Undo: no duplicate is inserted. Cached static mesh placement works without a cloud connection.
 
 ## Native mesh formats
 
@@ -94,7 +94,7 @@ Native Mac/Windows checks remain pending. Use packaged `fixtures/mesh-core.3mf` 
 
 ## Local mesh USD export
 
-Run `AholoExportMesh` and the panel action on both platforms. Follow the mesh checklist in `usd-exchange.md`, including mirrored/far-translated blocks, readonly/orthographic capture, page-space rejection, source materials unchanged, alpha/UV appearance, moved USDZ/plain companion bundles and cancellation/closure. This route needs no API Key. Automated USD parsing does not establish Rhino capture or native viewing acceptance.
+Run `Aholo3DExportMesh` and the panel action on both platforms. Follow the mesh checklist in `usd-exchange.md`, including mirrored/far-translated blocks, readonly/orthographic capture, page-space rejection, source materials unchanged, alpha/UV appearance, moved USDZ/plain companion bundles and cancellation/closure. This route needs no API Key. Automated USD parsing does not establish Rhino capture or native viewing acceptance.
 
 
 ### Local ordinary USD import (source after alpha.4)
@@ -109,7 +109,7 @@ For the same GLB/3MF/USD result, preview then accept, and invoke direct placemen
 
 ### Mesh import command and placement modes
 
-Run `AholoImportMesh` interactively and with a scripted quoted path, including spaces/non-ASCII characters. Confirm Library opens with a candidate only, no document object until acceptance. Repeat with a busy panel, an active command/Undo cycle, document switch/closure and `AholoCancel`; no request may silently land in another document.
+Run `Aholo3DImportMesh` interactively and with a scripted quoted path, including spaces/non-ASCII characters. Confirm Library opens with a candidate only, no document object until acceptance. Repeat with a busy panel, an active command/Undo cycle, document switch/closure and `Aholo3DCancel`; no request may silently land in another document.
 
 Use a zero-height quad and a far-translated, physically sized USD. Original-size/CPlane must preserve scale while moving its base midpoint to the chosen point, with captured tilted plane/rotation. Scene-coordinate mode must preserve prepared world positions and ignore invalid text in disabled height/rotation controls. Fit-height remains the default and reports a clear alternative for planar meshes. Change candidates, clear, accept and reload: the mode is retained. Cancel or close/hide the panel during acceptance's native import: no final block should survive the canceled operation; verify one Undo/Redo on a successful import. These checks require both native platforms.
 
@@ -132,12 +132,12 @@ Open two Rhino instances under the same OS user: explicit sign-out in one must r
 
 ## Combined GS + mesh export
 
-Use `AholoExportScene` and Library → Export selected scene USD with mixed and single-type selections, nested/repeated GS, mirrored/nonuniform blocks and both unit systems. Follow the combined scene checklist in `usd-exchange.md`, especially parent-material overrides, corrupted references, cancellation/document closure, page-space rejection and captured-state placement. Use `AholoImportScene` for the mixed round trip; separate typed importers still reject mixed content. Record macOS/Windows native results separately from the 24-file OpenUSD checks.
+Use `Aholo3DExportScene` and Library → Export selected scene USD with mixed and single-type selections, nested/repeated GS, mirrored/nonuniform blocks and both unit systems. Follow the combined scene checklist in `usd-exchange.md`, especially parent-material overrides, corrupted references, cancellation/document closure, page-space rejection and captured-state placement. Use `Aholo3DImportScene` for the mixed round trip; separate typed importers still reject mixed content. Record macOS/Windows native results separately from the 24-file OpenUSD checks.
 
 
 ## Combined GS + mesh import
 
-Import the packaged `fixtures/mixed-scene.usda` via `AholoImportScene` and the Library action. Expect two red/cyan GS siblings and one blue mesh block, with a 2-metre-high box converted to document units. Check GS display, opaque occlusion, source positions, one Undo/Redo and save/reopen. Repeat with textured external dependencies, native USD instances, mirrors/nonuniform scale and both axes. While a scene loads, cancel, close the original document or change units/gamma; there must be no stale or partial commit. Exercise a failure during the final GS append after mesh native import, including preexisting material-name conflicts; inspect material/resource rollback and any explicit unconfirmed-state warning. Repeat separately on Mac and Windows. Automated parsing and fixed-SDK compilation do not accept native Undo or resource persistence.
+Import the packaged `fixtures/mixed-scene.usda` via `Aholo3DImportScene` and the Library action. Expect two red/cyan GS siblings and one blue mesh block, with a 2-metre-high box converted to document units. Check GS display, opaque occlusion, source positions, one Undo/Redo and save/reopen. Repeat with textured external dependencies, native USD instances, mirrors/nonuniform scale and both axes. While a scene loads, cancel, close the original document or change units/gamma; there must be no stale or partial commit. Exercise a failure during the final GS append after mesh native import, including preexisting material-name conflicts; inspect material/resource rollback and any explicit unconfirmed-state warning. Repeat separately on Mac and Windows. Automated parsing and fixed-SDK compilation do not accept native Undo or resource persistence.
 
 
 ## Nested GS viewport references
@@ -147,7 +147,7 @@ Follow the [nested-block host checklist](gs-host-acceptance.md#nested-block-disp
 
 ## USD polygon and material-subset import
 
-On both native platforms import `fixtures/mesh-subsets.usda` with Original size or Preserve scene coordinates, then Zoom Extents. Expect green triangle, concave blue polygon and red quad as three mesh parts in one accepted Block. The blue source has 6 square metres of area and three triangles; its concavity must remain empty. Check source Mesh/subset user strings, material colors, physical units, one Undo/Redo and save/reopen. Repeat through `AholoImportScene` with a mixed GS scene. Use a separate textured fixture with shared vertices and discontinuous UVs/normals; no texture seam may move when faces split by material. No authored normals means flat shading per original USD face, retained after material splitting and triangulation. Invalid material partitions and nonplanar/self-crossing n-gons must fail before document mutation. Automated numeric/transport checks do not establish native appearance or texture persistence.
+On both native platforms import `fixtures/mesh-subsets.usda` with Original size or Preserve scene coordinates, then Zoom Extents. Expect green triangle, concave blue polygon and red quad as three mesh parts in one accepted Block. The blue source has 6 square metres of area and three triangles; its concavity must remain empty. Check source Mesh/subset user strings, material colors, physical units, one Undo/Redo and save/reopen. Repeat through `Aholo3DImportScene` with a mixed GS scene. Use a separate textured fixture with shared vertices and discontinuous UVs/normals; no texture seam may move when faces split by material. No authored normals means flat shading per original USD face, retained after material splitting and triangulation. Invalid material partitions and nonplanar/self-crossing n-gons must fail before document mutation. Automated numeric/transport checks do not establish native appearance or texture persistence.
 
 
 ## OBJ and typed OBJ ZIP import
@@ -157,14 +157,14 @@ Follow [OBJ native acceptance](obj-import-development.md#reproducible-host-accep
 
 ## USD flat shading and planar concave quads
 
-Use the packaged `fixtures/mesh-shading.usda` through `AholoImportMesh`, selecting **Preserve scene coordinates**. It uses metres/Z-up and should contain three parts with six triangles in total: a blue two-face corner with a hard edge, a translated blue corner with explicitly smooth shared-edge normals, and a red concave quad represented by two non-overlapping triangles. The red shape has area 3 square metres; its interior diagonal joins original corners 0 and 2.
+Use the packaged `fixtures/mesh-shading.usda` through `Aholo3DImportMesh`, selecting **Preserve scene coordinates**. It uses metres/Z-up and should contain three parts with six triangles in total: a blue two-face corner with a hard edge, a translated blue corner with explicitly smooth shared-edge normals, and a red concave quad represented by two non-overlapping triangles. The red shape has area 3 square metres; its interior diagonal joins original corners 0 and 2.
 
-On Mac and Windows, compare shaded/rendered views from both sides, check that the two blue corners differ as authored, and inspect the concave boundary for a filled notch or missing triangle. Repeat through `AholoImportScene`; verify physical positions, one Undo/Redo and save/reopen. For mirrored and left-handed files, confirm the geometric direction and authored shading remain consistent. Record source commit/package hash and observations. Automated math/file checks do not establish these native results.
+On Mac and Windows, compare shaded/rendered views from both sides, check that the two blue corners differ as authored, and inspect the concave boundary for a filled notch or missing triangle. Repeat through `Aholo3DImportScene`; verify physical positions, one Undo/Redo and save/reopen. For mirrored and left-handed files, confirm the geometric direction and authored shading remain consistent. Record source commit/package hash and observations. Automated math/file checks do not establish these native results.
 
 
 ## Face materials and quad parity — pending
 
-On each platform, create a joined Brep with a red base material, one blue face and one PBR metallic face. Export with `AholoExportMesh` and the mixed-scene command, then re-import and compare every original face's assignment, placement and normals. Source Brep topology, material table and selection must remain unchanged. Repeat with extrusion wall/end-cap assignments and a kinked profile; any unsupported component mapping must fail before output/upload. Explicit supported object mappings and the original-cache surface routes below can supply bitmap UVs; missing original surface data and divergent extrusion face appearances must give explicit feedback.
+On each platform, create a joined Brep with a red base material, one blue face and one PBR metallic face. Export with `Aholo3DExportMesh` and the mixed-scene command, then re-import and compare every original face's assignment, placement and normals. Source Brep topology, material table and selection must remain unchanged. Repeat with extrusion wall/end-cap assignments and a kinked profile; any unsupported component mapping must fail before output/upload. Explicit supported object mappings and the original-cache surface routes below can supply bitmap UVs; missing original surface data and divergent extrusion face appearances must give explicit feedback.
 
 Repeat with two instances of the same definition, different effective parent materials/channel tables, and nested MaterialFromParent chains. A top-level object or block set to MaterialFromParent must use its layer material. A child inheriting from an unassigned parent must not unexpectedly take a material from the child's own layer. Check current-renderer material references as well as generic materials. Give an unused parent material a missing bitmap while every face explicitly overrides it; this must not read the unused bitmap.
 

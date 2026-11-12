@@ -4,11 +4,11 @@ CuriousArc · qrost. Implemented after alpha.25; native Mac/Windows acceptance i
 
 | Command | Destination |
 | --- | --- |
-| `AholoPanel` | Open the document's panel, preserving its last page |
-| `AholoWorld` | Create, using that document's most recent World operation |
-| `AholoModel` | Create, using its most recent Lux3D operation |
-| `AholoTasks` | Library |
-| `AholoRender` | Render |
+| `Aholo3DPanel` | Open the document's panel, preserving its last page |
+| `Aholo3DWorld` | Create, using that document's most recent World operation |
+| `Aholo3DModel` | Create, using its most recent Lux3D operation |
+| `Aholo3DTasks` | Library |
+| `Aholo3DRender` | Render |
 
 These commands navigate; they do not submit or resubmit generation/rendering. The shared session may continue its already authorized background work. New requests still require the explicit creation/render action. Existing command names and plugin identities remain unchanged.
 

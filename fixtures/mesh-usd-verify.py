@@ -15,11 +15,11 @@ from pxr import Ar, Gf, Usd, UsdGeom, UsdShade, UsdUtils, Sdf
 
 ROOT=Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--reference',type=Path,default=ROOT/'tools/Aholo.Reference/bin/Release/net8.0/Aholo.Reference.dll')
+parser.add_argument('--reference',type=Path,default=ROOT/'tools/Aholo3D.Reference/bin/Release/net8.0/Aholo3D.Reference.dll')
 args=parser.parse_args()
-with tempfile.TemporaryDirectory(prefix='aholo-mesh-usd-check-') as temporary:
+with tempfile.TemporaryDirectory(prefix='aholo3d-mesh-usd-check-') as temporary:
     work=Path(temporary);original=work/'original';moved=work/'moved'
-    env=dict(os.environ,AHOLO_USD_PYTHON=sys.executable)
+    env=dict(os.environ,AHOLO3D_USD_PYTHON=sys.executable)
     subprocess.run(['dotnet',str(args.reference),'--mesh-fixtures',str(original)],env=env,check=True)
     shutil.copytree(original,moved);shutil.rmtree(original)
     for extension in ('usda','usd','usdc','usdz'):

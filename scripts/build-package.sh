@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PLATFORM=mac
-YAK="${AHOLO_YAK_PATH:-/Applications/Rhino 8.app/Contents/Resources/bin/yak}"
+YAK="${AHOLO3D_YAK_PATH:-${AHOLO_YAK_PATH:-/Applications/Rhino 8.app/Contents/Resources/bin/yak}}"
 BUILD=1
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -18,8 +18,8 @@ case "$PLATFORM" in mac|win) ;; *) echo 'Platform must be mac or win.' >&2; exit
 cd "$ROOT"
 CHECKS=not-rerun
 if [ "$BUILD" -eq 1 ]; then
-  dotnet build Aholo.sln -c Release
-  dotnet test tests/Aholo.Tests/Aholo.Tests.csproj -c Release --no-build --no-restore
+  dotnet build Aholo3D.sln -c Release
+  dotnet test tests/Aholo3D.Tests/Aholo3D.Tests.csproj -c Release --no-build --no-restore
   CHECKS=passed
 fi
 python3 scripts/package.py --platform "$PLATFORM" --yak "$YAK" --checks "$CHECKS"

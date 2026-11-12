@@ -21,9 +21,9 @@ def dot(a, b):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--reference', type=Path, default=ROOT/'tools/Aholo.Reference/bin/Release/net8.0/Aholo.Reference.dll')
+    parser.add_argument('--reference', type=Path, default=ROOT/'tools/Aholo3D.Reference/bin/Release/net8.0/Aholo3D.Reference.dll')
     args=parser.parse_args()
-    with tempfile.TemporaryDirectory(prefix='aholo-antialias-') as directory:
+    with tempfile.TemporaryDirectory(prefix='aholo3d-antialias-') as directory:
         subprocess.run(['dotnet', str(args.reference), '--antialias-fixtures', directory], check=True)
         document=json.loads((Path(directory)/'antialias.json').read_text())
         for sample in document['Determinants']:

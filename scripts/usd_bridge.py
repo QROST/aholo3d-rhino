@@ -120,7 +120,7 @@ def write_part(prim, output, index, cache, UsdGeom, UsdVol, UsdShade):
     antialiased = prim.GetCustomDataByKey("gaussianSplatting:antialiased")
     require(antialiased is None or isinstance(antialiased, bool), label + ": antialiased must be boolean.")
     filename = f"part-{index:06d}.ply"
-    header = ["ply", "format binary_little_endian 1.0", "comment Aholo official static USD Gaussian bridge", f"element vertex {count}"]
+    header = ["ply", "format binary_little_endian 1.0", "comment Aholo3D official static USD Gaussian bridge", f"element vertex {count}"]
     fields = ("x", "y", "z", "scale_0", "scale_1", "scale_2", "rot_0", "rot_1", "rot_2", "rot_3", "opacity")
     header += ["property double " + name for name in fields]
     header += ["property float f_dc_" + str(i) for i in range(3)]
@@ -155,7 +155,7 @@ def convert(input_path, output):
     try:
         from pxr import Ar, Sdf, Usd, UsdGeom, UsdShade, UsdUtils, UsdVol
     except ImportError as error:
-        raise UnsupportedUsd("OpenUSD runtime is missing. Install usd-core==26.11 using the Aholo USD setup.") from error
+        raise UnsupportedUsd("OpenUSD runtime is missing. Install usd-core==26.11 using the Aholo3D USD setup.") from error
     require(Usd.GetVersion() == (0, 26, 11), "This bridge requires usd-core==26.11; another OpenUSD runtime version was found.")
     source = input_path.resolve()
     require(source.is_file(), "USD input file does not exist.")
@@ -205,12 +205,12 @@ def convert(input_path, output):
             if prim.IsA(UsdGeom.Boundable):
                 ignored.append(label + " (" + type_name + ")")
     require(bool(prims), "No official ParticleField3DGaussianSplat prims were found. Ordinary Points and Mesh are not Gaussian splats.")
-    require(not ignored, "This scene contains non-Gaussian geometry. Use AholoImportScene to import the complete GS and mesh scene; no geometry was omitted.")
+    require(not ignored, "This scene contains non-Gaussian geometry. Use Aholo3DImportScene to import the complete GS and mesh scene; no geometry was omitted.")
     parts = [write_part(prim, output, index, cache, UsdGeom, UsdVol, UsdShade) for index, prim in enumerate(prims)]
     require(sum(part["count"] for part in parts) > 0, "The USD stage contains no Gaussian particles.")
     for part in parts:
         if part["projectionModeHint"] != "perspective" or part["sortingModeHint"] != "zDepth":
-            warnings.append(part["name"] + ": authored renderer hints " + part["projectionModeHint"] + "/" + part["sortingModeHint"] + "; Aholo currently uses its camera projection and center-z sorting.")
+            warnings.append(part["name"] + ": authored renderer hints " + part["projectionModeHint"] + "/" + part["sortingModeHint"] + "; Aholo3D currently uses its camera projection and center-z sorting.")
     for path, expected in before.items():
         require(digest(path) == expected, "A USD source dependency changed during import; retry after saving finishes.")
     manifest = {"protocol": 1, "openUsdVersion": "26.11", "upAxis": up_axis, "metersPerUnit": meters,
@@ -269,7 +269,7 @@ def author(input_path, scene, root_path="/GaussianScene"):
     try:
         from pxr import Gf, Sdf, Usd, UsdGeom, UsdUtils, UsdVol, Vt
     except ImportError as error:
-        raise UnsupportedUsd("OpenUSD runtime is missing. Install usd-core==26.11 using the Aholo USD setup.") from error
+        raise UnsupportedUsd("OpenUSD runtime is missing. Install usd-core==26.11 using the Aholo3D USD setup.") from error
     require(Usd.GetVersion() == (0, 26, 11), "This bridge requires usd-core==26.11; another OpenUSD runtime version was found.")
     with open(input_path, encoding="utf-8") as stream:
         manifest = json.load(stream)

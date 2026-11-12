@@ -1,0 +1,161 @@
+using System.Globalization;
+using Aholo3D.Core;
+using Eto.Forms;
+using Rhino.Geometry;
+using Rhino.Input.Custom;
+using RhinoDoc=global::Rhino.RhinoDoc;
+namespace Aholo3D.Rhino;
+
+internal sealed class MeshPlacementEditor : IDisposable
+{
+    private sealed record Candidate(string Name,PreparedAsset Asset,MeshPlacementTarget Target,Guid ImportId,Guid? TaskId);
+    private readonly uint serial;
+    private readonly MeshPlacementService placement;
+    private readonly Action<string> report;
+    private readonly CandidatePreview preview=new();
+    private readonly DeferredDisposals retired=new();
+    private readonly List<Candidate> candidates=new();
+    private readonly DropDown selected=new();
+    private readonly DropDown mode=new(){DataStore=new[]{UiText.Get("Fit height on construction plane"),UiText.Get("Original size on construction plane"),UiText.Get("Preserve scene coordinates")},SelectedIndex=0};
+    private readonly Button pick,constructionPlane,accept,remove,clear;
+    private readonly TextBox height=new(),rotation=new(){Text="0"};
+    private readonly Label position=UiLayout.Text("");
+    private readonly UITimer timer=new(){Interval=.08};
+    private Plane plane;
+    private Point3d point;
+    private bool disposed,visible=true;
+    private long revision;
+    internal long Revision=>revision;
+    internal Control View{get;}
+    internal string HeightText{get=>height.Text;set=>height.Text=value;}
+    internal MeshPlacementEditor(uint serial,MeshPlacementService placement,Action<string> report,Func<string,Func<PanelInvocation,Task>,Task> run)
+    {
+        this.serial=serial;this.placement=placement;this.report=report;
+        var doc=Document();var initial=MeshPlacementService.DefaultPlacement(doc);plane=initial.Plane;point=initial.Point;height.Text=initial.Height.ToString("R",CultureInfo.InvariantCulture);
+        Button Button(string title,Action<CancellationToken> work)
+        {
+            var button=new Button{Text=UiLayout.Caption(title),ToolTip=UiText.Get(title)};
+            button.Click+=(_,_)=>_=run(title,context=>{work(context.Cancellation);return Task.CompletedTask;});return button;
+        }
+        pick=Button("Pick placement point",_=>Pick());constructionPlane=Button("Use current construction plane",_=>UsePlane());
+        mode.SelectedIndexChanged+=(_,_)=>{UpdateMode();Schedule();};
+        selected.SelectedIndexChanged+=(_,_)=>{UpdateCandidateActions();Schedule();};height.TextChanged+=(_,_)=>Schedule();rotation.TextChanged+=(_,_)=>Schedule();
+        timer.Elapsed+=(_,_)=>ShowPreview();
+        accept=Button("Accept candidate",Accept);remove=Button("Remove candidate",_=>Remove());clear=Button("Clear candidates",_=>Clear());
+        View=new StackLayout{Spacing=6,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
+            UiLayout.Text(UiText.Get("Mesh placement and candidates")),mode,
+            new StackLayout{Spacing=6,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={UiLayout.Text(UiText.Get("Height (document units)")),height,UiLayout.Text(UiText.Get("Rotation (degrees)")),rotation}},
+            Aholo3DPanel.Row(pick,constructionPlane),position,
+            selected,Aholo3DPanel.Row(accept,remove,clear)}};
+        UpdateMode();UpdateCandidateActions();
+    }
+    private RhinoDoc Document()=>RhinoDoc.FromRuntimeSerialNumber(serial)??throw new InvalidOperationException(UiText.Get("The target document has closed."));
+    internal PlacementIntent Intent()
+    {
+        static double Value(string text)
+        {
+            if(!(double.TryParse(text,NumberStyles.Float,CultureInfo.CurrentCulture,out double value)||double.TryParse(text,NumberStyles.Float,CultureInfo.InvariantCulture,out value))||!double.IsFinite(value))
+                throw new ArgumentException(UiText.Get("Enter a valid height and rotation."));
+            return value;
+        }
+        var selectedMode=Mode;
+        if(selectedMode==MeshPlacementMode.SourceCoordinates)return new(Plane.WorldXY,Point3d.Origin,1,0,selectedMode);
+        double size=selectedMode==MeshPlacementMode.FitHeight?Value(height.Text):1;
+        if(size<=0)throw new ArgumentException(UiText.Get("Enter a positive model height in document units."));
+        return new(plane,point,size,Math.IEEERemainder(Value(rotation.Text),360),selectedMode);
+    }
+    private MeshPlacementMode Mode=>mode.SelectedIndex switch{1=>MeshPlacementMode.SourceSizeOnPlane,2=>MeshPlacementMode.SourceCoordinates,_=>MeshPlacementMode.FitHeight};
+    private void UpdateMode()
+    {
+        height.Enabled=Mode==MeshPlacementMode.FitHeight;
+        rotation.Enabled=pick.Enabled=constructionPlane.Enabled=Mode!=MeshPlacementMode.SourceCoordinates;
+        Describe();
+    }
+    internal MeshPlacementTarget Capture()=>placement.Capture(Document(),Intent());
+    internal void SetBusy(bool busy){if(!disposed)View.Enabled=!busy;}
+    internal void SetVisible(bool shown)
+    {
+        if(disposed)return;visible=shown;if(shown)Schedule();else{timer.Stop();preview.Clear();}
+    }
+    internal async Task AddAsync(string path,string? hash,string name,Guid? taskId,CancellationToken ct,Guid? importId=null,long? expectedRevision=null,MeshPlacementTarget? capturedTarget=null)
+    {
+        var request=await Aholo3DHost.OnUi(()=>
+        {
+            ct.ThrowIfCancellationRequested();
+            if(disposed||expectedRevision is not null&&expectedRevision!=revision)throw new LocalOperationCanceledException();
+            int duplicate=importId.HasValue?candidates.FindIndex(c=>c.ImportId==importId.Value):-1;
+            if(duplicate>=0){Select(duplicate);report(UiText.Get("This result is already loaded as a candidate."));return (revision,(MeshPlacementTarget?)null);}
+            if(candidates.Count>=3)throw new InvalidOperationException(UiText.Get("Up to 3 candidates per group. Remove an unwanted candidate first."));
+            var target=capturedTarget??Capture();placement.Validate(target);
+            return (revision,(MeshPlacementTarget?)target);
+        }).ConfigureAwait(false);
+        if(request.Item2 is null)return;
+        PreparedAsset asset=await placement.PrepareAsync(path,hash,request.Item2,ct).ConfigureAwait(false);
+        await Aholo3DHost.OnUi(()=>
+        {
+            if(disposed||request.revision!=revision||ct.IsCancellationRequested){asset.Dispose();ct.ThrowIfCancellationRequested();return false;}
+            candidates.Add(new(name,asset,request.Item2,importId??Guid.NewGuid(),taskId));Select(candidates.Count-1);
+            report(UiText.Get("Candidate loaded. Adjust placement, compare candidates, then accept. The document is unchanged until acceptance.")+(asset.ImportWarnings.Count==0?"":"\n"+string.Join("\n",asset.ImportWarnings.Select(w=>UiText.Get(w)))));
+            return true;
+        }).ConfigureAwait(false);
+    }
+    private void UpdateCandidateActions(){if(accept is null)return;accept.Enabled=remove.Enabled=selected.SelectedIndex>=0&&selected.SelectedIndex<candidates.Count;clear.Enabled=candidates.Count>0;}
+    private void Select(int index){selected.DataStore=candidates.Select((c,i)=>$"{(char)('A'+i)} · {c.Name}").ToArray();selected.SelectedIndex=index;UpdateCandidateActions();Schedule();}
+    private void Pick()
+    {
+        var doc=Document();_=Aholo3DHost.CaptureTarget(doc);
+        using var input=new GetPoint();input.SetCommandPrompt(UiText.Get("Choose Aholo3D placement point"));
+        if(input.Get()!=global::Rhino.Input.GetResult.Point)return;
+        _=Aholo3DHost.CaptureTarget(doc);point=input.Point();plane=doc.Views.ActiveView?.ActiveViewport.ConstructionPlane()??Plane.WorldXY;Describe();Schedule();
+    }
+    private void UsePlane(){var doc=Document();_=Aholo3DHost.CaptureTarget(doc);plane=doc.Views.ActiveView?.ActiveViewport.ConstructionPlane()??Plane.WorldXY;point=plane.Origin;Describe();Schedule();}
+    private void Describe()=>position.Text=Mode==MeshPlacementMode.SourceCoordinates?UiText.Get("Source units and axes are resolved into this document; scene positions are preserved."):UiText.Format("Position ({0:G5}, {1:G5}, {2:G5}) on the captured construction plane",point.X,point.Y,point.Z);
+    private void Schedule(){if(disposed||!visible)return;timer.Stop();timer.Start();}
+    private void ShowPreview()
+    {
+        timer.Stop();if(disposed||!visible)return;
+        int index=selected.SelectedIndex;
+        if(index<0||index>=candidates.Count){preview.Clear();return;}
+        try{placement.Validate(candidates[index].Target);preview.Show(candidates[index].Asset,Intent());}
+        catch(Exception error){preview.Clear();report(Aholo3DHost.FriendlyError(error));}
+    }
+    private void Accept(CancellationToken ct)
+    {
+        int index=selected.SelectedIndex;if(index<0||index>=candidates.Count)throw new InvalidOperationException(UiText.Get("Load and select a candidate first."));
+        var candidate=candidates[index];long expected=revision;
+        using var resultClaim=placement.AcquireResult(candidate.Target,candidate.ImportId,ct);
+        MeshPlacementResult? result=null;
+        try
+        {
+            result=retired.RunBorrowed(()=>
+            {
+                result=placement.Commit(candidate.Asset,candidate.Target with{Placement=Intent()},candidate.ImportId,candidate.TaskId,ct:ct,allowed:()=>!disposed&&visible&&revision==expected);
+                Clear();return result;
+            });
+        }
+        catch(Exception) when(result is not null)
+        {report(result.Message+"\n"+UiText.Get("Preview cleanup did not finish. The imported block is retained."));return;}
+        report(result.Message);
+    }
+
+    private void Remove()
+    {
+        int index=selected.SelectedIndex;if(index<0||index>=candidates.Count)return;
+        timer.Stop();preview.Clear();var asset=candidates[index].Asset;candidates.RemoveAt(index);
+        try{retired.Retire(asset);}finally{Select(Math.Min(index,candidates.Count-1));}
+    }
+    internal void Clear()
+    {
+        revision++;timer.Stop();Exception? failure=null;try{preview.Clear();}catch(Exception error){failure=error;}
+        var assets=candidates.Select(candidate=>candidate.Asset).ToArray();candidates.Clear();
+        foreach(var asset in assets)try{retired.Retire(asset);}catch(Exception error){failure??=error;}
+        selected.DataStore=Array.Empty<string>();selected.SelectedIndex=-1;UpdateCandidateActions();
+        if(failure is not null)throw new InvalidOperationException(UiText.Get("Preview cleanup did not finish. The imported block is retained."),failure);
+    }
+    public void Dispose()
+    {
+        if(disposed)return;disposed=true;retired.Close();
+        try{Clear();}catch(Exception error){global::Rhino.RhinoApp.WriteLine(Aholo3DHost.FriendlyError(error));}
+        finally{timer.Dispose();try{preview.Dispose();}catch(Exception error){global::Rhino.RhinoApp.WriteLine(Aholo3DHost.FriendlyError(error));}}
+    }
+}

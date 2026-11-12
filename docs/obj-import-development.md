@@ -2,7 +2,7 @@
 
 Maintainer: CuriousArc · qrost.
 
-Status: the Library, `AholoImportMesh`, local OBJ/ZIP selection and typed `obj_zip` task placement now use the integrated reader. This is a development feature with offline evidence; native macOS/Windows appearance, dialogs, Undo and persistence remain pending. No Python/OpenUSD runtime is needed for OBJ.
+Status: the Library, `Aholo3DImportMesh`, local OBJ/ZIP selection and typed `obj_zip` task placement now use the integrated reader. This is a development feature with offline evidence; native macOS/Windows appearance, dialogs, Undo and persistence remain pending. No Python/OpenUSD runtime is needed for OBJ.
 
 ## Source capture and selection
 
@@ -38,7 +38,7 @@ A typed task `obj_zip` maps to a cached `.zip`. Generic `zip` and `fbx_zip` task
 
 Run separately on macOS and Windows Rhino 8.32+, with English and Chinese UI. The user operates Rhino.
 
-1. Load `fixtures/mesh-obj/scene.obj` via Library and `AholoImportMesh`. Choose metres/Z-up and Preserve scene coordinates. Expect three parts and five triangles, bounds X 0–2 m, Y 0–2 m, Z 0–1 m. The floor uses a 2×2 RGBA image whose alpha is ignored; the blue rear panel has material opacity 0.6; the front triangle is red. Verify orientation and texture corners visually.
+1. Load `fixtures/mesh-obj/scene.obj` via Library and `Aholo3DImportMesh`. Choose metres/Z-up and Preserve scene coordinates. Expect three parts and five triangles, bounds X 0–2 m, Y 0–2 m, Z 0–1 m. The floor uses a 2×2 RGBA image whose alpha is ignored; the blue rear panel has material opacity 0.6; the front triangle is red. Verify orientation and texture corners visually.
 2. Repeat in a millimetre document and with Original size/CPlane. Source bounds become 2000×2000×1000 mm. Fit-height is a separate intentional scaling operation. Repeat Y-up and confirm the proper axis rotation.
 3. Load `fixtures/mesh-obj-multiple.zip`. No entry should be preselected. Choose `mesh-obj/scene.obj`, then import again locally and choose `alternate.obj` (one planar triangle; use Original size or Preserve scene coordinates).
 4. Cancel the options window, cancel background parsing, close/change the original document and change units/gamma while an import is pending. No stale candidate or document object may be committed. Repeat with a replaced original ZIP after selection opens; the captured model must remain stable.

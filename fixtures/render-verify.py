@@ -9,9 +9,9 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--reference", type=Path, default=ROOT / "tools/Aholo.Reference/bin/Release/net8.0/Aholo.Reference.dll")
+parser.add_argument("--reference", type=Path, default=ROOT / "tools/Aholo3D.Reference/bin/Release/net8.0/Aholo3D.Reference.dll")
 args = parser.parse_args()
-with tempfile.TemporaryDirectory(prefix="aholo-render-check-") as temporary:
+with tempfile.TemporaryDirectory(prefix="aholo3d-render-check-") as temporary:
     root = Path(temporary)
     subprocess.run(["dotnet", str(args.reference), "--render-fixtures", str(root)], check=True)
     layers = [Sdf.Layer.FindOrOpen(str(root / name)) for name in ("base.usda", "patch.usda", "camera.usda", "gs.usda")]

@@ -48,30 +48,30 @@ def main():
     subprocess.run([sys.executable, str(ROOT / "fixtures/create-obj-sample.py"), "--check"], check=True)
     version = ET.parse(ROOT / 'Directory.Build.props').findtext('.//Version')
     manifest = (ROOT / 'packaging/manifest.yml').read_text()
-    if f'version: {version}\n' not in manifest or 'name: aholo-rhino\n' not in manifest:
+    if f'version: {version}\n' not in manifest or 'name: aholo3d-rhino\n' not in manifest:
         raise ValueError('Manifest/project identities disagree.')
     artifacts = ROOT / 'artifacts'; artifacts.mkdir(exist_ok=True)
     stage = pathlib.Path(tempfile.mkdtemp(prefix='package-' + args.platform + '.', dir=artifacts))
     required = {
-        'Aholo.Rhino.rhp': 'src/Aholo.Rhino/bin/Release/net7.0/Aholo.Rhino.rhp',
-        'System.IO.Packaging.dll': 'src/Aholo.Rhino/bin/Release/net7.0/System.IO.Packaging.dll',
-        'sidecar/System.IO.Packaging.dll': 'src/Aholo.Sidecar/bin/Release/net8.0/System.IO.Packaging.dll',
+        'Aholo3D.Rhino.rhp': 'src/Aholo3D.Rhino/bin/Release/net7.0/Aholo3D.Rhino.rhp',
+        'System.IO.Packaging.dll': 'src/Aholo3D.Rhino/bin/Release/net7.0/System.IO.Packaging.dll',
+        'sidecar/System.IO.Packaging.dll': 'src/Aholo3D.Sidecar/bin/Release/net8.0/System.IO.Packaging.dll',
         'docs/licenses/System.IO.Packaging.txt': 'docs/licenses/System.IO.Packaging.txt',
-        'ZstdSharp.dll': 'src/Aholo.Rhino/bin/Release/net7.0/ZstdSharp.dll',
-        'sidecar/ZstdSharp.dll': 'src/Aholo.Sidecar/bin/Release/net8.0/ZstdSharp.dll',
+        'ZstdSharp.dll': 'src/Aholo3D.Rhino/bin/Release/net7.0/ZstdSharp.dll',
+        'sidecar/ZstdSharp.dll': 'src/Aholo3D.Sidecar/bin/Release/net8.0/ZstdSharp.dll',
         'docs/licenses/SPZ.txt': 'docs/licenses/SPZ.txt',
         'docs/licenses/ZstdSharp.txt': 'docs/licenses/ZstdSharp.txt',
-        'Aholo.Core.dll': 'src/Aholo.Rhino/bin/Release/net7.0/Aholo.Core.dll',
-        'sidecar/Aholo.Sidecar.dll': 'src/Aholo.Sidecar/bin/Release/net8.0/Aholo.Sidecar.dll',
-        'sidecar/Aholo.Sidecar.deps.json': 'src/Aholo.Sidecar/bin/Release/net8.0/Aholo.Sidecar.deps.json',
-        'sidecar/Aholo.Sidecar.runtimeconfig.json': 'src/Aholo.Sidecar/bin/Release/net8.0/Aholo.Sidecar.runtimeconfig.json',
-        'sidecar/Aholo.Core.dll': 'src/Aholo.Sidecar/bin/Release/net8.0/Aholo.Core.dll',
-        'sidecar/Aholo.Provider.dll': 'src/Aholo.Sidecar/bin/Release/net8.0/Aholo.Provider.dll',
+        'Aholo3D.Core.dll': 'src/Aholo3D.Rhino/bin/Release/net7.0/Aholo3D.Core.dll',
+        'sidecar/Aholo3D.Sidecar.dll': 'src/Aholo3D.Sidecar/bin/Release/net8.0/Aholo3D.Sidecar.dll',
+        'sidecar/Aholo3D.Sidecar.deps.json': 'src/Aholo3D.Sidecar/bin/Release/net8.0/Aholo3D.Sidecar.deps.json',
+        'sidecar/Aholo3D.Sidecar.runtimeconfig.json': 'src/Aholo3D.Sidecar/bin/Release/net8.0/Aholo3D.Sidecar.runtimeconfig.json',
+        'sidecar/Aholo3D.Core.dll': 'src/Aholo3D.Sidecar/bin/Release/net8.0/Aholo3D.Core.dll',
+        'sidecar/Aholo3D.Provider.dll': 'src/Aholo3D.Sidecar/bin/Release/net8.0/Aholo3D.Provider.dll',
         'manifest.yml': 'packaging/manifest.yml',
-        'usd/usd_mesh_reader.py': 'src/Aholo.Rhino/bin/Release/net7.0/usd/usd_mesh_reader.py',
-        'usd/usd_scene_bridge.py': 'src/Aholo.Rhino/bin/Release/net7.0/usd/usd_scene_bridge.py',
-        'usd/usd_mesh_bridge.py': 'src/Aholo.Rhino/bin/Release/net7.0/usd/usd_mesh_bridge.py',
-        'usd/usd_bridge.py': 'src/Aholo.Rhino/bin/Release/net7.0/usd/usd_bridge.py',
+        'usd/usd_mesh_reader.py': 'src/Aholo3D.Rhino/bin/Release/net7.0/usd/usd_mesh_reader.py',
+        'usd/usd_scene_bridge.py': 'src/Aholo3D.Rhino/bin/Release/net7.0/usd/usd_scene_bridge.py',
+        'usd/usd_mesh_bridge.py': 'src/Aholo3D.Rhino/bin/Release/net7.0/usd/usd_mesh_bridge.py',
+        'usd/usd_bridge.py': 'src/Aholo3D.Rhino/bin/Release/net7.0/usd/usd_bridge.py',
         'scripts/setup-usd.py': 'scripts/setup-usd.py',
         'docs/usd-exchange.md': 'docs/usd-exchange.md',
     }
@@ -91,7 +91,7 @@ def main():
     for target, source in required.items():
         destination = stage / target; destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / source, destination)
-    config = json.loads((stage/'sidecar/Aholo.Sidecar.runtimeconfig.json').read_text())
+    config = json.loads((stage/'sidecar/Aholo3D.Sidecar.runtimeconfig.json').read_text())
     framework = config['runtimeOptions']['framework']
     if framework['name'] != 'Microsoft.NETCore.App' or not framework['version'].startswith('8.'):
         raise ValueError('Unexpected background runtime requirement.')
@@ -108,7 +108,7 @@ def main():
     archives = list(stage.glob('*.yak'))
     if len(archives) != 1: raise ValueError('Expected exactly one package.')
     archive = archives[0]
-    if archive.name != f'aholo-rhino-{version}-rh8_32-{args.platform}.yak':
+    if archive.name != f'aholo3d-rhino-{version}-rh8_32-{args.platform}.yak':
         raise ValueError('Unexpected Rhino target, platform or package identity: ' + archive.name)
     with zipfile.ZipFile(archive) as package:
         files = [i for i in package.infolist() if not i.is_dir()]
@@ -129,7 +129,7 @@ def main():
     archive.with_suffix('.yak.sha256').write_text(digest+'  '+archive.name+'\n')
     commit = subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT, text=True).strip()
     dirty = bool(subprocess.check_output(['git','status','--porcelain','--untracked-files=no'], cwd=ROOT, text=True).strip())
-    receipt = {'sourceCommit':commit,'trackedSourceDirty':dirty,'name':'aholo-rhino','version':version,'platform':args.platform,'path':str(archive),
+    receipt = {'sourceCommit':commit,'trackedSourceDirty':dirty,'name':'aholo3d-rhino','version':version,'platform':args.platform,'path':str(archive),
         'sha256':digest,'files':len(required),'checks':args.checks,'hostAcceptance':'pending',
         'serviceAcceptance':'pending','createdUtc':datetime.now(timezone.utc).isoformat()}
     (artifacts / f'latest-package-{args.platform}.json').write_text(json.dumps(receipt,indent=2)+'\n')

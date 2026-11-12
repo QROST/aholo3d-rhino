@@ -16,8 +16,8 @@ Push-Location $projectRoot
 try {
     $checks = 'not-rerun'
     if (-not $NoBuild) {
-        Invoke-Checked 'dotnet' @('build', 'Aholo.sln', '-c', 'Release')
-        Invoke-Checked 'dotnet' @('test', 'tests/Aholo.Tests/Aholo.Tests.csproj', '-c', 'Release', '--no-build', '--no-restore')
+        Invoke-Checked 'dotnet' @('build', 'Aholo3D.sln', '-c', 'Release')
+        Invoke-Checked 'dotnet' @('test', 'tests/Aholo3D.Tests/Aholo3D.Tests.csproj', '-c', 'Release', '--no-build', '--no-restore')
         $checks = 'passed'
     }
     $python = Get-Command py.exe -ErrorAction SilentlyContinue

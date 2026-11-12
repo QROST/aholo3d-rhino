@@ -2,7 +2,7 @@
 """Decode synthetic source/production RGB PNGs and embedded GLB images with Pillow.
 
 Offline oracle only. Requires Pillow (verified with 10.4.0); does not install it,
-start Rhino, or call cloud services. Build Aholo.Reference Release first.
+start Rhino, or call cloud services. Build Aholo3D.Reference Release first.
 """
 import argparse
 import io
@@ -62,12 +62,12 @@ def decode(encoded, mode, size, expected):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--reference', type=Path, default=ROOT/'tools/Aholo.Reference/bin/Release/net8.0/Aholo.Reference.dll')
+    parser.add_argument('--reference', type=Path, default=ROOT/'tools/Aholo3D.Reference/bin/Release/net8.0/Aholo3D.Reference.dll')
     args = parser.parse_args()
     cases = [(19, 13, interlace, kind) for interlace in (False, True) for kind in range(5)]
     cases += [(w, h, True, -1) for w, h in ((1, 1), (1, 9), (9, 1), (2, 3), (3, 2), (7, 7))]
     cases += [(257, 129, interlace, -1) for interlace in (False, True)]
-    with tempfile.TemporaryDirectory(prefix='aholo-png-alpha-') as temporary:
+    with tempfile.TemporaryDirectory(prefix='aholo3d-png-alpha-') as temporary:
         work = Path(temporary)
         (work/'input').mkdir()
         for index, (w, h, interlace, kind) in enumerate(cases):

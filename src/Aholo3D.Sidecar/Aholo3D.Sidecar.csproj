@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <UseAppHost>false</UseAppHost>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Aholo3D.Core/Aholo3D.Core.csproj" />
+    <ProjectReference Include="../Aholo3D.Provider/Aholo3D.Provider.csproj" />
+  </ItemGroup>
+</Project>

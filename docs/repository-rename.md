@@ -1,49 +1,33 @@
-# Repository rename and compatibility
+# Aholo3D naming and upgrade compatibility
 
-Maintainer: CuriousArc · qrost. Updated: 2026-11-08.
+Maintainer: CuriousArc · qrost. Updated: 2026-11-11. Candidate: 0.2.0-alpha.32.
 
-The canonical source repository is [QROST/aholo3d-rhino](https://github.com/QROST/aholo3d-rhino), and the checkout directory is `aholo3d-rhino`. This is a source repository rename; the installed product continues to be Aholo for Rhino.
+The source repository is [QROST/aholo3d-rhino](https://github.com/QROST/aholo3d-rhino). Product titles, the Rhino panel tab, GS display mode, new object/layer names, solution, source directories, assemblies, generated files and new Yak packages use Aholo3D. Build with `dotnet build Aholo3D.sln -c Release`; run `dotnet test Aholo3D.sln -c Release --no-build`.
 
-## Updated references
+## Installation
 
-- Git origin uses `https://github.com/QROST/aholo3d-rhino.git`.
-- Build repository metadata, the Yak website and Rhino plug-in website point to the new repository.
-- Both READMEs, the architecture entry and the development plan identify the new checkout.
-- Build, package, install and USD setup scripts already locate their files relative to the script/repository root; they do not require the former source directory.
+The new package is **`aholo3d-rhino`**, containing `Aholo3D.Rhino.rhp`. The previous `aholo-rhino` release remains unlisted. Renaming the package does not transfer Yak ownership or provide automatic upgrades; no public publication is implied by this candidate.
 
-For an existing checkout, run from its new directory:
+Close Rhino before the first new-name installation. `scripts/install-local.py` verifies the archive, moves the old package directory intact into `packages/aholo3d-rename-backups/<unique-id>/aholo-rhino` outside the `packages/8.0` scan, installs the new package and verifies every payload byte. If installation fails, a newly created partial version is removed and the old directory is restored. The receipt records the backup. Never install both names together: they share the same plug-in GUID. Keep backups until manual acceptance.
 
-```sh
-git remote set-url origin https://github.com/QROST/aholo3d-rhino.git
-dotnet build Aholo.sln -c Release
-dotnet test Aholo.sln -c Release --no-build
-```
+## Data and credentials
 
-Restore/build again after moving a checkout. `bin` and `obj` are generated outputs, not references to edit by search-and-replace. IDE workspace entries that explicitly point to a former checkout must be reopened at the new directory.
+New installations use `Aholo3D-Rhino` under the platform's local application-data directory. For an existing `Aholo-Rhino` directory, the installer creates a new-name directory link to the same physical data when the OS permits it. It never copies or moves task journals, locks, assets, saved document references or the USD virtual environment. Both path spellings therefore reach the same files. Windows may disallow unprivileged directory links; the runtime then retains the legacy directory as the explicit compatibility fallback. Independent current and legacy directories are treated as a conflict, never silently merged or hidden.
 
-## Stable installed identities
+Existing task records and 3DM files may still contain old absolute paths; these remain valid and are not rewritten. `AHOLO3D_*` environment overrides take priority, with `AHOLO_*` supported as fallback. An explicit state-directory override remains authoritative. The USD runtime uses its own override or the shared default data root.
 
-| Identity | Retained value | Reason |
-| --- | --- | --- |
-| Yak package | `aholo-rhino` | Existing published package and update channel; a new package name would be a separate migration |
-| Plug-in GUID | `D1D17217-1169-41BB-B63A-FEE17DFA777F` | Existing Rhino registration and document compatibility |
-| Solution / assemblies | `Aholo.sln`, `Aholo.*`, `Aholo.Rhino.rhp` | Repository directory names do not determine .NET or plug-in identity |
-| Commands | Existing `Aholo*` English names and GUIDs | Existing shortcuts and scripts |
-| User data / USD runtime | `Aholo-Rhino` application-data directory | Existing journals, source assets, caches, document paths and installed runtime |
-| Credential service | `ai.aholo.world.rhino` | Existing protected credentials; no credential migration is needed |
-| Environment variables | Existing `AHOLO_*` names | Existing launch and development overrides |
-| Persisted GS metadata | Existing attribute/schema keys | Saved documents and placements remain interpretable |
+Credential service `ai.aholo.world.rhino`, the Windows `Aholo Rhino` credential directory and its DPAPI entropy remain unchanged to preserve decryptability and account isolation. Credentials are never copied into the repository or migration receipt. Real `aholo.ai` API/OAuth domains and official API snapshots retain their original spellings.
 
-Old names in these roles are intentional. Do not change them just to make a text search empty. The service brand, provider endpoints and third-party attribution also remain unchanged.
+## Rhino identity and commands
 
-## Local receipts and published artifacts
+Plug-in, panel and canonical command GUIDs remain stable. New commands use `Aholo3D*`, including `Aholo3DPanel`, `Aholo3DWorld`, `Aholo3DModel`, `Aholo3DTasks` and `Aholo3DRender`. All 18 previous `Aholo*` command spellings remain registered compatibility commands that call exactly the same implementation. No user alias is overwritten and no nested command macro is launched.
 
-Local `artifacts/latest-package-*.json` and `latest-install.json` may contain absolute archive paths from the former checkout. When relocating these active pointers, first verify that the corresponding file in the new checkout has the recorded SHA-256; preserve name, version, source commit, acceptance status and installed-directory fields. Retain the original receipt as local evidence. This repairs the archive location, not its provenance or acceptance.
+The plugin's saved `Aholo GS (Experimental)` display mode is renamed in place to `Aholo3D GS (Experimental)`, retaining the mode GUID used by views. Only the saved mode with that exact legacy name is eligible; unrelated display modes are not renamed. Native readback must confirm the new name. Stored `Aholo.GS`, mesh, task and spatial metadata keys remain stable so old blocks, import identity, Undo/Redo and task deduplication continue to resolve.
 
-Existing published `.yak` bytes and historical logs/receipts are not rewritten. The website metadata change applies to future builds. A newly built package with an already-published version is not a new release: bump the version and complete the normal release checks before any subsequent publication. Repository adaptation alone neither publishes nor reinstalls a package.
+Historical package bytes, validation records, benchmark receipts, official snapshots and user-authored filenames are evidence, not current branding templates; they are not rewritten.
 
 ## 中文摘要
 
-源码统一使用 `aholo3d-rhino` 和新的 GitHub 地址。Yak 仍搜索 `aholo-rhino`；程序集、命令、插件 GUID、凭据服务、`Aholo-Rhino` 用户数据目录和 `AHOLO_*` 环境变量继续兼容旧安装。不要对这些持久化标识做无差别替换。
+标题、源码路径、程序集、临时文件、新对象名称和新包统一为 Aholo3D；新包名为 `aholo3d-rhino`，旧包不会自动升级到此名称。先关闭 Rhino，再由安装脚本备份旧包并安装；失败时恢复旧包。
 
-改目录后重新 restore/build；脚本根据自身路径定位仓库。活跃回执中的旧源码绝对路径仅在校验归档 hash 后迁移，并保留原回执；既有发布包、历史记录和用户数据不改写。新网站信息随后续版本发行生效。
+旧数据目录保留，用新名称的目录链接访问同一份内容；系统不允许建链接时回退旧目录。新旧目录若是两份独立数据，会明确报冲突，不自动合并。旧命令、文档中的元数据键、已有文件路径、凭据加密标识及真实官方域名继续兼容。原生 Mac/Windows 加载、标题、旧文档和显示模式仍需手动验收。

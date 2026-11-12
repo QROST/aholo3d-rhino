@@ -12,13 +12,13 @@ On 2026-11-02, the user confirmed the beta.5 retest passed and approved version 
 
 ## First manual test / 首次手动测试
 
-1. Install the matching local Yak candidate, restart Rhino manually and create an empty document. Run `AholoGsProbe`. / 安装对应平台包，手动重启 Rhino，新建空文档，运行 `AholoGsProbe`。
-2. The active modeling viewport should use **Aholo GS (Experimental)**. Expect two layers of soft, anisotropic red/teal ellipses, one opaque blue Brep and one opaque ochre mesh. Expect smooth alpha edges, not opaque rectangles or point markers. / 应看到两层红色/青色柔和椭圆及两个不透明遮挡物，不应是硬矩形或中心点。
+1. Install the matching local Yak candidate, restart Rhino manually and create an empty document. Run `Aholo3DGsProbe`. / 安装对应平台包，手动重启 Rhino，新建空文档，运行 `Aholo3DGsProbe`。
+2. The active modeling viewport should use **Aholo3D GS (Experimental)**. Expect two layers of soft, anisotropic red/teal ellipses, one opaque blue Brep and one opaque ochre mesh. Expect smooth alpha edges, not opaque rectangles or point markers. / 应看到两层红色/青色柔和椭圆及两个不透明遮挡物，不应是硬矩形或中心点。
 3. Orbit the view. A foreground solid must hide the splats behind it; splats in front must blend over the solid. There must be no ghost rectangle writing depth or full-screen image overlay. / 旋转视图，前方实体应遮住后方高斯；前方高斯应透明叠加于后方实体，不得出现写入深度的矩形边界或整屏图片覆盖。
-4. Run `AholoGsDiagnostics` and record version, Rhino version, OS/architecture, mode, reported OpenGL/non-OpenGL backend, count and error. “Non-OpenGL” does not establish Metal. / 记录诊断信息，不能根据 Non-OpenGL 自动认定 Metal。
+4. Run `Aholo3DGsDiagnostics` and record version, Rhino version, OS/architecture, mode, reported OpenGL/non-OpenGL backend, count and error. “Non-OpenGL” does not establish Metal. / 记录诊断信息，不能根据 Non-OpenGL 自动认定 Metal。
 5. One Undo removes the complete GS probe and its opaque Brep/mesh together; one Redo restores them. This new transaction behavior requires native acceptance. / 一次 Undo 应同时撤销 GS 和遮挡 Brep/mesh，一次 Redo 恢复；新事务行为仍待原生验收。
 
-Start with the colored probe, then test the existing generated world; no regeneration is needed. Beta.2 failed with a 212,864-splat scene. Beta.3 batches every visible splat, prepares in the background and skips saved-file thumbnail rendering. First verify color/alpha, then orbit/zoom continuously, stop and wait for the GS frame, and save/reopen. During preparation a bounding box is expected; it must not freeze navigation. Record `AholoGsDiagnostics` and its log. / 先测彩色小样，再复用原世界；无需重新生成。检查颜色/透明度、连续导航、静止后恢复与保存重开。准备期间的框是预期行为，但界面不应卡死。记录诊断和日志。
+Start with the colored probe, then test the existing generated world; no regeneration is needed. Beta.2 failed with a 212,864-splat scene. Beta.3 batches every visible splat, prepares in the background and skips saved-file thumbnail rendering. First verify color/alpha, then orbit/zoom continuously, stop and wait for the GS frame, and save/reopen. During preparation a bounding box is expected; it must not freeze navigation. Record `Aholo3DGsDiagnostics` and its log. / 先测彩色小样，再复用原世界；无需重新生成。检查颜色/透明度、连续导航、静止后恢复与保存重开。准备期间的框是预期行为，但界面不应卡死。记录诊断和日志。
 
 ## Appearance and depth matrix / 外观与深度矩阵
 
@@ -37,7 +37,7 @@ Start with the colored probe, then test the existing generated world; no regener
 The CPU oracle is an independently implemented numerical reference, not an image captured from Rhino. Run:
 
 ```sh
-dotnet run --project tools/Aholo.Reference -c Release -- --output artifacts/gs-reference
+dotnet run --project tools/Aholo3D.Reference -c Release -- --output artifacts/gs-reference
 ```
 
 It emits four PNGs and `reference.json`. At the center, front red alpha=.5 and back blue alpha=.5 over black give RGB (.5,0,.25). With an opaque green plane in front, between, or behind, the expected RGB values are (0,1,0), (.5,.5,0), (.5,.25,.25). PNG output maps linear RGB directly to 8-bit without gamma correction. Rhino may apply different color management. / 中心闭式值用于核对数学，宿主颜色管理须另行验证。
@@ -48,9 +48,9 @@ The host's stock byte-color material clips HDR before blending, while the oracle
 
 - Move, Rotate, uniform/nonuniform Scale, mirror, duplicate, hide/show, lock/unlock and hide the containing layer. Shape/covariance and SH direction must follow the instance; hidden objects must stop drawing. / 测试变换、复制、隐藏、锁定和图层可见性。
 - Switch between two documents and multiple viewports. Each view must use its own camera, sorting and visibility; closing a document/view must release its render resources. / 多文档、多视口应独立，关闭后释放资源。
-- Restart Rhino and reopen the 3dm without first running an Aholo command; the startup conduit should restore the saved GS mode. If Rhino has overridden plug-in loading, run `AholoGsMode` and record the exception. Save/reopen the 3dm. Source PLY is stored outside the 3dm under `Aholo-Rhino/assets/gaussians`, addressed by SHA-256. The file is not embedded. / 保存重开须恢复，外部 PLY 并未嵌入文档。
-- Test missing-resource behavior using a disposable copy of the cache, then restore it and run `AholoGsMode`. A missing or changed asset should retain a visible placeholder plus diagnostics, never silently use center points. / 测试资源缺失后包围盒和提示，再恢复资源并重载。
-- Import a malformed/truncated file and the RGB-only `fixtures/tiny-world.ply` with `AholoImportGs`. It should fail without placing an incomplete GS. / 损坏或缺高斯字段应拒绝，不生成半成品。
+- Restart Rhino and reopen the 3dm without first running an Aholo3D command; the startup conduit should restore the saved GS mode. If Rhino has overridden plug-in loading, run `Aholo3DGsMode` and record the exception. Save/reopen the 3dm. Source PLY is stored outside the 3dm under `Aholo3D-Rhino/assets/gaussians`, addressed by SHA-256. The file is not embedded. / 保存重开须恢复，外部 PLY 并未嵌入文档。
+- Test missing-resource behavior using a disposable copy of the cache, then restore it and run `Aholo3DGsMode`. A missing or changed asset should retain a visible placeholder plus diagnostics, never silently use center points. / 测试资源缺失后包围盒和提示，再恢复资源并重载。
+- Import a malformed/truncated file and the RGB-only `fixtures/tiny-world.ply` with `Aholo3DImportGs`. It should fail without placing an incomplete GS. / 损坏或缺高斯字段应拒绝，不生成半成品。
 - Changing the target document, units or active command during asynchronous loading must prevent insertion into the wrong context. / 异步期间文档、单位或命令状态变化不得误放。
 
 ## Explicitly outside this candidate / 当前不验收为已支持
@@ -59,7 +59,7 @@ Arbitrary transparent Rhino/GS interleaving; comprehensive clipping-plane behavi
 
 ## Realtime cloud gate / 实时云视口门槛
 
-The REST/WebSocket/session library has offline protocol tests. A mode named “Aholo Cloud” is intentionally not registered until it can render a coherent scene. Before exposing it:
+The REST/WebSocket/session library has offline protocol tests. A mode named “Aholo3D Cloud” is intentionally not registered until it can render a coherent scene. Before exposing it:
 
 1. Validate with a real account that World PLY/SPZ can become a RenderCloud GS mesh ID; a world ID is not a mesh ID.
 2. Verify the documented stream status schema, JPEG decode, camera convention, sequential patches and explicit server cleanup with actual service behavior.
@@ -81,7 +81,7 @@ Malformed cyclic block components are isolated before rendering and reported by 
 
 New implementation, **native acceptance pending on both Mac and Windows**. Earlier Mac reports above apply to the prior top-level renderer only. No cloud request is needed.
 
-1. Import `fixtures/mixed-scene.usda` with `AholoImportScene`. Select its two GS references and mesh, then create an ordinary Rhino Block. Create a second nested Block and repeat it at different positions. Both GS and the blue mesh must remain visible in GS mode; nested proxy wire boxes intentionally remain.
+1. Import `fixtures/mixed-scene.usda` with `Aholo3DImportScene`. Select its two GS references and mesh, then create an ordinary Rhino Block. Create a second nested Block and repeat it at different positions. Both GS and the blue mesh must remain visible in GS mode; nested proxy wire boxes intentionally remain.
 2. Move, rotate, mirror and nonuniformly scale the outer block. Compare GS positions and boundaries to the ordinary mesh; orbit and Zoom Extents. The old parent transform must not remain in the prepared frame. Repeat with coincident copies and two paths that reuse the same inner definition.
 3. Hide/show the outer instance, hide an inner GS in BlockEdit, hide a child layer/ancestor layer and change per-view/model visibility. Check each occurrence independently. Locked but visible geometry must still render. BlockEdit presentation itself must be recorded explicitly; it is not accepted by the layer arithmetic tests.
 4. Delete all outer instances, Undo, Redo and Undo again. Save/reopen the 3dm with its GS source/cache present; run Diagnostics and Reload if necessary. Check asset counts, nested reference counts (shared definition objects are counted once), missing-source fallback and world transforms. Check that ordinary mesh siblings never disappear because a GS frame finishes.

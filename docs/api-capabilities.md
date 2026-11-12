@@ -1,4 +1,4 @@
-# Aholo public API coverage
+# Aholo3D public API coverage
 
 Maintainer: CuriousArc · qrost. Official contract verification: 2026-11-10 (current published schemas semantically match the pinned snapshots).
 
@@ -81,14 +81,14 @@ Library exposes World/Lux3D/Spatial cloud history and recovery by existing World
 
 Downloaded files use immutable content-addressed names. Missing remote outputs retain downloaded local references. Rig/animation GLB files can be uploaded/downloaded, but static placement rejects unsupported skins, animations or required glTF extensions before touching the document. This is a format-support boundary, not a geometry-count cap. Generation/articulation URLs without a recognized format extension remain explicit unsupported results. Archives are retained as original files. A selected typed OBJ archive is privately decoded during placement; other archive formats are not opened automatically.
 
-## Product parity at alpha.31
+## Product parity at alpha.32
 
 The 30 public HTTP routes and 13 create forms are implemented; that is not a claim that every reference-plugin behavior or returned artifact is fully supported in Rhino.
 
 | Area | Implemented in this source candidate | Remaining before a complete parity claim |
 | --- | --- | --- |
 | Lux3D workflows | Ten public creates, typed outputs, paged cloud history, original-ID recovery, supported-result recommendation with per-task explicit selection, actual cache/next-action guidance, three mesh candidates, CPlane/point placement and volatile original-generation placement intent; typed OBJ ZIP with explicit entry/units/axis; independent 3MF static geometry, direct textures and uniform triangle colors | Animation playback; FBX/untyped archives, unsupported 3MF extensions; OBJ/native material and Undo acceptance |
-| Local mesh exchange | Local/task static USD/USDA/USDC/USDZ mesh import, AholoImportMesh, three placement modes, simple planar n-gons/concave quads/material face subsets, original-face flat normals when absent, and supported tessellated export, normals, PBR, supported mapped bitmap export/direct bitmap import and double origins; unified static GS+mesh import/export, nested-GS export and one native scene Undo, plus shared USD output conflict protection | Subdivision/holes, nonplanar or invalid n-gons, editable hierarchy and full material/texture mapping support; native/viewer acceptance |
+| Local mesh exchange | Local/task static USD/USDA/USDC/USDZ mesh import, Aholo3DImportMesh, three placement modes, simple planar n-gons/concave quads/material face subsets, original-face flat normals when absent, and supported tessellated export, normals, PBR, supported mapped bitmap export/direct bitmap import and double origins; unified static GS+mesh import/export, nested-GS export and one native scene Undo, plus shared USD output conflict protection | Subdivision/holes, nonplanar or invalid n-gons, editable hierarchy and full material/texture mapping support; native/viewer acceptance |
 | GSRhino capabilities | PLY/SPLAT/SPZ v1–4, local static GS USD/USDZ, compatible saved GS references, full SH0–3 data and experimental native display with nested/repeated GS occurrences and per-instance antialias opacity compensation and exact allocation-free depth-sort acceleration | Windows/new-host regression acceptance; transparent interleaving, exact nested-proxy suppression, capture/layout/print/Raytraced support; further large-scene performance work |
 | Accounts | International/China API Key routing/storage, separate regional PKCE OAuth login/refresh, remembered sessions and explicit Settings selection | Authenticated regional account/browser and OS-store acceptance |
 | World / Spatial | Generation/reconstruction, history/recovery, PLY/SPZ/panorama/LOD downloads, editable spatial DSL block | World LOD streaming schema; full structural solids/opening reconstruction; live reconstruction/DSL acceptance |

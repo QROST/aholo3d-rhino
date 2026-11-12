@@ -1,0 +1,150 @@
+using System.Globalization;
+using System.Runtime.InteropServices;
+using System.Text;
+using Aholo3D.Core;
+using Rhino.Commands;
+using Rhino.DocObjects;
+using Rhino.Geometry;
+using RhinoDoc = global::Rhino.RhinoDoc;
+using Color = System.Drawing.Color;
+namespace Aholo3D.Rhino;
+
+[Guid("3D9FD212-DCBF-4CB1-A0C2-1536C857B43E")]
+public sealed class Aholo3DImportGsCommand : Command
+{
+    public override string EnglishName => "Aholo3DImportGs";
+    protected override Result RunCommand(RhinoDoc doc,RunMode mode) => Execute(doc,mode);
+    internal static Result Execute(RhinoDoc doc,RunMode mode)
+    {
+        try
+        {
+            string path;
+            if(mode==RunMode.Scripted)
+            {
+                path="";var result=global::Rhino.Input.RhinoGet.GetString(UiText.Get("Local Gaussian scene file"),false,ref path);
+                if(result!=Result.Success)return result;path=Path.GetFullPath(path);
+            }
+            else
+            {
+                using var dialog=new Eto.Forms.OpenFileDialog { Title=UiText.Get("Import complete GS · PLY / SPLAT / SPZ / USD / USDZ (automatic units and up axis)"),MultiSelect=false };
+                dialog.Filters.Add(new Eto.Forms.FileFilter(UiText.Get("Gaussian Splat scene"),".ply",".splat",".spz",".usd",".usda",".usdc",".usdz"));
+                if(dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc))!=Eto.Forms.DialogResult.Ok)return Result.Cancel;
+                path=dialog.FileName;
+            }
+            ImportTarget target=Aholo3DHost.CaptureTarget(doc);
+            global::Rhino.RhinoApp.WriteLine(global::Aholo3D.Core.UiText.Get("The experimental GS viewport prepares all Gaussians in the background and shows bounds while loading. Keep the target document units unchanged."));
+            CommandOperation.Start(target.Serial,"gs","Import GS",ct=>GaussianDocument.ImportSceneAsync(path,target,1,"Auto",true,ct)); return Result.Success;
+        }
+        catch (Exception ex) { global::Rhino.RhinoApp.WriteLine(Aholo3DHost.FriendlyError(ex)); return Result.Failure; }
+    }
+}
+
+[Guid("36DD3D78-8407-4A81-9588-26D1302FB23E")]
+public sealed class Aholo3DGsModeCommand : Command
+{
+    public override string EnglishName=>"Aholo3DGsMode";
+    protected override Result RunCommand(RhinoDoc doc,RunMode mode) => Execute(doc,mode);
+    internal static Result Execute(RhinoDoc doc,RunMode mode)
+    {
+        try
+        {
+            GaussianViewport.Activate(doc);
+            global::Rhino.RhinoApp.WriteLine(global::Aholo3D.Core.UiText.Get("Aholo3D GS (Experimental) enabled. Opaque-geometry occlusion still requires native acceptance; transparency interleaving is unsupported. Missing source assets appear as bounds."));
+            return Result.Success;
+        }
+        catch(Exception ex){global::Rhino.RhinoApp.WriteLine(Aholo3DHost.FriendlyError(ex));return Result.Failure;}
+    }
+}
+
+[Guid("C9D00C1E-DFCC-4623-B927-BC45EC976670")]
+public sealed class Aholo3DGsDiagnosticsCommand : Command
+{
+    public override string EnglishName=>"Aholo3DGsDiagnostics";
+    protected override Result RunCommand(RhinoDoc doc,RunMode mode) => Execute(doc,mode);
+    internal static Result Execute(RhinoDoc doc,RunMode mode)
+    {
+        global::Rhino.RhinoApp.WriteLine($"Aholo3D {Aholo3DPlugin.DisplayVersion}; Rhino {(global::Rhino.RhinoApp.Version)}; {RuntimeInformation.OSDescription}; {RuntimeInformation.ProcessArchitecture}");
+        global::Rhino.RhinoApp.WriteLine(GaussianViewport.Diagnostics(doc));
+        return Result.Success;
+    }
+}
+
+[Guid("3B6E174F-0671-43D7-8B32-C41DD68E02DE")]
+public sealed class Aholo3DGsProbeCommand : Command
+{
+    public override string EnglishName=>"Aholo3DGsProbe";
+    protected override Result RunCommand(RhinoDoc doc,RunMode mode) => Execute(doc,mode);
+    internal static Result Execute(RhinoDoc doc,RunMode mode)
+    {
+        try
+        {
+            ImportTarget target=Aholo3DHost.CaptureTarget(doc);
+            global::Rhino.RhinoApp.WriteLine(UiText.Get("Creating an offline GS occlusion probe: two complete Gaussian groups, one opaque Brep cube and one Mesh. This adds local test objects without cloud access and supports Undo. Orbit the camera to check occlusion and soft transparent edges."));
+            CommandOperation.Start(target.Serial,"gs","Create GS probe",ct=>CreateAsync(target,ct));return Result.Success;
+        }
+        catch(Exception error){global::Rhino.RhinoApp.WriteLine(Aholo3DHost.FriendlyError(error));return Result.Failure;}
+    }
+    private static async Task<string> CreateAsync(ImportTarget target,CancellationToken ct)
+    {
+        string path=await Task.Run(WriteFixture,ct).ConfigureAwait(false);
+        return await GaussianDocument.ImportProbeAsync(path,target,ct).ConfigureAwait(false);
+    }
+    private static string WriteFixture()
+    {
+        const double sh0=.28209479177387814;
+        var data=new StringBuilder("ply\nformat ascii 1.0\ncomment Aholo3D offline GS occlusion probe by CuriousArc and qrost\nelement vertex 18\nproperty float x\nproperty float y\nproperty float z\nproperty float f_dc_0\nproperty float f_dc_1\nproperty float f_dc_2\nproperty float opacity\nproperty float scale_0\nproperty float scale_1\nproperty float scale_2\nproperty float rot_0\nproperty float rot_1\nproperty float rot_2\nproperty float rot_3\nend_header\n");
+        for(int layer=0;layer<2;layer++)for(int row=0;row<3;row++)for(int column=0;column<3;column++)
+        {
+            double angle=(column-1)*.3;
+            double[] values={ (column-1)*1.6,layer==0?-.45:.45,(row-1)*1.15,
+                ((layer==0?.95:.15)-.5)/sh0,((layer==0?.25:.85)-.5)/sh0,((layer==0?.15:.75)-.5)/sh0,
+                1.2,Math.Log(.55),Math.Log(.12),Math.Log(.28),Math.Cos(angle/2),0,Math.Sin(angle/2),0 };
+            data.AppendLine(string.Join(" ",values.Select(x=>x.ToString("R",CultureInfo.InvariantCulture))));
+        }
+        string path=Path.Combine(TaskStore.DefaultRoot,"inputs","aholo3d-gs-occlusion-probe.ply");
+        TaskStore.WriteAtomic(path,Encoding.ASCII.GetBytes(data.ToString()));return path;
+    }
+}
+
+[Guid("675D674B-5A08-4D85-86C0-57099AB2F528")]
+public sealed class Aholo3DExportGsCommand : Command
+{
+    public override string EnglishName => "Aholo3DExportGs";
+    protected override Result RunCommand(RhinoDoc doc, RunMode mode) => Execute(doc,mode);
+    internal static Result Execute(RhinoDoc doc, RunMode mode)
+    {
+        try
+        {
+            GaussianDocument.ExportSnapshot snapshot = GaussianDocument.CaptureExport(doc, selectedOnly: true);
+            string path;
+            if(mode==RunMode.Scripted)
+            {
+                path="";var result=global::Rhino.Input.RhinoGet.GetString(UiText.Get("USD output file"),false,ref path);
+                if(result!=Result.Success)return result;path=Path.GetFullPath(path);
+            }
+            else
+            {
+                using var dialog = GaussianExportDialogs.CreateSaveDialog();
+                if(dialog.ShowDialog(global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc))!=Eto.Forms.DialogResult.Ok)return Result.Cancel;
+                path=GaussianExportDialogs.NormalizePath(dialog);
+            }
+            global::Rhino.RhinoApp.WriteLine(UiText.Get("Exporting selected GS in the background using current document coordinates and units. Use Aholo3DPanel to export all GS or to cancel."));
+            CommandOperation.Start(doc.RuntimeSerialNumber,"gs","Export GS",ct=>GaussianDocument.ExportAsync(path,snapshot,ct));
+            return Result.Success;
+        }
+        catch (Exception ex) { global::Rhino.RhinoApp.WriteLine(Aholo3DHost.FriendlyError(ex)); return Result.Failure; }
+    }
+}
+
+[Guid("344D03B1-27B7-47D2-97D3-59F3F13F9ED8")]
+public sealed class Aholo3DCancelCommand : Command
+{
+    public override string EnglishName => "Aholo3DCancel";
+    protected override Result RunCommand(RhinoDoc doc, RunMode mode) => Execute(doc,mode);
+    internal static Result Execute(RhinoDoc doc, RunMode mode)
+    {
+        Aholo3DPlugin.CancelDocumentOperations(doc.RuntimeSerialNumber);
+        global::Rhino.RhinoApp.WriteLine(UiText.Get("Local cancellation requested. Remote tasks are not cancelled."));
+        return Result.Success;
+    }
+}

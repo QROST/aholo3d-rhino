@@ -28,7 +28,7 @@ The atlas quantizes display opacity to 256 levels, with maximum rounding error 0
 An offline run on the actual complete PLY (a synthetic overview camera, no Rhino API) measured parse 173 ms, preparation 132 ms, projection 62 ms, sorting 46 ms and quad reconstruction 76 ms. All 212,864 splats were visible, corresponding to 104 batches. Total managed allocation across parsing and preparation was about 98 MiB. These are a single cold CPU observation, **not native draw times or navigation FPS**. Reproduce with:
 
 ```sh
-dotnet run --project tools/Aholo.Reference -c Release -- --benchmark /absolute/path/to/world.ply
+dotnet run --project tools/Aholo3D.Reference -c Release -- --benchmark /absolute/path/to/world.ply
 ```
 
 The source model and raw OS sample remain local and are not included in the repository/package. Automated equivalence/cancellation checks and release build status are listed in [validation](validation.md). Repaired color, transparency, ordering, navigation, memory plateau and save/reopen still require the [native host test](gs-host-acceptance.md). The updated package takes effect only after a manual Rhino restart; it cannot replace assemblies already loaded by beta.2.

@@ -15,7 +15,7 @@ from pxr import Ar, Gf, Sdf, Usd, UsdGeom, UsdShade, UsdUtils, UsdVol
 
 ROOT=Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--reference',type=Path,default=ROOT/'tools/Aholo.Reference/bin/Release/net8.0/Aholo.Reference.dll')
+parser.add_argument('--reference',type=Path,default=ROOT/'tools/Aholo3D.Reference/bin/Release/net8.0/Aholo3D.Reference.dll')
 args=parser.parse_args()
 NAMES=['Duplicate 用户','Duplicate 用户','','a / not a path','Mixed degree']
 
@@ -142,9 +142,9 @@ def verify_bundle(path,moved,has_mesh):
         assert path.read_bytes().startswith(b'#usda 1.') if path.suffix=='.usda' else path.read_bytes().startswith(b'PXR-USDC')
 
 
-with tempfile.TemporaryDirectory(prefix='aholo-scene-usd-check-') as temporary:
+with tempfile.TemporaryDirectory(prefix='aholo3d-scene-usd-check-') as temporary:
     work=Path(temporary);original=work/'original';moved=work/'relocated'
-    subprocess.run(['dotnet',str(args.reference),'--scene-fixtures',str(original)],env=dict(os.environ,AHOLO_USD_PYTHON=sys.executable),check=True)
+    subprocess.run(['dotnet',str(args.reference),'--scene-fixtures',str(original)],env=dict(os.environ,AHOLO3D_USD_PYTHON=sys.executable),check=True)
     shutil.copytree(original,moved);shutil.rmtree(original)
     cases=[]
     for axis in ('Y','Z'):
