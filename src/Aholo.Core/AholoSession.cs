@@ -6,6 +6,7 @@ public sealed class AholoSession : IAsyncDisposable
 {
     public IAholoServiceClient Client { get; }
     public OperationRegistry Operations { get; } = new();
+    public OperationResources Resources { get; } = new();
     public TaskStore Store { get; }
     private ConnectionState connection = new(false,null,false);
     public ConnectionState Connection => Volatile.Read(ref connection);

@@ -20,6 +20,8 @@ internal sealed class MeshPlacementService
         return new(plane,plane.Origin,height,0);
     }
     internal void Validate(MeshPlacementTarget target)=>Resolve(target);
+    internal IDisposable AcquireResult(MeshPlacementTarget target,Guid importId,CancellationToken ct)
+        =>session.Resources.Acquire(new[]{MeshPlacementPolicy.ResultResource(target.Document.Serial,target.Session,importId)},ct);
     private RhinoDoc Resolve(MeshPlacementTarget target)
     {
         var doc=RhinoDoc.FromRuntimeSerialNumber(target.Document.Serial)??throw new InvalidOperationException(UiText.Get("The original target document has closed."));
@@ -101,7 +103,7 @@ internal sealed class MeshPlacementService
             var result=await MeshTaskPlacement.ExecuteAsync(Check,
                 token=>MeshTaskSource.AcquireAsync(selection,task,()=>session.Connection,session.Client.DownloadAsync,session.Observe,Validate,token),
                 (artifact,token)=>PrepareAsync(artifact.LocalPath!,artifact.Sha256,target,token,trace,allowed,interactive),
-                (asset,token)=>AholoHost.OnUi(()=>Commit(asset,target,selection.ImportId,id,trace,token,allowed)),asset=>AholoHost.OnUi(()=>{asset.Dispose();return true;}),ct).ConfigureAwait(false);
+                (asset,token)=>AholoHost.OnUi(()=>Commit(asset,target,selection.ImportId,id,trace,token,allowed)),asset=>AholoHost.OnUi(()=>{asset.Dispose();return true;}),ct,session.Resources,MeshPlacementPolicy.ResultResource(target.Document.Serial,target.Session,selection.ImportId)).ConfigureAwait(false);
             trace.Complete(result.State);return result;
         }
         catch(Exception error){trace.Fail(error);throw;}

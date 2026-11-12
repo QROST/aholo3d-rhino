@@ -57,7 +57,7 @@ public sealed partial class AholoPanel
         autoBusy=true;UpdateActions();
         try
         {
-            var result=await session.Operations.RunAsync(Scope+"mesh-placement","Place generated mesh",ct=>
+            var result=await session.Operations.RunAsync(MeshPlacementPolicy.AutomaticOperationScope(Scope,panelId,task.Id),"Place generated mesh",ct=>
                 AholoPlugin.Placement.PlaceTaskAsync(task.Id,null,intent!.Target,ct,()=>!disposed&&shown&&!session.IsPaused(task.Id)&&placementIntents.IsCurrent(task.Id,intent,session.Connection)),lifetime.Token);
             if(result.State!="Deferred")ForgetPlacement(task.Id);
             if(!disposed)Report(result.Message);
@@ -72,6 +72,7 @@ public sealed partial class AholoPanel
         var artifact=SelectedArtifact??throw new InvalidOperationException(T("Select a result first."));
         var selection=MeshTaskSelection.Capture(task,artifact.Key);
         var target=meshEditor.Capture();long revision=meshEditor.Revision;
+        using var resultClaim=AholoPlugin.Placement.AcquireResult(target,selection.ImportId,token);
         Task Validate(CancellationToken ct)=>AholoHost.OnUi(()=>
         {
             ct.ThrowIfCancellationRequested();AholoPlugin.Placement.Validate(target);

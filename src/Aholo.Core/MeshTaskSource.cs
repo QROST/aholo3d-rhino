@@ -99,9 +99,11 @@ public static class MeshTaskPlacement
         Func<CancellationToken, Task<TaskArtifact>> acquire,
         Func<TaskArtifact, CancellationToken, Task<TAsset>> prepare,
         Func<TAsset, CancellationToken, Task<MeshPlacementResult>> commit,
-        Func<TAsset, Task> release, CancellationToken ct)
+        Func<TAsset, Task> release, CancellationToken ct,OperationResources? resources=null,OperationResource resource=default)
     {
         ct.ThrowIfCancellationRequested();
+        using var claim=resources?.TryAcquire(new[]{resource},ct);
+        if(resources is not null&&claim is null)return new("Deferred",UiText.Get("This result is already being prepared or placed in the target document. Wait for that operation to finish."));
         var prior = await check(ct).ConfigureAwait(false);
         if (prior is not null) return prior;
         var artifact = await acquire(ct).ConfigureAwait(false);

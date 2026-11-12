@@ -4982,5 +4982,13 @@
   {
     "English": "One Undo removes the GS probe and its opaque test geometry together. Visual acceptance is not automatic; run AholoGsDiagnostics for status.",
     "Chinese": "一次 Undo 同时移除 GS 测试场景及其不透明遮挡几何。视觉验收不会自动通过，请运行 AholoGsDiagnostics 查看状态。"
+  },
+  {
+    "English": "Another local operation is using this resource. Wait for it to finish or cancel it.",
+    "Chinese": "另一个本地操作正在使用此资源，请等待完成或取消该操作。"
+  },
+  {
+    "English": "This result is already being prepared or placed in the target document. Wait for that operation to finish.",
+    "Chinese": "此结果正在目标文档中准备或放置，请等待该操作完成。"
   }
 ]

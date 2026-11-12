@@ -10,6 +10,16 @@ public static class MeshPlacementPolicy
         if(taskId==Guid.Empty||string.IsNullOrEmpty(artifactKey))throw new ArgumentException("A task and result identity are required.");
         return new(SHA256.HashData(Encoding.UTF8.GetBytes(taskId.ToString("N")+":"+artifactKey)).AsSpan(0,16));
     }
+    public static string AutomaticOperationScope(string documentPrefix,Guid panelId,Guid taskId)
+    {
+        if(string.IsNullOrEmpty(documentPrefix)||!documentPrefix.EndsWith(':')||panelId==Guid.Empty||taskId==Guid.Empty)throw new ArgumentException("A document scope, panel and task identity are required.");
+        return documentPrefix+"automatic-placement:"+panelId.ToString("N")+":"+taskId.ToString("N");
+    }
+    public static OperationResource ResultResource(uint serial,string documentSession,Guid importId)
+    {
+        if(string.IsNullOrEmpty(documentSession)||importId==Guid.Empty)throw new ArgumentException("A document session and import identity are required.");
+        return new("mesh-result",serial.ToString(System.Globalization.CultureInfo.InvariantCulture)+"/"+documentSession,importId.ToString("N"));
+    }
     public static bool IsNativeMeshFormat(string format)=>format is "glb" or "ply" or "stl" or "3mf";
     public static bool IsMeshFormat(string format)=>IsNativeMeshFormat(format)||format is "usd" or "usda" or "usdc" or "usdz" or "obj" or "obj_zip";
     public static bool IsLocalMeshExtension(string extension)=>extension=="zip"||extension!="obj_zip"&&IsMeshFormat(extension);

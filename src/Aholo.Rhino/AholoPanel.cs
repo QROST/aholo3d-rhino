@@ -15,6 +15,7 @@ namespace Aholo.Rhino;
 public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
 {
     private readonly uint serial;
+    private readonly Guid panelId=Guid.NewGuid();
     private readonly AholoSession session=AholoPlugin.Session;
     private readonly TabControl tabs=new();
     private readonly DropDown creation=new();

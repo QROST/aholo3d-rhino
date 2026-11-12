@@ -120,6 +120,7 @@ internal sealed class MeshPlacementEditor : IDisposable
     {
         int index=selected.SelectedIndex;if(index<0||index>=candidates.Count)throw new InvalidOperationException(UiText.Get("Load and select a candidate first."));
         var candidate=candidates[index];long expected=revision;
+        using var resultClaim=placement.AcquireResult(candidate.Target,candidate.ImportId,currentToken());
         var result=placement.Commit(candidate.Asset,candidate.Target with{Placement=Intent()},candidate.ImportId,candidate.TaskId,ct:currentToken(),allowed:()=>!disposed&&visible&&revision==expected);
         try{Clear();}catch{report(result.Message+"\n"+UiText.Get("Preview cleanup did not finish. The imported block is retained."));return;}
         report(result.Message);
