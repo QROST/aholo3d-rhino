@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 namespace Aholo3D.Core;
 
 /// <summary>Atomic local journal. API keys and expiring signed URLs are never persisted here.</summary>
-public sealed class TaskStore
+public sealed partial class TaskStore
 {
     public string Root { get; }
     public static string DefaultRoot => ProductPaths.DefaultDataRoot;
@@ -41,22 +41,24 @@ public sealed class TaskStore
         .Where(t => t != null).Cast<LocalTask>();
     public IReadOnlyList<LocalTask> ActiveTasks(string connectionId,string region=Aholo3DRegions.International) => All().Where(t=>t.Region==region&&t.ConnectionId==connectionId&&(TaskCapabilities.For(t).IsRunning||t.Status=="MeshReady")).ToArray();
     public IReadOnlyList<LocalTask> List() => Page(new TaskPageRequest(Limit: 100)).Items;
-    public TaskPage Page(TaskPageRequest request)
+    public TaskPage Page(TaskPageRequest request, CancellationToken ct=default, bool forceRefresh=false)
     {
         if (request.Offset < 0 || request.Limit is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(request));
-        var rows = All().Where(t => (request.Kind is null || t.Kind == request.Kind) &&
+        var rows = HistoryRows(ct,forceRefresh).Where(t => (request.Kind is null || t.Kind == request.Kind) &&
             (string.IsNullOrWhiteSpace(request.Search) || t.Name.Contains(request.Search, StringComparison.OrdinalIgnoreCase)))
             .OrderByDescending(t => t.CreatedAt).ThenBy(t => t.Id).ToArray();
-        var items = rows.Skip(request.Offset).Take(request.Limit).ToArray();
+        ct.ThrowIfCancellationRequested();
+        var items = rows.Skip(request.Offset).Take(request.Limit).Select(CloneHistoryRow).ToArray();
         return new(items, request.Offset, rows.Length, (long)request.Offset + items.Length < rows.Length);
     }
-    public TaskPage PageContaining(Guid id,int limit=50)
+    public TaskPage PageContaining(Guid id,int limit=50,CancellationToken ct=default,bool forceRefresh=false)
     {
         if(limit is <1 or >100)throw new ArgumentOutOfRangeException(nameof(limit));
-        var rows=All().OrderByDescending(t=>t.CreatedAt).ThenBy(t=>t.Id).ToArray();
+        var rows=HistoryRows(ct,forceRefresh,id).OrderByDescending(t=>t.CreatedAt).ThenBy(t=>t.Id).ToArray();
         int index=Array.FindIndex(rows,t=>t.Id==id);
         if(index<0)throw new IOException("The requested local task was not found.");
-        int offset=index/limit*limit;return new(rows.Skip(offset).Take(limit).ToArray(),offset,rows.Length,offset+limit<rows.Length);
+        ct.ThrowIfCancellationRequested();
+        int offset=index/limit*limit;return new(rows.Skip(offset).Take(limit).Select(CloneHistoryRow).ToArray(),offset,rows.Length,offset+limit<rows.Length);
     }
     public LocalTask? FindWorld(string worldId, string connectionId) => All().FirstOrDefault(t =>
         t.Kind == "world" && t.WorldId == worldId && t.ConnectionId == connectionId);
@@ -110,6 +112,7 @@ public sealed class TaskStore
             PlyUrl = null, SpzUrl = null, ImageUrl = null,
             Artifacts = task.Artifacts.Select(a=>a with { Url = null, Label = DisplayText(a.Label,128), Error = a.Error is null ? null : DisplayText(a.Error,512) }).ToArray()
         }, Aholo3DJson.Options));
+        lock(historyGate)historyCache.Remove(task.Id);
     }
     public static string DisplayText(string value, int maxLength = 512) => value.Length <= maxLength ? value : value[..maxLength] + "…";
     public FileStream LockMutation() => new(Path.Combine(Root, ".mutation.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);

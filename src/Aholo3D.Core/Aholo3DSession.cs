@@ -81,7 +81,7 @@ public sealed class Aholo3DSession : IAsyncDisposable
         }
         if(retained is not null)SetConnection(retained,expected);else Notify();
     }
-    public Task<TaskPage> ReadHistoryAsync(TaskPageRequest request,CancellationToken ct=default)=>Task.Run(()=>Store.Page(request),ct);
+    public Task<TaskPage> ReadHistoryAsync(TaskPageRequest request,CancellationToken ct=default)=>Task.Run(()=>Store.Page(request,ct),ct);
     public async Task<LocalTask> RenderAsync(RenderRequest request,CancellationToken ct=default)
     {
         long expected; lock(intentGate)expected=generation;
