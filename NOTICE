@@ -17,7 +17,7 @@ Reference commit: 838fbd8; maintainer: qrost.
 
 Official API specification snapshots are unmodified reference material from
 https://labs.aholo.ai/api-docs/ . Their sources and capture hashes are recorded
-in docs/api/README.md; no ownership of the service or its marks is implied.
+in the source repository at docs/api/README.md; no ownership of the service or its marks is implied.
 
 Gaussian projection, real spherical harmonics and reference alpha compositing are independently implemented from mathematical definitions. Gaussian fixtures and the alpha texture are synthetic assets created for this project. No Graphdeco training or CUDA implementation is included.
 

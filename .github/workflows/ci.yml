@@ -24,6 +24,10 @@ jobs:
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: 8.0.x
+      - name: Check public documentation and source hygiene
+        run: python scripts/check-public-release.py
+      - name: Test source publication preparation
+        run: python scripts/test-public-release.py
       - name: Restore
         run: dotnet restore Aholo3D.sln
       - name: Build

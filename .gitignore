@@ -11,3 +11,12 @@ __pycache__/
 # Local agent instructions are not product source.
 AGENTS.md
 AGENTS.override.md
+
+# Local environments and publication preparation.
+.venv/
+venv/
+*.log
+*.bundle
+.mcneel/
+.agents/
+.codex/

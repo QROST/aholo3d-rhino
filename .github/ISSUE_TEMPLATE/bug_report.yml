@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible problem
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "Do not attach credentials, signed URLs or private projects. Use SECURITY.md for sensitive reports."
+  - type: input
+    id: versions
+    attributes:
+      label: Plugin, Rhino and operating-system versions
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the command or panel page and a small sanitized example.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual result
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics or screenshots

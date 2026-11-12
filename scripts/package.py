@@ -44,6 +44,7 @@ def main():
     args = parser.parse_args()
     if not args.stage_only and not args.yak:
         parser.error('--yak is required unless --stage-only is used.')
+    subprocess.run([sys.executable, str(ROOT / "scripts/check-public-release.py")], check=True)
     subprocess.run([sys.executable, str(ROOT / "scripts/create-gs-assets.py"), "--check"], check=True)
     subprocess.run([sys.executable, str(ROOT / "fixtures/create-obj-sample.py"), "--check"], check=True)
     version = ET.parse(ROOT / 'Directory.Build.props').findtext('.//Version')
@@ -68,25 +69,17 @@ def main():
         'sidecar/Aholo3D.Core.dll': 'src/Aholo3D.Sidecar/bin/Release/net8.0/Aholo3D.Core.dll',
         'sidecar/Aholo3D.Provider.dll': 'src/Aholo3D.Sidecar/bin/Release/net8.0/Aholo3D.Provider.dll',
         'manifest.yml': 'packaging/manifest.yml',
+        'icon.png': 'assets/aholo3d-icon-64.png',
         'usd/usd_mesh_reader.py': 'src/Aholo3D.Rhino/bin/Release/net7.0/usd/usd_mesh_reader.py',
         'usd/usd_scene_bridge.py': 'src/Aholo3D.Rhino/bin/Release/net7.0/usd/usd_scene_bridge.py',
         'usd/usd_mesh_bridge.py': 'src/Aholo3D.Rhino/bin/Release/net7.0/usd/usd_mesh_bridge.py',
         'usd/usd_bridge.py': 'src/Aholo3D.Rhino/bin/Release/net7.0/usd/usd_bridge.py',
         'scripts/setup-usd.py': 'scripts/setup-usd.py',
-        'docs/usd-exchange.md': 'docs/usd-exchange.md',
     }
-    for name in ['LICENSE','NOTICE','readme.md','readme.zh-CN.md','fixtures/tiny-world.ply','fixtures/mesh-core.3mf','fixtures/mesh-textured.3mf','fixtures/create-textured-3mf.py',
-                 'fixtures/create-obj-sample.py','fixtures/mesh-obj/scene.obj','fixtures/mesh-obj/materials.mtl','fixtures/mesh-obj/checker.png','fixtures/mesh-obj-multiple.zip','docs/obj-import-development.md',
-                 'fixtures/mixed-scene.usda','fixtures/mesh-subsets.usda','fixtures/mesh-shading.usda','fixtures/gaussian-anisotropic.ply','fixtures/gaussian-sh3.ply','assets/gaussian-alpha.png','assets/gaussian-opacity-atlas.png',
-                 'docs/gs-antialiasing.md','docs/gs-sort-performance.md','docs/benchmarks/gs-sort-2026-11-11-arm64.json','docs/benchmarks/history-index-2026-11-12-arm64.json','fixtures/gaussian-antialiasing.usda','docs/gs-host-acceptance.md','docs/gs-freeze-repair.md','docs/gs-visibility-stability.md','docs/decisions/0001-native-gaussian-viewport.md',
-                 'docs/architecture.md','docs/repository-rename.md','docs/host-acceptance.md','docs/validation.md','docs/api/README.md',
-                 'docs/api/world.openapi.json','docs/api/rendercloud.openapi.json','docs/api/asset.openapi.json',
-                 'docs/api/lux3d.openapi.json','docs/api/spatialunderstanding.openapi.json','docs/api-capabilities.md',
-                 'docs/implementation-progress.md','docs/workspace-navigation.md','docs/operation-lifecycle.md','docs/integrated-acceptance.md','docs/mesh-formats.md','docs/png-alpha-export.md','docs/regional-contracts.md','docs/realtime-scene-editing.md',
-                 'docs/api/china/README.md','docs/api/china/sources.json','docs/api/china/world.openapi.json',
-                 'docs/api/china/lux3d.openapi.json','docs/api/china/spatialunderstanding.openapi.json',
-                 'docs/api/china/rendercloud.openapi.json','docs/api/china/asset.openapi.json',
-                 'docs/api/china/oauth-resource.json','docs/api/china/oauth-authorization-server.json']:
+    for name in ['LICENSE','NOTICE','CONTRIBUTING.md','SECURITY.md','readme.md','readme.zh-CN.md',
+                 'docs/index.md','docs/installation.md','docs/user-guide.md','docs/formats.md','docs/privacy.md',
+                 'docs/troubleshooting.md','docs/api-capabilities.md','docs/development.md','docs/testing.md','docs/releases.md',
+                 'assets/gaussian-alpha.png','assets/gaussian-opacity-atlas.png','assets/aholo3d-icon.svg']:
         required[name] = name
     for target, source in required.items():
         destination = stage / target; destination.parent.mkdir(parents=True, exist_ok=True)

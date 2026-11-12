@@ -1,18 +1,17 @@
 name: aholo3d-rhino
-version: 0.2.0-alpha.33
+version: 0.2.0-alpha.34
 authors:
   - CuriousArc
   - qrost
 description: >-
-  Aholo3D for Rhino by CuriousArc and qrost. Integrated World generation and
-  reconstruction, Lux3D object/image/material/animation workflows, native static
-  GLB/mesh PLY/STL/core 3MF and static OBJ/OBJ ZIP placement, static mesh USD task/local import and combined GS/mesh USD import/export,
-  experimental Gaussian viewing with nested block references and USD exchange,
-  spatial DSL placement, offline rendering and a separate RenderCloud JPEG preview. Create, Library and Render workspace with separate Settings.
-  Regional International or China API Key required for cloud services. Rhino 8.32+ and .NET 8 required.
-  Development alpha: new workflows and native UI await live service and host acceptance.
-  Optional regional OAuth account login supports OS-protected remembered sessions and remains separate from API Key access.
-  English default, Chinese follows Rhino/system UI language. No native cloud depth compositing.
+  Create worlds and objects, view Gaussian scenes and render through Aholo3D
+  from Rhino. Includes World and Lux3D workflows, local static mesh placement,
+  experimental GS viewing, USD/USDZ exchange and a separate cloud preview.
+  Cloud services require a regional API Key and may consume credits; optional
+  OAuth sign-in does not replace the key. English and Simplified Chinese.
+  Preview for Rhino 8.32+ with .NET 8; native Windows and latest UI verification
+  remain pending. Independent plugin by CuriousArc and qrost.
+icon: icon.png
 url: https://github.com/QROST/aholo3d-rhino
 keywords:
   - D1D17217-1169-41BB-B63A-FEE17DFA777F
