@@ -2,6 +2,12 @@
 
 Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.28. Earlier entries below retain their original scope.
 
+## Mac manual acceptance — 2026-11-11 America/Los_Angeles
+
+The user reported that the first manual test round passed without issues after installing alpha.28. This report covers the four requested steps: restart/open panel and inspect layout; place existing mesh and GS results and inspect color/navigation/ordinary geometry occlusion; Undo/Redo and save/reopen; reopen the panel and check drafts/history plus refresh/download/cancellation. Evidence is the user's overall confirmation, not an automated observation or a per-case measurement.
+
+The installed Mac archive SHA-256 is `712d6b9515181006c474dabdaf4041024e4c4e487539a0b87234af28542bc375`, built from `43fc30c267eba9a8d70baf2f12120684b1eb2ca4`; all installed payload bytes were verified before handoff. This documentation update does not rebuild or replace that accepted binary. Detailed native edge cases, other languages/host versions, Windows, new paid generation and live rendering remain pending. No public release is implied.
+
 ## Integrated candidate alpha.28 — 2026-11-12 UTC
 
 Sources `b7b2f86`, `7590d42` and `3ef4567` pass **1,497 offline .NET tests**, zero failures, with one Windows filesystem-only case explicitly skipped on macOS. Release compilation has zero warnings/errors. The GS occlusion probe shares one Undo transaction; all task mesh placement entry points share result admission through cleanup. Panel task/export/readiness operations have independent selection, cancellation, progress and navigation authority, while candidate editing stays serialized. Native candidate assets survive synchronous commit reentry until commit/rollback exits, preserving simultaneous commit and cleanup failures.
