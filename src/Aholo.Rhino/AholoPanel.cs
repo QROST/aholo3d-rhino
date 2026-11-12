@@ -40,19 +40,20 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
     private readonly Button previous=new(){Text=T("Previous")},next=new(){Text=T("Next")},cancel=new(){Text=T("Cancel local operation"),Enabled=false};
     private readonly TextBox scale=new(){Text="1"};
     private readonly DropDown axis=new(){DataStore=new[]{T("Automatic up axis"),"Z-up","Y-up"},SelectedIndex=0};
-    private readonly DropDown sourceUnits=new(){DataStore=new[]{T("Auto · Source units; 1:1 if unspecified"),T("1 file unit = 1 document unit")},SelectedIndex=0};
+    private readonly DropDown sourceUnits=new(){DataStore=new[]{T("Source units (auto)"),T("Document units (1:1)")},SelectedIndex=0};
     private AssetUploadOptions uploadOptions=new();
     private readonly TextBox objectHeight=new(){Text="1"};
-    private readonly DropDown exportScope=new(){DataStore=new[]{T("Selected top-level GS"),T("All top-level GS (including hidden and locked)")},SelectedIndex=0};
+    private readonly DropDown exportScope=new(){ToolTip=T("All top-level GS (including hidden and locked)"),DataStore=new[]{T("Selected top-level GS"),T("All top-level GS")},SelectedIndex=0};
     private readonly DropDown resolution=new(){DataStore=new[]{"1280 × 720","1920 × 1080"},SelectedIndex=0};
-    private readonly CheckBox renderTextures=new(){Text=T("Include direct base-color bitmaps (mesh UVs / sRGB PNG or JPEG)"),Checked=true};
-    private readonly CheckBox renderLights=new(){Text=T("Include selected rectangular / point lights")};
+    private readonly CheckBox renderTextures=new(){Text=T("Include base-color textures"),ToolTip=T("Include direct base-color bitmaps (mesh UVs / sRGB PNG or JPEG)"),Checked=true};
+    private readonly CheckBox renderLights=new(){Text=T("Include selected lights"),ToolTip=T("Include selected rectangular / point lights")};
     private readonly TextBox lightRadius=new(){Text="50"},lightMultiplier=new(){Text="1"};
     private enum WorkKind { Interaction,Task,Export,Connection,Readiness }
     private readonly List<(Button Button,string Name,WorkKind Kind)> actions=new();
     private readonly PanelInvocations invocations;
     private OperationResource InteractionResource=>new("panel-interaction",panelId.ToString("N"));
-    private readonly Button submit,render,refresh,download,place,continueRender,openImage,openFolder;
+    private readonly Button submit,render,refresh,download,place,continueRender,openImage,openFolder,cloudHistory,restoreWorld,pausePolling,resumePolling;
+    private readonly TextBox worldId=new(){PlaceholderText=T("Existing Aholo World ID")};
     private readonly UITimer elapsed=new(){Interval=1};
     private readonly UITimer taskElapsed=new(){Interval=1};
     private readonly CancellationTokenSource lifetime=new();
@@ -94,20 +95,21 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         filter.SelectedIndexChanged+=(_,_)=>HistoryQueryChanged();search.TextChanged+=(_,_)=>HistoryQueryChanged();
         previous.Click+=(_,_)=>{WorkspaceUserNavigated();offset=Math.Max(0,offset-50);_=ReloadAsync();};next.Click+=(_,_)=>{WorkspaceUserNavigated();offset+=50;_=ReloadAsync();};
         openImage=Local("Open image",OpenImage);openFolder=Local("Open result folder",OpenResultFolder);
-        var worldId=new TextBox{PlaceholderText=T("Existing Aholo World ID")};
-        meshSection=Section("Placement and mesh candidates",meshEditor.View);meshSection.Expanded=true;
+        worldId.TextChanged+=(_,_)=>UpdateActions();
+        meshSection=Section("Placement and mesh candidates",meshEditor.View);
         var localFiles=Section("Local file exchange",
             Row(Action("Import USD scene",ImportSceneAsync),Action("Export selected scene USD",ExportSceneAsync,WorkKind.Export)),
             Action("Export selected mesh USD",ExportMeshAsync,WorkKind.Export),meshExportTextures,
             Row(Action("Import GS",ImportGsAsync),Action("Export GS",ExportGsAsync,WorkKind.Export)),exportScope);
-        var taskTools=Section("Task tools and recovery",Row(Local("Pause local polling",Pause),Local("Resume polling",Resume)),
-            Action("Cloud history and recovery",async context=>{using var dialog=new CloudLibraryDialog(session,Scope,context.Cancellation);var restored=dialog.ShowModal(this);if(restored is not null)await RevealAsync(restored,context);}),
-            worldId,Action("Restore World ID",async context=>{var task=await session.Client.ImportWorldAsync(worldId.Text.Trim(),context.Cancellation);session.Observe(task);await RevealAsync(task,context);}));
+        pausePolling=Local("Pause local polling",Pause);resumePolling=Local("Resume polling",Resume);
+        cloudHistory=Action("Cloud history and recovery",async context=>{using var dialog=new CloudLibraryDialog(session,Scope,context.Cancellation);var restored=dialog.ShowModal(this);if(restored is not null)await RevealAsync(restored,context);});
+        restoreWorld=Action("Restore World ID",async context=>{var task=await session.Client.ImportWorldAsync(worldId.Text.Trim(),context.Cancellation);session.Observe(task);await RevealAsync(task,context);});
+        var taskTools=Section("Task tools and recovery",Row(pausePolling,resumePolling),cloudHistory,worldId,restoreWorld);
         var gsTools=Section("GS display and diagnostics",Row(Local("GS viewport",()=>GaussianViewport.Activate(Document())),Local("Diagnostics",()=>Report(GaussianViewport.Diagnostics(Document())))));
-        var libraryPage=Column(search,filter,tasks,Row(previous,pageInfo,next),
+        var libraryPage=Column(search,filter,tasks,new TableLayout(new TableRow(previous,new TableCell(pageInfo,true),next)){Spacing=new Size(6,6)},
             Row(Local("Load history",()=>_=ReloadAsync()),refresh),Action("Load local mesh",LoadLocalMeshAsync),detail,artifacts,artifactDetail,
             Row(download,openFolder),openImage,place,previewResult,meshSection,continueRender,localFiles,taskTools,gsTools);
-        var lightFields=Column(Info("Point-light radius before block scaling (mm)"),lightRadius,Info("Relative light intensity multiplier"),lightMultiplier,Info("Point lights use the chosen sphere radius. Light intensity is relative, not calibrated to Rhino lumens. Unsupported selected lights fail before upload."));
+        var lightFields=Stack(Info("Point-light radius before block scaling (mm)"),lightRadius,Info("Relative light intensity multiplier"),lightMultiplier,Info("Point lights use the chosen sphere radius. Light intensity is relative, not calibrated to Rhino lumens. Unsupported selected lights fail before upload."));
         lightFields.Visible=false;renderLights.CheckedChanged+=(_,_)=>lightFields.Visible=renderLights.Checked==true;
         var renderPage=Column(Info("Select meshes, surfaces, extrusions or mesh blocks and use a perspective view. Geometry, supported material constants, optional selected lights and camera will be uploaded."),resolution,renderTextures,renderLights,lightFields,render,
             Info("Offline rendering preserves smooth normals, supported PBR constants and direct mesh UV bitmaps. Complex texture mapping, material graphs, glass transmission and GS ingestion are not converted. Disable bitmap export to use material constants only."),
@@ -117,41 +119,19 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         taskElapsed.Elapsed+=(_,_)=>{if(!disposed&&shown&&Selected is{} task&&TaskCapabilities.For(task).IsRunning)UpdateTaskDetail();};
         elapsed.Elapsed+=(_,_)=>{if(!disposed)UpdateOperationStatus();};
         Content=new StackLayout{Padding=10,Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
-            Row(new Label{Text="Aholo3D",Font=new Font(SystemFont.Bold,16)},Local("Settings",ShowSettings)),connection,new StackLayoutItem(tabs,true),Row(operation,cancel),feedback}};
+            UiLayout.Toolbar(new Label{Text="Aholo3D",Font=new Font(SystemFont.Bold,16)},Local("Settings",ShowSettings)),connection,new StackLayoutItem(tabs,true),Row(operation,cancel),feedback}};
         RestoreWorkspace();workspaceReady=true;tabs.SelectedIndexChanged+=(_,_)=>WorkspaceUserNavigated();
         session.Changed+=SessionChanged;session.TaskChanged+=TaskChanged;AholoPlugin.DocumentCancellationRequested+=DocumentCancellationRequested;UpdateActions();
         Report(T("Create assets, organize results and place them in this Rhino document."));
     }
-    private static StackLayout Stack(params Control[] controls)
-    {var stack=new StackLayout{Padding=6,Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch};foreach(var control in controls)stack.Items.Add(control);return stack;}
-    private static Control Column(params Control[] controls)
-    {
-        var content=Stack(controls);
-        var scroll=new Scrollable{Content=content,ExpandContentWidth=true,Border=BorderType.None};
-        void Fit(){if(scroll.ClientSize.Width>0)content.Width=Math.Max(1,scroll.ClientSize.Width-24);}
-        scroll.SizeChanged+=(_,_)=>Fit();scroll.Load+=(_,_)=>Fit();
-        return scroll;
-    }
+    private static StackLayout Stack(params Control[] controls)=>UiLayout.Stack(controls);
+    private static Control Column(params Control[] controls)=>UiLayout.Scroll(controls);
     private static Expander Section(string title,params Control[] controls)=>new(){Header=new Label{Text=T(title),Wrap=WrapMode.Word},Content=Stack(controls),Expanded=false};
-    internal static Control Row(params Control[] controls)
-    {
-        var row=new StackLayout{Orientation=Orientation.Vertical,Spacing=6,HorizontalContentAlignment=HorizontalAlignment.Stretch};
-        foreach(var control in controls)row.Items.Add(new StackLayoutItem(control));
-        // Start narrow; choose columns only after the host has assigned a real width.
-        row.SizeChanged+=(_,_)=>
-        {
-            bool wide=row.Width>=640;
-            var orientation=wide?Orientation.Horizontal:Orientation.Vertical;
-            if(row.Orientation==orientation)return;
-            row.Orientation=orientation;
-            foreach(var item in row.Items)item.Expand=wide;
-        };
-        return row;
-    }
+    internal static Control Row(params Control[] controls)=>UiLayout.Actions(controls);
     private Button Action(string title,Func<PanelInvocation,Task> work,WorkKind kind=WorkKind.Interaction)
-    {var button=new Button{Text=T(title)};button.Click+=(_,_)=>_=RunAsync(title,work,kind);actions.Add((button,title,kind));return button;}
+    {var button=new Button{Text=UiLayout.Caption(title),ToolTip=T(title)};button.Click+=(_,_)=>_=RunAsync(title,work,kind);actions.Add((button,title,kind));return button;}
     private Button Local(string title,System.Action work)
-    {var button=new Button{Text=T(title)};button.Click+=(_,_)=>{if(disposed)return;try{work();}catch(Exception ex){Report(AholoHost.FriendlyError(ex));}};return button;}
+    {var button=new Button{Text=UiLayout.Caption(title),ToolTip=T(title)};button.Click+=(_,_)=>{if(disposed)return;try{work();}catch(Exception ex){Report(AholoHost.FriendlyError(ex));}};return button;}
     private void ChangeForm()
     {
         if(creation.SelectedIndex<0)return;string id=ServiceOperations.All[creation.SelectedIndex].Id;
@@ -210,10 +190,19 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         connection.Text=ConnectionLabel();
         foreach(var action in actions)action.Button.Enabled=CanRun(action.Name,action.Kind);
         submit.Enabled=connected&&CanRun("Create · Uses service credits");render.Enabled=connected&&CanRun("Upload selection and render · Uses service credits");
+        string connectionHint=connected?T("Each click creates one paid task. Follow its progress in Library."):T("Connect an API Key in Settings first.");
+        submit.ToolTip=render.ToolTip=connectionHint;
+        cloudHistory.Enabled=connected&&CanRun("Cloud history and recovery");
+        restoreWorld.Enabled=connected&&!string.IsNullOrWhiteSpace(worldId.Text)&&CanRun("Restore World ID");
+        cloudHistory.ToolTip=restoreWorld.ToolTip=connected?T("Restore an existing task; this does not generate again."):connectionHint;
         var task=Selected;var capability=task is null?null:TaskCapabilities.For(task);var artifact=SelectedArtifact;
         var access=LibraryResultPolicy.Access(task,resultRows,artifact,session.Connection,File.Exists);
         artifactDetail.Text=access.Status+(artifact?.LocalPath is {Length:>0} path?"\n"+path:"")+(access.NextStep.Length>0?"\n"+access.NextStep:"");
+        bool paused=task is not null&&session.IsPaused(task.Id);
+        pausePolling.Enabled=(capability?.IsRunning==true||capability?.CanContinueRender==true)&&!paused;
+        resumePolling.Enabled=capability?.CanQuery==true&&paused&&connected;
         bool sameAccount=task?.Region==session.Connection.Region&&task?.ConnectionId==session.Connection.ConnectionId;
+        resumePolling.Enabled&=sameAccount;
         refresh.Enabled=CanRun("Refresh selected task",WorkKind.Task)&&connected&&sameAccount&&capability?.CanQuery==true;
         download.Enabled=CanRun("Download selected result",WorkKind.Task)&&access.CanDownload;place.Enabled=CanRun("Place in current document")&&access.CanPlace;previewResult.Enabled=CanRun("Preview mesh candidate")&&access.CanPreview;
         openImage.Enabled=access.CanOpenImage;openFolder.Enabled=access.CanOpenFolder;
@@ -414,7 +403,7 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         objectHeight.Text=meshEditor.HeightText;
         var validation=new DropDown{DataStore=new[]{"World","Lux3D",T("Spatial understanding")},SelectedIndex=0};
         var key=new PasswordBox();var remember=new CheckBox{Text=T("Save in secure local storage")};
-        var auto=new CheckBox{Text=T("Auto-refresh active tasks (every 8 seconds)"),Checked=session.AutoRefresh};auto.CheckedChanged+=(_,_)=>session.AutoRefresh=auto.Checked==true;
+        var auto=new CheckBox{Text=T("Auto-refresh tasks"),ToolTip=T("Auto-refresh active tasks (every 8 seconds)"),Checked=session.AutoRefresh};auto.CheckedChanged+=(_,_)=>session.AutoRefresh=auto.Checked==true;
         var settingsScale=new TextBox{Text=scale.Text};var settingsAxis=new DropDown{DataStore=axis.DataStore,SelectedIndex=axis.SelectedIndex};var settingsHeight=new TextBox{Text=objectHeight.Text};var settingsUnits=new DropDown{DataStore=sourceUnits.DataStore,SelectedIndex=sourceUnits.SelectedIndex};
         var status=Info(ConnectionLabel());
         string displayedRegion=session.Connection.Region;
@@ -426,8 +415,8 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
             _=RunAsync("Switching service region",async context=>{await session.SwitchRegionAsync(selected,context.Cancellation);},WorkKind.Connection);
         });
         var connectionError=Info(session.LastError??"");
-        using var dialog=new Dialog{Title=T("Settings"),ClientSize=new Size(460,620),Resizable=true};
-        var connect=Local("Validate and connect",()=>{if(busy||!CanRun("Connecting",WorkKind.Connection)){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}string selected=SelectedRegion();string value=key.Text;bool save=remember.Checked==true;string service=validation.SelectedIndex switch{1=>"lux",2=>"spatial",_=>"world"};key.Text="";_=RunAsync("Connecting",async context=>{await session.ConnectAsync(new(value,save,service,selected),context.Cancellation);AholoHost.Ui(()=>Report(T("Connected. Service permissions and credits are checked per operation.")));},WorkKind.Connection);});
+        using var dialog=new Dialog{Title=T("Settings"),ClientSize=new Size(460,620),MinimumSize=new Size(320,300),Resizable=true};
+        var connect=Local("Validate and connect",()=>{if(string.IsNullOrWhiteSpace(key.Text)||busy||!CanRun("Connecting",WorkKind.Connection)){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}string selected=SelectedRegion();string value=key.Text;bool save=remember.Checked==true;string service=validation.SelectedIndex switch{1=>"lux",2=>"spatial",_=>"world"};key.Text="";_=RunAsync("Connecting",async context=>{await session.ConnectAsync(new(value,save,service,selected),context.Cancellation);AholoHost.Ui(()=>Report(T("Connected. Service permissions and credits are checked per operation.")));},WorkKind.Connection);});
         var disconnect=Local("Disconnect and clear credentials",()=>{if(busy||!CanRun("Disconnecting",WorkKind.Connection)){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}_=RunAsync("Disconnecting",async context=>{await session.DisconnectAsync(context.Cancellation);AholoHost.Ui(()=>Report(T("Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.")));},WorkKind.Connection);});
         var restore=Local("Restore saved connection",()=>{if(busy||!CanRun("Restoring connection",WorkKind.Connection))return;_=RunAsync("Restoring connection",async context=>{await session.ReadConnectionAsync(context.Cancellation);},WorkKind.Connection);});
         var uploadMetadata=new TextBox{Text=uploadOptions.Metadata??""};var uploadPrefix=new TextBox{Text=uploadOptions.CustomPrefix??""};var uploadFilename=new TextBox{Text=uploadOptions.CustomFilename??""};
@@ -446,15 +435,35 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         var settingsCancel=Local("Cancel local operation",()=>AholoPlugin.CancelDocumentOperations(serial));
         settingsCancel.Enabled=placementIntents.Count>0||session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
         var close=new Button{Text=T("Close")};close.Click+=(_,_)=>dialog.Close();
-        // Dialog controls are snapshots; closing it preserves placement values in this panel.
-        dialog.Content=Column(Info("Service region"),regions,switchRegion,Info("Regions have separate API Keys and account sessions. Switching stops task polling and live previews; remote tasks and saved credentials in the other region are retained."),Local("Account sign-in (optional)",()=>{if(busy)return;if(session.Client is IAccountSessionClient accountClient){using var login=new AccountLoginDialog(accountClient,session.Connection.Region);login.ShowModal(dialog);}}),status,connectionError,Row(restore,settingsCancel),Info("API Key for the selected region"),key,remember,Info("Validate access with"),validation,connect,disconnect,
-            Info("Validation queries the selected service history. Each service may need separate account permissions. OAuth login does not replace an API Key."),auto,
-            Info("GS import scale (document units per source unit)"),settingsScale,settingsAxis,Info("Source units"),settingsUnits,Info("Mesh height (document units)"),settingsHeight,
+        var account=Local("Account sign-in (optional)",()=>{if(busy)return;if(session.Client is IAccountSessionClient accountClient){using var login=new AccountLoginDialog(accountClient,session.Connection.Region);login.ShowModal(dialog);}});
+        var credentials=Section("Connection and account",Info("Service region"),regions,switchRegion,status,connectionError,
+            Info("API Key for the selected region"),key,remember,Info("Validate access with"),validation,connect,restore,disconnect,
+            Info("Validation queries the selected service history. Each service may need separate account permissions. OAuth login does not replace an API Key."),account,
+            Info("Regions have separate API Keys and account sessions. Switching stops task polling and live previews; remote tasks and saved credentials in the other region are retained."));
+        credentials.Expanded=true;
+        var taskSettings=Section("Tasks and storage",auto,settingsCancel,
             Local("Open local asset folder",()=>Process.Start(new ProcessStartInfo(Path.Combine(session.Store.Root,"assets")){UseShellExecute=true})),
-            Info("Closing the panel keeps tasks running. Reopen it to view progress. Cancel stops local waiting only; remote tasks remain on the service."),
-            uploadAdvanced,uploadFields,Info("Local USD import and export"),usdStatus,usdCheck,Info("Optional runtime setup command (runs only when you execute it):"),usdSetup,
-            Info("Aholo3D for Rhino "+AholoPlugin.DisplayVersion+"\nCuriousArc · qrost"),close);
-        void UpdateSettings()=>Application.Instance.AsyncInvoke(()=>{if(!closed){if(displayedRegion!=session.Connection.Region){displayedRegion=session.Connection.Region;regions.SelectedIndex=displayedRegion==AholoRegions.China?1:0;key.Text="";}status.Text=ConnectionLabel();connectionError.Text=UiText.TranslateKnownMessage(session.LastError??"");settingsCancel.Enabled=placementIntents.Count>0||session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));}});
+            Info("Closing the panel keeps tasks running. Reopen it to view progress. Cancel stops local waiting only; remote tasks remain on the service."));
+        var importSettings=Section("Import and placement",Info("GS import scale (document units per source unit)"),settingsScale,settingsAxis,
+            Info("Source units"),settingsUnits,Info("Auto · Source units; 1:1 if unspecified"),Info("Mesh height (document units)"),settingsHeight);
+        var advancedSettings=Section("Uploads and USD tools",uploadAdvanced,uploadFields,Info("Local USD import and export"),usdStatus,usdCheck,
+            Info("Optional runtime setup command (runs only when you execute it):"),usdSetup);
+        dialog.Content=UiLayout.DialogBody(Column(credentials,taskSettings,importSettings,advancedSettings,
+            Info("Import and upload defaults apply when this window closes."),Info("Aholo3D for Rhino "+AholoPlugin.DisplayVersion+"\nCuriousArc · qrost")),close);
+        void RefreshSettings()
+        {
+            if(closed)return;
+            if(displayedRegion!=session.Connection.Region){displayedRegion=session.Connection.Region;regions.SelectedIndex=displayedRegion==AholoRegions.China?1:0;key.Text="";}
+            status.Text=ConnectionLabel();connectionError.Text=UiText.TranslateKnownMessage(session.LastError??"");
+            bool available=!busy&&CanRun("Connecting",WorkKind.Connection);
+            connect.Enabled=available&&!string.IsNullOrWhiteSpace(key.Text);restore.Enabled=available;
+            disconnect.Enabled=available;switchRegion.Enabled=available&&SelectedRegion()!=session.Connection.Region;
+            account.Enabled=available&&session.Client is IAccountSessionClient;
+            regions.Enabled=key.Enabled=validation.Enabled=remember.Enabled=available;
+            settingsCancel.Enabled=placementIntents.Count>0||session.Operations.Snapshot().Any(x=>x.State=="Running"&&x.Scope.StartsWith(Scope,StringComparison.Ordinal));
+        }
+        void UpdateSettings()=>Application.Instance.AsyncInvoke(RefreshSettings);
+        regions.SelectedIndexChanged+=(_,_)=>UpdateSettings();key.TextChanged+=(_,_)=>UpdateSettings();RefreshSettings();
         void SettingsDocumentCancelled(uint documentSerial){if(documentSerial==serial)UpdateSettings();}
         session.Changed+=UpdateSettings;AholoPlugin.DocumentCancellationRequested+=SettingsDocumentCancelled;
         try{dialog.ShowModal(this);}finally{closed=true;session.Changed-=UpdateSettings;AholoPlugin.DocumentCancellationRequested-=SettingsDocumentCancelled;}

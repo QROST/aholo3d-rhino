@@ -4990,5 +4990,117 @@
   {
     "English": "This result is already being prepared or placed in the target document. Wait for that operation to finish.",
     "Chinese": "此结果正在目标文档中准备或放置，请等待该操作完成。"
+  },
+  {
+    "English": "Generate · Uses credits",
+    "Chinese": "生成 · 消耗积分"
+  },
+  {
+    "English": "Render selection · Uses credits",
+    "Chinese": "渲染所选 · 消耗积分"
+  },
+  {
+    "English": "Continue render · Uses credits",
+    "Chinese": "继续原渲染 · 消耗积分"
+  },
+  {
+    "English": "Refresh task",
+    "Chinese": "刷新任务"
+  },
+  {
+    "English": "Download result",
+    "Chinese": "下载结果"
+  },
+  {
+    "English": "Place in document",
+    "Chinese": "放入当前文档"
+  },
+  {
+    "English": "Preview candidate",
+    "Chinese": "预览候选模型"
+  },
+  {
+    "English": "Cloud history / recover…",
+    "Chinese": "云端历史 / 恢复…"
+  },
+  {
+    "English": "Disconnect & clear key",
+    "Chinese": "断开并清除密钥"
+  },
+  {
+    "English": "Restore saved key",
+    "Chinese": "恢复已存密钥"
+  },
+  {
+    "English": "Use current CPlane",
+    "Chinese": "使用当前工作平面"
+  },
+  {
+    "English": "Export scene USD",
+    "Chinese": "导出场景 USD"
+  },
+  {
+    "English": "Export mesh USD",
+    "Chinese": "导出网格 USD"
+  },
+  {
+    "English": "Connect an API Key in Settings first.",
+    "Chinese": "请先在设置中连接 API Key。"
+  },
+  {
+    "English": "Restore an existing task; this does not generate again.",
+    "Chinese": "恢复已有任务，不会重新生成。"
+  },
+  {
+    "English": "Include base-color textures",
+    "Chinese": "包含基础色贴图"
+  },
+  {
+    "English": "Include selected lights",
+    "Chinese": "包含所选灯光"
+  },
+  {
+    "English": "Include mesh textures",
+    "Chinese": "包含网格贴图"
+  },
+  {
+    "English": "Auto-refresh tasks",
+    "Chinese": "自动刷新任务"
+  },
+  {
+    "English": "Source units (auto)",
+    "Chinese": "源文件单位（自动）"
+  },
+  {
+    "English": "Document units (1:1)",
+    "Chinese": "文档单位（1:1）"
+  },
+  {
+    "English": "All top-level GS",
+    "Chinese": "全部顶层 GS"
+  },
+  {
+    "English": "Connection and account",
+    "Chinese": "连接与账号"
+  },
+  {
+    "English": "Tasks and storage",
+    "Chinese": "任务与存储"
+  },
+  {
+    "English": "Import and placement",
+    "Chinese": "导入与放置"
+  },
+  {
+    "English": "Uploads and USD tools",
+    "Chinese": "上传与 USD 工具"
+  },
+  {
+    "English": "Import and upload defaults apply when this window closes.",
+    "Chinese": "关闭此窗口时应用导入与上传的默认设置。"
+  },
+  {
+    "English": "Remember this account",
+    "Chinese": "记住此账号"
   }
 ]

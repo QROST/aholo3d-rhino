@@ -534,3 +534,12 @@ Final invocation regression: Release build has zero warnings/errors; **1,497 off
 ## Local candidate alpha.28
 
 Packages the single-transaction GS probe (`b7b2f86`), shared result admission (`7590d42`) and independent panel invocations with candidate cleanup protection (`3ef4567`). Runtime validation has 1,497 passing offline tests and one explicit Windows-only skip. Final versioned metadata and platform archives are verified separately against the clean packaging commit. No native/real-service acceptance, installation, push or publication is implied.
+
+
+## Focused UI refinement after alpha.29
+
+Two remote reviews (`aholo3d-layout-design-audit-20261112-02`, `aholo3d-workflow-ux-audit-20261112-02`) completed through model=auto, selecting provider-reported `remote/gemini-4-carbon` without an output cap. They supplied candidate findings for layout, settings grouping, button state and concise bilingual captions. Parent checked them against source and the installed Eto SDK. Incorrect claims that Settings lacked a scroll container or ExpandContentWidth defaulted to false were rejected, as was disabling the intentionally empty cloud-preview editor. The two final diff reviews (`*-final-review-20261112-03`) returned upstream HTTP 524 timeouts; status confirmed no active jobs, and neither was retried or represented as completed.
+
+Parent implemented and reviewed shared scrolling/dialog layouts, stable action groups, proportional matrix inputs, Settings sections, preserved operation identities with shorter captions, and actual availability for recovery/poll/candidate actions. Local checks cover language resources, metadata, task/history navigation and invocation isolation; native layout, keyboard/high-DPI and resize acceptance still require the user. No new service feature, paid service call, Rhino automation or publication is part of this step.
+
+Final local verification: Release build zero warnings/errors; **137 focused tests passed**, zero failures/skips, covering language/resources, actual-plugin metadata, Library/workspace navigation, invocation isolation, cloud history and application lifecycle. Native controls are not executed by these tests.

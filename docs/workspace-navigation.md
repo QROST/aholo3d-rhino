@@ -36,3 +36,20 @@ On both supported hosts, in English and Chinese:
 6. Close a document or quit during pending navigation. Verify no stale Idle callbacks, late control updates or retained document workspace after reopening. This does not establish wider native shutdown acceptance.
 
 No native Rhino execution, real service submission, installation or publication is implied by the offline checks.
+
+
+## Narrow layouts and action feedback (after alpha.29)
+
+Settings groups Connection/account, Tasks/storage, Import/placement and Uploads/USD tools. Close stays outside the scrolling body. Import/upload defaults are applied on close; account actions and polling changes keep their existing immediate behavior. Account login, cloud history and OBJ options share the same scrolling body/footer pattern. Main action groups keep a stable vertical order; only short title/file/pagination toolbars stay horizontal. Matrix fields share four scaled columns and are disabled until alignment is enabled. Library candidate controls are initially collapsed and open when loading/previewing a candidate.
+
+Display captions are shorter, with the original descriptions in tooltips. Internal operation identity, cancellation/reveal authority and paid-action notices remain intact. Empty-ID restore, Lux restore without the original tool, empty-key connection and empty candidate acceptance are disabled. Poll pause/resume controls reflect task state; cloud history cancellation is enabled only while work is active. Opening cloud preview without a selected task remains supported, because its scene editor accepts existing asset IDs manually.
+
+Manual acceptance (both languages, Mac then Windows):
+
+1. At approximately 320, 460 and 700 logical pixels, inspect Create/Library/Render and all four dialogs. Expand/collapse Settings groups and advance to long option/filename/task messages. The close footer remains visible; text/controls remain reachable. Below the 280-pixel content floor, native horizontal scrolling is intentional, not silent clipping.
+2. Resize across the previous 640-pixel threshold: action orientation stays stable. Repeatedly open/close while resize callbacks are queued; no exceptions or resize loop. Expand content until a vertical scrollbar appears and disappears.
+3. Use Tab/Shift-Tab/Space and OBJ Enter/Escape; ensure matrix cells retain all values when disabled/re-enabled. Check long English and Chinese labels and high-DPI scaling.
+4. With no account/task/result/candidate, confirm irrelevant actions are disabled. Enter/clear a World ID and a key, choose/clear a Lux tool, pause/resume an active original task, load/remove/clear candidates. No extra submission or automatic retry occurs.
+5. A paid button still visibly says it uses credits. Connection changes keep the existing authority behavior; test operation completion and cancellation while Settings is open.
+
+This is source/static evidence until the user performs the native checks. The scrolling helper uses a coalesced, disposal-guarded UI callback and the visible viewport width instead of a guessed 24-pixel reserve. Its APIs were checked against the installed SDK; upstream [Scrollable contract](https://github.com/picoe/Eto/blob/develop/src/Eto/Forms/Controls/Scrollable.cs) is supporting documentation, not proof that every installed platform handler behaves identically.

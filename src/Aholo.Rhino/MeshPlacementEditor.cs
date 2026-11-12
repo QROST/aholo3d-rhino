@@ -17,9 +17,9 @@ internal sealed class MeshPlacementEditor : IDisposable
     private readonly List<Candidate> candidates=new();
     private readonly DropDown selected=new();
     private readonly DropDown mode=new(){DataStore=new[]{UiText.Get("Fit height on construction plane"),UiText.Get("Original size on construction plane"),UiText.Get("Preserve scene coordinates")},SelectedIndex=0};
-    private readonly Button pick,constructionPlane;
+    private readonly Button pick,constructionPlane,accept,remove,clear;
     private readonly TextBox height=new(),rotation=new(){Text="0"};
-    private readonly Label position=new(){Wrap=WrapMode.Word};
+    private readonly Label position=UiLayout.Text("");
     private readonly UITimer timer=new(){Interval=.08};
     private Plane plane;
     private Point3d point;
@@ -34,19 +34,20 @@ internal sealed class MeshPlacementEditor : IDisposable
         var doc=Document();var initial=MeshPlacementService.DefaultPlacement(doc);plane=initial.Plane;point=initial.Point;height.Text=initial.Height.ToString("R",CultureInfo.InvariantCulture);
         Button Button(string title,Action<CancellationToken> work)
         {
-            var button=new Button{Text=UiText.Get(title)};
+            var button=new Button{Text=UiLayout.Caption(title),ToolTip=UiText.Get(title)};
             button.Click+=(_,_)=>_=run(title,context=>{work(context.Cancellation);return Task.CompletedTask;});return button;
         }
         pick=Button("Pick placement point",_=>Pick());constructionPlane=Button("Use current construction plane",_=>UsePlane());
         mode.SelectedIndexChanged+=(_,_)=>{UpdateMode();Schedule();};
-        selected.SelectedIndexChanged+=(_,_)=>Schedule();height.TextChanged+=(_,_)=>Schedule();rotation.TextChanged+=(_,_)=>Schedule();
+        selected.SelectedIndexChanged+=(_,_)=>{UpdateCandidateActions();Schedule();};height.TextChanged+=(_,_)=>Schedule();rotation.TextChanged+=(_,_)=>Schedule();
         timer.Elapsed+=(_,_)=>ShowPreview();
+        accept=Button("Accept candidate",Accept);remove=Button("Remove candidate",_=>Remove());clear=Button("Clear candidates",_=>Clear());
         View=new StackLayout{Spacing=6,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
             new Label{Text=UiText.Get("Mesh placement and candidates")},mode,
             new StackLayout{Spacing=6,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={new Label{Text=UiText.Get("Height (document units)"),Wrap=WrapMode.Word,Width=1},height,new Label{Text=UiText.Get("Rotation (degrees)"),Wrap=WrapMode.Word,Width=1},rotation}},
             AholoPanel.Row(pick,constructionPlane),position,
-            selected,AholoPanel.Row(Button("Accept candidate",Accept),Button("Remove candidate",_=>Remove()),Button("Clear candidates",_=>Clear()))}};
-        UpdateMode();
+            selected,AholoPanel.Row(accept,remove,clear)}};
+        UpdateMode();UpdateCandidateActions();
     }
     private RhinoDoc Document()=>RhinoDoc.FromRuntimeSerialNumber(serial)??throw new InvalidOperationException(UiText.Get("The target document has closed."));
     internal PlacementIntent Intent()
@@ -98,7 +99,8 @@ internal sealed class MeshPlacementEditor : IDisposable
             return true;
         }).ConfigureAwait(false);
     }
-    private void Select(int index){selected.DataStore=candidates.Select((c,i)=>$"{(char)('A'+i)} · {c.Name}").ToArray();selected.SelectedIndex=index;Schedule();}
+    private void UpdateCandidateActions(){if(accept is null)return;accept.Enabled=remove.Enabled=selected.SelectedIndex>=0&&selected.SelectedIndex<candidates.Count;clear.Enabled=candidates.Count>0;}
+    private void Select(int index){selected.DataStore=candidates.Select((c,i)=>$"{(char)('A'+i)} · {c.Name}").ToArray();selected.SelectedIndex=index;UpdateCandidateActions();Schedule();}
     private void Pick()
     {
         var doc=Document();_=AholoHost.CaptureTarget(doc);
@@ -147,7 +149,7 @@ internal sealed class MeshPlacementEditor : IDisposable
         revision++;timer.Stop();Exception? failure=null;try{preview.Clear();}catch(Exception error){failure=error;}
         var assets=candidates.Select(candidate=>candidate.Asset).ToArray();candidates.Clear();
         foreach(var asset in assets)try{retired.Retire(asset);}catch(Exception error){failure??=error;}
-        selected.DataStore=Array.Empty<string>();selected.SelectedIndex=-1;
+        selected.DataStore=Array.Empty<string>();selected.SelectedIndex=-1;UpdateCandidateActions();
         if(failure is not null)throw new InvalidOperationException(UiText.Get("Preview cleanup did not finish. The imported block is retained."),failure);
     }
     public void Dispose()

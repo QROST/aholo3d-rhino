@@ -13,7 +13,8 @@ internal sealed class CloudLibraryDialog : Dialog<LocalTask?>
     private readonly DropDown operation = new();
     private readonly ListBox rows = new() { Height = 240 };
     private readonly TextBox remoteId = new() { PlaceholderText = UiText.Get("Existing remote task ID") };
-    private readonly Label status = new() { Wrap = WrapMode.Word };
+    private readonly Label status = UiLayout.Text("");
+    private readonly Button cancel = new() { Text = UiText.Get("Cancel local operation"), Enabled=false };
     private readonly Button load = new() { Text = UiText.Get("Refresh cloud history") }, previous = new() { Text = UiText.Get("Previous") }, next = new() { Text = UiText.Get("Next") }, restore = new() { Text = UiText.Get("Restore to Library") };
     private readonly string[] luxOperations = ServiceOperations.All.Where(o => o.Service == TaskService.Lux3D).Select(o => o.Id).ToArray();
     private int page = 1;
@@ -23,9 +24,9 @@ internal sealed class CloudLibraryDialog : Dialog<LocalTask?>
     {
         this.session = session; this.scope = scope + "cloud"; lifetime=CancellationTokenSource.CreateLinkedTokenSource(parentToken);
         connectionId = session.Connection.ConnectionId ?? "";
-        Title = UiText.Get("Cloud history and recovery"); ClientSize = new Size(580,620); Resizable = true;
+        Title = UiText.Get("Cloud history and recovery"); ClientSize = new Size(580,620); MinimumSize=new Size(320,300); Resizable = true;
         operation.DataStore = luxOperations.Select(id => UiText.Get(ServiceOperations.Get(id).Title)).ToArray(); operation.SelectedIndex = -1;
-        var operationBox = new StackLayout { Spacing = 6, Visible = false, Items = { new Label { Text = UiText.Get("Choose the original Lux3D tool"), Wrap = WrapMode.Word }, operation } };
+        var operationBox = new StackLayout { Spacing = 6, HorizontalContentAlignment=HorizontalAlignment.Stretch, Visible = false, Items = { new Label { Text = UiText.Get("Choose the original Lux3D tool"), Wrap = WrapMode.Word }, operation } };
         service.SelectedIndexChanged += (_,_) => { page = 1; hasMore = false; rows.DataStore = Array.Empty<CloudTaskRow>(); remoteId.Text = ""; operationBox.Visible = Service == TaskService.Lux3D; status.Text = UiText.Get("Select a service, then load history or enter an existing ID."); Update(); };
         filter.SelectedIndexChanged += (_,_) => { page = 1; hasMore = false; rows.DataStore = Array.Empty<CloudTaskRow>(); rows.SelectedIndex=-1; remoteId.Text=""; Update(); };
         rows.SelectedIndexChanged += (_,_) => { if (rows.SelectedValue is CloudTaskRow row) remoteId.Text = row.RemoteId; };
@@ -39,12 +40,13 @@ internal sealed class CloudLibraryDialog : Dialog<LocalTask?>
             session.Observe(task); if (!closed) Close(task);
         });
         var close = new Button { Text = UiText.Get("Close") }; close.Click += (_,_) => Close(null);
-        var cancel = new Button { Text = UiText.Get("Cancel local operation") }; cancel.Click += (_,_) => session.Operations.Cancel(scope + "cloud");
-        Content = new Scrollable { Content = new StackLayout { Padding = 12, Spacing = 8, HorizontalContentAlignment = HorizontalAlignment.Stretch, Items = {
-            new Label { Text = UiText.Get("Browse existing tasks without creating or charging a new generation."), Wrap = WrapMode.Word }, service, filter, load, rows,
-            new StackLayout { Orientation = Orientation.Horizontal, Spacing = 8, Items = {previous,next} },
-            remoteId, operationBox, new Label { Text = UiText.Get("RenderCloud has no public history list; enter its existing operation ID. Restoring a result does not restart generation or rendering."), Wrap = WrapMode.Word },
-            restore, status, new StackLayout { Orientation = Orientation.Horizontal, Spacing = 8, Items = {cancel,close} } } } };
+        cancel.Click += (_,_) => session.Operations.Cancel(this.scope);
+        remoteId.TextChanged+=(_,_)=>Update();operation.SelectedIndexChanged+=(_,_)=>Update();
+        Content = UiLayout.DialogBody(UiLayout.Scroll(
+            UiLayout.Text(UiText.Get("Browse existing tasks without creating or charging a new generation.")), service, filter, load, rows,
+            UiLayout.Toolbar(previous,next),remoteId,operationBox,
+            UiLayout.Text(UiText.Get("RenderCloud has no public history list; enter its existing operation ID. Restoring a result does not restart generation or rendering.")),
+            restore,status,cancel),close);
         Closed += (_,_) => { if(!closed){closed = true; lifetime.Cancel();} };
         Update();
     }
@@ -71,7 +73,11 @@ internal sealed class CloudLibraryDialog : Dialog<LocalTask?>
     }
     private void Update()
     {
-        rows.Enabled = service.Enabled = filter.Enabled = remoteId.Enabled = operation.Enabled = restore.Enabled = !busy;
+        if(closed||disposed)return;
+        rows.Enabled = service.Enabled = filter.Enabled = remoteId.Enabled = operation.Enabled = !busy;
+        restore.Enabled=!busy&&!string.IsNullOrWhiteSpace(remoteId.Text)&&(Service!=TaskService.Lux3D||operation.SelectedIndex>=0);
+        restore.ToolTip=UiText.Get(Service==TaskService.Lux3D&&operation.SelectedIndex<0?"Choose the original Lux3D tool":"Existing remote task ID");
+        cancel.Enabled=busy;
         bool canList = Service != TaskService.RenderCloud;
         load.Enabled = !busy && canList; previous.Enabled = !busy && canList && page > 1; next.Enabled = !busy && canList && hasMore;
     }

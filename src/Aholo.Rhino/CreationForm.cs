@@ -68,7 +68,7 @@ internal sealed class CreationForm : Panel
             DraftField(field+":files",()=>paths.ToArray(),values=>{paths=values.ToArray();summary.Text=paths.Length==0?UiText.Get("No files selected"):string.Join("\n",paths.Select(Path.GetFileName));});
             files.Add(()=>paths.Length==0?null:new ServiceFileInput(field,paths.ToArray()));
             readers.Add(()=>{string text=url.Text.Trim();return(field,text.Length==0?null:field=="imgs"?text.Split(new[]{'\r','\n'},StringSplitOptions.RemoveEmptyEntries):text);});
-            var row=new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={choose,clear}};
+            var row=UiLayout.Toolbar(choose,clear);
             return new StackLayout{Spacing=4,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={summary,row,url}};
         }
         if(schema.TryGetProperty("enum",out var values))
@@ -90,8 +90,8 @@ internal sealed class CreationForm : Panel
         }
         if(field=="transformationMatrix")
         {
-            var enabled=new CheckBox{Text=UiText.Get("Apply alignment transform")};var rows=new StackLayout{Spacing=3};var cells=new TextBox[4,4];
-            for(int r=0;r<4;r++){var row=new StackLayout{Orientation=Orientation.Horizontal,Spacing=3};for(int c=0;c<4;c++){cells[r,c]=new(){Text=r==c?"1":"0",Width=60};row.Items.Add(cells[r,c]);}rows.Items.Add(row);}
+            var enabled=new CheckBox{Text=UiText.Get("Apply alignment transform")};var rows=UiLayout.Stack();var grid=new TableLayout{Spacing=new Eto.Drawing.Size(3,3)};var cells=new TextBox[4,4];
+            for(int r=0;r<4;r++){var row=new TableRow();for(int c=0;c<4;c++){cells[r,c]=new(){Text=r==c?"1":"0",Width=24,ToolTip=$"[{r+1}, {c+1}]"};row.Cells.Add(new TableCell(cells[r,c],true));}grid.Rows.Add(row);}rows.Items.Add(grid);grid.Enabled=enabled.Checked==true;enabled.CheckedChanged+=(_,_)=>grid.Enabled=enabled.Checked==true;
             DraftField(field+":enabled",()=>new[]{Toggle(enabled.Checked)},values=>enabled.Checked=Toggle(values.FirstOrDefault()));
             DraftField(field+":matrix",()=>Enumerable.Range(0,16).Select(i=>cells[i/4,i%4].Text).ToArray(),values=>{if(values.Count==16)for(int i=0;i<16;i++)cells[i/4,i%4].Text=values[i];});
             rows.Items.Insert(0,enabled);readers.Add(()=>(field,enabled.Checked==true?Enumerable.Range(0,4).Select(r=>Enumerable.Range(0,4).Select(c=>double.Parse(cells[r,c].Text,CultureInfo.InvariantCulture)).ToArray()).ToArray():null));return rows;
@@ -100,7 +100,7 @@ internal sealed class CreationForm : Panel
         {
             var entries=schema.GetProperty("items").GetProperty("enum").EnumerateArray().Select(x=>x.GetString()!).ToArray();
             var boxes=entries.Select(x=>new CheckBox{Text=UiText.Get(x),Tag=x,Checked=field=="outputFormat"&&x=="glb"}).ToArray();
-            var list=new StackLayout{Spacing=3};foreach(var box in boxes)list.Items.Add(box);
+            var list=new StackLayout{Spacing=3,HorizontalContentAlignment=HorizontalAlignment.Stretch};foreach(var box in boxes)list.Items.Add(box);
             DraftField(field+":selected",()=>boxes.Where(x=>x.Checked==true).Select(x=>(string)x.Tag).ToArray(),values=>{foreach(var box in boxes)box.Checked=values.Contains((string)box.Tag);});
             readers.Add(()=>{var selected=boxes.Where(x=>x.Checked==true).Select(x=>(string)x.Tag).ToArray();return(field,selected.Length==0?null:selected);});
             return boxes.Length>10?new Scrollable{Height=160,Content=list}:list;

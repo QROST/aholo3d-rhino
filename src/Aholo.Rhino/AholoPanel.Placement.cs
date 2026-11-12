@@ -13,7 +13,7 @@ public sealed partial class AholoPanel
     private ConnectionState placementConnection=new(false,null,false);
     private bool autoBusy,shown;
     private Button previewResult=null!;
-    private readonly CheckBox meshExportTextures=new(){Text=T("Include direct base-color bitmaps in mesh USD"),Checked=true};
+    private readonly CheckBox meshExportTextures=new(){Text=T("Include mesh textures"),ToolTip=T("Include direct base-color bitmaps in mesh USD"),Checked=true};
     private void InitializePlacement()
     {
         meshEditor=new(serial,AholoPlugin.Placement,Report,(name,work)=>RunAsync(name,work));

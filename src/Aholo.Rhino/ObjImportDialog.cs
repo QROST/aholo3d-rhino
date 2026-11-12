@@ -11,7 +11,7 @@ internal sealed class ObjImportDialog : Dialog<ObjImportOptions?>
     private bool closed;
     private ObjImportDialog(IReadOnlyList<string> entries,UsdSnapshotSettings settings)
     {
-        Title=UiText.Get("OBJ import options");ClientSize=new Size(520,380);Resizable=true;
+        Title=UiText.Get("OBJ import options");ClientSize=new Size(520,380);MinimumSize=new Size(320,260);Resizable=true;
         var models=new ListBox{DataStore=entries.ToArray(),Height=130,SelectedIndex=entries.Count==1?0:-1};
         double documentMeters=global::Rhino.RhinoMath.MetersPerUnit(settings.Units);
         if(!double.IsFinite(documentMeters)||documentMeters<=0)throw new InvalidOperationException(UiText.Get("Cannot convert document units."));
@@ -29,11 +29,11 @@ internal sealed class ObjImportDialog : Dialog<ObjImportOptions?>
             Close(new(choices[units.SelectedIndex].Meters,axis.SelectedIndex==0?"Z":"Y",entries[models.SelectedIndex]));
         };
         cancel.Click+=(_,_)=>Close(null);Closed+=(_,_)=>closed=true;
-        Content=new Scrollable{Content=new StackLayout{Padding=12,Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
-            new Label{Text=UiText.Get("Choose one model. OBJ files do not define physical units or an up axis."),Wrap=WrapMode.Word},models,
+        Content=UiLayout.DialogBody(UiLayout.Scroll(
+            UiLayout.Text(UiText.Get("Choose one model. OBJ files do not define physical units or an up axis.")),models,
             new Label{Text=UiText.Get("Source length units")},units,new Label{Text=UiText.Get("Source up axis")},axis,
-            new Label{Text=UiText.Get("These choices interpret the source model; they do not change your document settings."),Wrap=WrapMode.Word},
-            new StackLayout{Orientation=Orientation.Horizontal,Spacing=8,Items={accept,cancel}}}}};
+            UiLayout.Text(UiText.Get("These choices interpret the source model; they do not change your document settings.")),accept),cancel);
+
     }
     internal static ObjImportOptions Choose(RhinoDoc doc,IReadOnlyList<string> entries,UsdSnapshotSettings settings,CancellationToken ct)
     {
