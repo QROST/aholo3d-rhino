@@ -1,6 +1,12 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.27. Earlier entries below retain their original scope.
+Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.28. Earlier entries below retain their original scope.
+
+## Integrated candidate alpha.28 — 2026-11-12 UTC
+
+Sources `b7b2f86`, `7590d42` and `3ef4567` pass **1,497 offline .NET tests**, zero failures, with one Windows filesystem-only case explicitly skipped on macOS. Release compilation has zero warnings/errors. The GS occlusion probe shares one Undo transaction; all task mesh placement entry points share result admission through cleanup. Panel task/export/readiness operations have independent selection, cancellation, progress and navigation authority, while candidate editing stays serialized. Native candidate assets survive synchronous commit reentry until commit/rollback exits, preserving simultaneous commit and cleanup failures.
+
+The first full run reported an unchanged projection path's allocation counter delta. The final test uses one isolated, successfully entered/strictly ended NoGCRegion with a positive allocation control and the same zero-byte assertion; no tolerance or retry was added. The known runtime accounting risk and attribution limits are recorded in [implementation progress](implementation-progress.md). One remote `gpt-6.1-sol` concurrency review completed and was checked against source; a separate draft exceeded its request limit and was rejected by the gateway, which held the model. It was not retried. Two local read-only reviews informed final corrections; the parent implemented and ran verification. Version metadata and archive checks remain separate. Native Rhino, Windows runtime, real accounts/services, installation and publication remain pending. [Behavior and manual checks](operation-lifecycle.md).
 
 ## Integrated candidate alpha.27 — 2026-11-11 UTC
 
@@ -48,7 +54,7 @@ An independent local OpenUSD check parsed a production-generated scene with Rect
 
 Packaging verifies both platform-tagged archives against the allowlisted files and records commit/dirty state, SHA-256 and pending host/service acceptance in `artifacts/latest-package-{mac,win}.json`. Those receipts are the authority for whether an archive was produced; source compilation on a Mac does not prove Windows execution. No GUI automation, installation, push or publication is part of this candidate preparation.
 
-The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha27) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
+The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha28) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
 
 ## Integrated development candidate — 2026-11-09
 

@@ -529,3 +529,8 @@ The first full invocation run had one strict allocation-test failure: 2,776 byte
 
 
 Final invocation regression: Release build has zero warnings/errors; **1,497 offline tests passed**, zero failures, and one Windows filesystem-only case was explicitly skipped on macOS. The allocation test passed its single isolated zero-byte measurement and positive control. Two additional cleanup cases preserve the original commit failure as well as a simultaneous disposal failure; the local reviewer rechecked that final correction without finding another issue. Native interaction, Windows execution and real service acceptance remain pending. No installation, push or publication occurred.
+
+
+## Local candidate alpha.28
+
+Packages the single-transaction GS probe (`b7b2f86`), shared result admission (`7590d42`) and independent panel invocations with candidate cleanup protection (`3ef4567`). Runtime validation has 1,497 passing offline tests and one explicit Windows-only skip. Final versioned metadata and platform archives are verified separately against the clean packaging commit. No native/real-service acceptance, installation, push or publication is implied.
