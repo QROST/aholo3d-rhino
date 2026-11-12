@@ -58,8 +58,8 @@ internal static class PanelNavigation
             catch(Exception error){Cancel(serial,opening.Revision);global::Rhino.RhinoApp.WriteLine(Aholo3DHost.FriendlyError(error));}
         }
     }
-    internal static void Close(uint serial){Workspaces.Close(serial);openings.Remove(serial);StopIfEmpty();}
-    internal static void Shutdown(){Workspaces.Clear();openings.Clear();StopIfEmpty();}
+    internal static void Close(uint serial){Workspaces.Flush(serial);Workspaces.Close(serial);openings.Remove(serial);StopIfEmpty();}
+    internal static void Shutdown(){Workspaces.FlushAll();Workspaces.Clear();openings.Clear();StopIfEmpty();}
 }
 
 [Guid("30BE962C-4333-419C-BFB1-58D4E7C04DE7")]

@@ -31,6 +31,12 @@ public static class ServiceOperations
         using var stream=typeof(ServiceOperations).Assembly.GetManifestResourceStream("Aholo3D.Core.ServiceSchemas."+service+".json") ?? throw new InvalidOperationException("Missing service contract.");
         using var doc=JsonDocument.Parse(stream);return doc.RootElement.GetProperty("components").GetProperty("schemas").Clone();
     }
+    public static void ValidateField(string operation,string field,JsonElement value)
+    {
+        var schema=RequestSchema(operation).GetProperty("properties");
+        if(!schema.TryGetProperty(field,out var definition))throw new ArgumentException("Unknown field.");
+        ValidateValue(value,definition,Schemas[Get(operation).SchemaService],field);
+    }
     public static void Validate(string operation,JsonElement body)
     {
         var op=Get(operation);ValidateValue(body,RequestSchema(operation),Schemas[op.SchemaService],"request");

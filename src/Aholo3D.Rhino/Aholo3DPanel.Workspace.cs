@@ -5,6 +5,7 @@ namespace Aholo3D.Rhino;
 public sealed partial class Aholo3DPanel
 {
     private readonly PanelWorkspace workspace;
+    private readonly RhinoDoc? workspaceDocument;
     private bool workspaceReady,restoringWorkspace;
     private long workspaceLease;
     private void WorkspaceUserNavigated()
@@ -32,9 +33,10 @@ public sealed partial class Aholo3DPanel
         restoringWorkspace=true;
         try
         {
+            RestorePreferences();
             foreach(var saved in workspace.Drafts)
             {
-                if(!drafts.TryGetValue(saved.Key,out var draft))drafts.Add(saved.Key,draft=new CreationForm(saved.Key));
+                if(!drafts.TryGetValue(saved.Key,out var draft))drafts.Add(saved.Key,draft=NewForm(saved.Key));
                 draft.RestoreDraft(saved.Value);
             }
             creation.SelectedIndex=ServiceOperations.All.ToList().FindIndex(x=>x.Id==workspace.Operation);
@@ -45,11 +47,12 @@ public sealed partial class Aholo3DPanel
     void IPanelWorkspaceOwner.SaveWorkspace()=>SaveWorkspace();
     private void SaveWorkspace()
     {
-        var doc=RhinoDoc.FromRuntimeSerialNumber(serial);
-        if(disposed||!workspaceReady||doc is null||doc.IsClosing||!PanelNavigation.Workspaces.IsOwner(serial,workspace,workspaceLease))return;
+        var doc=RhinoDoc.FromRuntimeSerialNumber(serial)??workspaceDocument;
+        if(disposed||!workspaceReady||doc is null||!PanelNavigation.Workspaces.IsOwner(serial,workspace,workspaceLease))return;
         if(tabs.SelectedIndex is >=0 and <=2)workspace.SelectPage((WorkspacePage)tabs.SelectedIndex);
         if(creation.SelectedIndex>=0)workspace.SelectOperation(ServiceOperations.All[creation.SelectedIndex].Id);
         foreach(var draft in drafts)workspace.SaveDraft(draft.Key,draft.Value.CaptureDraft());
+        saveDelay.Stop();PersistWorkspace(doc);
     }
     internal bool CanNavigate=>!disposed&&workspaceReady&&shown&&PanelNavigation.Workspaces.IsOwner(serial,workspace,workspaceLease);
     internal void ApplyPendingNavigation()

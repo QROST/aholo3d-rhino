@@ -69,10 +69,11 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
     public Aholo3DPanel(uint documentSerialNumber)
     {
         serial=documentSerialNumber;invocations=new(session.Resources,panelId.ToString("N"));
-        var document=RhinoDoc.FromRuntimeSerialNumber(serial);
+        var document=RhinoDoc.FromRuntimeSerialNumber(serial);workspaceDocument=document;
         workspace=document is not null&&!document.IsClosing?PanelNavigation.Workspaces.Open(serial):new PanelWorkspace();
         workspaceLease=PanelNavigation.Workspaces.Claim(serial,workspace,this);
         if(document is not null){double unitScale=global::Rhino.RhinoMath.UnitScale(global::Rhino.UnitSystem.Meters,document.ModelUnitSystem);if(double.IsFinite(unitScale)&&unitScale>0)objectHeight.Text=unitScale.ToString("R",CultureInfo.InvariantCulture);}
+        InitializePersistence(document);
         InitializePlacement();
         creation.DataStore=ServiceOperations.All.Select(x=>T(x.Title)).ToArray();creation.SelectedIndex=ServiceOperations.All.ToList().FindIndex(x=>x.Id==workspace.Operation);
         creation.SelectedIndexChanged+=(_,_)=>{WorkspaceUserNavigated();ChangeForm();};ChangeForm();
@@ -92,7 +93,8 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
                 resultSelection.Remember(selected,resultRows,artifacts.SelectedIndex);
             UpdateActions();
         };
-        filter.SelectedIndexChanged+=(_,_)=>HistoryQueryChanged();search.TextChanged+=(_,_)=>HistoryQueryChanged();
+        filter.SelectedIndexChanged+=(_,_)=>HistoryQueryChanged();search.TextChanged+=(_,_)=>HistoryQueryChanged(debounce:true);
+        searchDelay.Elapsed+=(_,_)=>{searchDelay.Stop();_=ReloadAsync();};
         previous.Click+=(_,_)=>{WorkspaceUserNavigated();offset=Math.Max(0,offset-50);_=ReloadAsync();};next.Click+=(_,_)=>{WorkspaceUserNavigated();offset+=50;_=ReloadAsync();};
         openImage=Local("Open image",OpenImage);openFolder=Local("Open result folder",OpenResultFolder);
         worldId.TextChanged+=(_,_)=>UpdateActions();
@@ -106,11 +108,14 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
         restoreWorld=Action("Restore World ID",async context=>{var task=await session.Client.ImportWorldAsync(worldId.Text.Trim(),context.Cancellation);session.Observe(task);await RevealAsync(task,context);});
         var taskTools=Section("Task tools and recovery",Row(pausePolling,resumePolling),cloudHistory,worldId,restoreWorld);
         var gsTools=Section("GS display and diagnostics",Row(Local("GS viewport",()=>GaussianViewport.Activate(Document())),Local("Diagnostics",()=>Report(GaussianViewport.Diagnostics(Document())))));
-        var libraryPage=Column(search,filter,tasks,new TableLayout(new TableRow(previous,new TableCell(pageInfo,true),next)){Spacing=new Size(6,6)},
-            Row(Local("Load history",()=>_=ReloadAsync()),refresh),Action("Load local mesh",LoadLocalMeshAsync),detail,artifacts,artifactDetail,
-            Row(download,openFolder),openImage,place,previewResult,meshSection,continueRender,localFiles,taskTools,gsTools);
+        primaryResult.Click+=(_,_)=>PrimaryResultClicked();
+        var libraryBody=Column(search,filter,tasks,new TableLayout(new TableRow(previous,new TableCell(pageInfo,true),next)){Spacing=new Size(6,6)},
+            Local("Load history",()=>_=ReloadAsync(forceRefresh:true)),detail,artifacts,artifactDetail,
+            Section("More result actions",refresh,download,place,openImage,openFolder,previewResult,continueRender),
+            meshSection,Section("Local mesh",Action("Load local mesh",LoadLocalMeshAsync)),localFiles,taskTools,gsTools);
+        var libraryPage=UiLayout.DialogBody(libraryBody,primaryResult);
         var lightFields=Stack(Info("Point-light radius before block scaling (mm)"),lightRadius,Info("Relative light intensity multiplier"),lightMultiplier,Info("Point lights use the chosen sphere radius. Light intensity is relative, not calibrated to Rhino lumens. Unsupported selected lights fail before upload."));
-        lightFields.Visible=false;renderLights.CheckedChanged+=(_,_)=>lightFields.Visible=renderLights.Checked==true;
+        lightFields.Visible=renderLights.Checked==true;renderLights.CheckedChanged+=(_,_)=>lightFields.Visible=renderLights.Checked==true;
         var renderPage=Column(Info("Select meshes, surfaces, extrusions or mesh blocks and use a perspective view. Geometry, supported material constants, optional selected lights and camera will be uploaded."),resolution,renderTextures,renderLights,lightFields,render,
             Info("Offline rendering preserves smooth normals, supported PBR constants and direct mesh UV bitmaps. Complex texture mapping, material graphs, glass transmission and GS ingestion are not converted. Disable bitmap export to use material constants only."),
             Local("Open cloud preview",()=>CloudPreviewWindow.Open(Document(),Selected)),Info("Cloud preview uses an existing ingested asset. Its JPEG stream does not provide native depth compositing."));
@@ -120,7 +125,7 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
         elapsed.Elapsed+=(_,_)=>{if(!disposed)UpdateOperationStatus();};
         Content=new StackLayout{Padding=10,Spacing=8,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
             UiLayout.Toolbar(new Label{Text="Aholo3D",TextAlignment=TextAlignment.Left,VerticalAlignment=VerticalAlignment.Top,Font=new Font(SystemFont.Bold,16)},Local("Settings",ShowSettings)),connection,new StackLayoutItem(tabs,true),Row(operation,cancel),feedback}};
-        RestoreWorkspace();workspaceReady=true;tabs.SelectedIndexChanged+=(_,_)=>WorkspaceUserNavigated();
+        RestoreWorkspace();workspaceReady=true;tabs.SelectedIndexChanged+=(_,_)=>{WorkspaceUserNavigated();QueueWorkspaceSave();};
         session.Changed+=SessionChanged;session.TaskChanged+=TaskChanged;Aholo3DPlugin.DocumentCancellationRequested+=DocumentCancellationRequested;UpdateActions();
         Report(T("Create assets, organize results and place them in this Rhino document."));
     }
@@ -135,9 +140,15 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
     private void ChangeForm()
     {
         if(creation.SelectedIndex<0)return;string id=ServiceOperations.All[creation.SelectedIndex].Id;
-        if(!drafts.TryGetValue(id,out var selected)){selected=new CreationForm(id);drafts[id]=selected;}
+        if(!drafts.TryGetValue(id,out var selected)){selected=NewForm(id);drafts[id]=selected;}
         form=selected;formHost.Content=form;autoPlace.Visible=MeshPlacementPolicy.SupportsAutomaticPlacement(id);
-        if(workspaceReady&&!restoringWorkspace)PanelNavigation.Workspaces.TryUpdate(serial,workspace,workspaceLease,w=>w.SelectOperation(id));
+        if(workspaceReady&&!restoringWorkspace){PanelNavigation.Workspaces.TryUpdate(serial,workspace,workspaceLease,w=>w.SelectOperation(id));UpdateActions();QueueWorkspaceSave();}
+    }
+    private CreationForm NewForm(string id)
+    {
+        var result=new CreationForm(id);
+        result.Changed+=(_,_)=>{if(workspaceReady&&!restoringWorkspace&&!disposed){UpdateActions();QueueWorkspaceSave();}};
+        return result;
     }
     private void Report(string text){if(!disposed)feedback.Text=text;}
     private OperationResource[] Claims(WorkKind kind,LocalTask? selected)=>kind switch
@@ -189,9 +200,9 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
         connection.ToolTip=UiText.TranslateKnownMessage(session.LastError??"");
         connection.Text=ConnectionLabel();
         foreach(var action in actions)action.Button.Enabled=CanRun(action.Name,action.Kind);
-        submit.Enabled=connected&&CanRun("Create · Uses service credits");render.Enabled=connected&&CanRun("Upload selection and render · Uses service credits");
+        submit.Enabled=connected&&form.IsValid&&CanRun("Create · Uses service credits");render.Enabled=connected&&CanRun("Upload selection and render · Uses service credits");
         string connectionHint=connected?T("Each click creates one paid task. Follow its progress in Library."):T("Connect an API Key in Settings first.");
-        submit.ToolTip=render.ToolTip=connectionHint;
+        render.ToolTip=connectionHint;submit.ToolTip=connected&&!form.IsValid?form.ValidationMessage:connectionHint;
         cloudHistory.Enabled=connected&&CanRun("Cloud history and recovery");
         restoreWorld.Enabled=connected&&!string.IsNullOrWhiteSpace(worldId.Text)&&CanRun("Restore World ID");
         cloudHistory.ToolTip=restoreWorld.ToolTip=connected?T("Restore an existing task; this does not generate again."):connectionHint;
@@ -209,26 +220,33 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
         download.ToolTip=place.ToolTip=previewResult.ToolTip=access.NextStep;
         continueRender.Enabled=CanRun("Continue original render · Uses service credits",WorkKind.Task)&&connected&&sameAccount&&capability?.CanContinueRender==true;
         continueRender.Visible=task?.Kind=="render"&&capability?.CanContinueRender==true;
+        UpdatePrimaryResult(access,connected&&sameAccount&&capability?.CanContinueRender==true,connected&&sameAccount&&capability?.CanQuery==true);
         UpdateOperationStatus();
     }
     private readonly LibraryNavigation history=new();
     private bool reloadingHistory,rebindingHistoryQuery;
-    private void HistoryQueryChanged()
+    private readonly UITimer searchDelay=new(){Interval=0.25};
+    private CancellationTokenSource? historyRead;
+    private void HistoryQueryChanged(bool debounce=false)
     {
         if(rebindingHistoryQuery)return;
-        WorkspaceUserNavigated();offset=0;_=ReloadAsync();
+        WorkspaceUserNavigated();offset=0;historyRead?.Cancel();searchDelay.Stop();if(debounce)searchDelay.Start();else _=ReloadAsync();
     }
-    private async Task ReloadAsync()
+    private async Task ReloadAsync(bool forceRefresh=false)
     {
         if(disposed)return;
+        searchDelay.Stop();historyRead?.Cancel();
+        using var pending=CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);historyRead=pending;
         var read=history.BeginRead(new(offset,50,filter.SelectedIndex switch{1=>"world",2=>"object",3=>"render",4=>"spatial",_=>null},search.Text.Trim()),Selected?.Id);
         try
         {
             // PageContaining returns the page and its items from one journal snapshot.
-            var page=read.RevealTaskId is{} id?await Task.Run(()=>session.Store.PageContaining(id,read.Page.Limit)):await session.ReadHistoryAsync(read.Page);
+            var page=await Task.Run(()=>read.RevealTaskId is{} id?
+                session.Store.PageContaining(id,read.Page.Limit,pending.Token,forceRefresh):
+                session.Store.Page(read.Page,pending.Token,forceRefresh),pending.Token);
             Aholo3DHost.Ui(()=>
             {
-                if(disposed||!history.TryApply(read,page,out var selected))return;
+                if(disposed||pending.IsCancellationRequested||!history.TryApply(read,page,out var selected))return;
                 reloadingHistory=true;
                 try
                 {
@@ -246,7 +264,9 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
                 finally{reloadingHistory=false;}
             });
         }
+        catch(OperationCanceledException) when(pending.IsCancellationRequested){}
         catch(Exception ex){Aholo3DHost.Ui(()=>{if(!disposed&&history.IsCurrent(read))Report(Aholo3DHost.FriendlyError(ex));});}
+        finally{if(ReferenceEquals(historyRead,pending))historyRead=null;}
     }
     private static TaskArtifact[] Outputs(LocalTask task)=>LibraryResultPolicy.Outputs(task);
     private void Describe()
@@ -441,7 +461,11 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
             Info("Validation queries the selected service history. Each service may need separate account permissions. OAuth login does not replace an API Key."),account,
             Info("Regions have separate API Keys and account sessions. Switching stops task polling and live previews; remote tasks and saved credentials in the other region are retained."));
         credentials.Expanded=true;
-        var taskSettings=Section("Tasks and storage",auto,settingsCancel,
+        var saveDrafts=new CheckBox{Text=T("Remember creation drafts for this document"),Checked=rememberDrafts};
+        var draftStatus=Info(DraftStorageStatus());
+        saveDrafts.CheckedChanged+=(_,_)=>{rememberDrafts=saveDrafts.Checked==true;SaveWorkspace();draftStatus.Text=DraftStorageStatus();};
+        var forgetDraft=Local("Forget saved draft and stop remembering",()=>{rememberDrafts=false;saveDrafts.Checked=false;SaveWorkspace();draftStatus.Text=DraftStorageStatus();});
+        var taskSettings=Section("Tasks and storage",auto,saveDrafts,forgetDraft,draftStatus,settingsCancel,
             Local("Open local asset folder",()=>Process.Start(new ProcessStartInfo(Path.Combine(session.Store.Root,"assets")){UseShellExecute=true})),
             Info("Closing the panel keeps tasks running. Reopen it to view progress. Cancel stops local waiting only; remote tasks remain on the service."));
         var importSettings=Section("Import and placement",Info("GS import scale (document units per source unit)"),settingsScale,settingsAxis,
@@ -469,7 +493,7 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
         try{dialog.ShowModal(this);}finally{closed=true;session.Changed-=UpdateSettings;Aholo3DPlugin.DocumentCancellationRequested-=SettingsDocumentCancelled;}
         static string? Optional(string value)=>string.IsNullOrEmpty(value)?null:value;
         uploadOptions=new(Optional(uploadMetadata.Text),Optional(uploadPrefix.Text),Optional(uploadFilename.Text));
-        scale.Text=settingsScale.Text;axis.SelectedIndex=settingsAxis.SelectedIndex;sourceUnits.SelectedIndex=settingsUnits.SelectedIndex;objectHeight.Text=settingsHeight.Text;meshEditor.HeightText=settingsHeight.Text;
+        scale.Text=settingsScale.Text;axis.SelectedIndex=settingsAxis.SelectedIndex;sourceUnits.SelectedIndex=settingsUnits.SelectedIndex;objectHeight.Text=settingsHeight.Text;meshEditor.HeightText=settingsHeight.Text;SaveWorkspace();
     }
     private void SessionChanged()=>Application.Instance.AsyncInvoke(()=>{if(!disposed){PlacementConnectionChanged();UpdateActions();}});
     private void TaskChanged(LocalTask task)=>Application.Instance.AsyncInvoke(()=>{if(!disposed){PlacementTaskChanged(task);_=ReloadAsync();}});
@@ -477,7 +501,7 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
     {if(disposed)return;shown=true;WorkspaceShown();ApplyPendingNavigation();meshEditor.SetVisible(true);placementTimer.Start();taskElapsed.Start();session.Start();UpdateActions();_=ReloadAsync();}
     public void PanelHidden(uint documentSerialNumber,ShowPanelReason reason){SaveWorkspace();shown=false;placementTimer.Stop();taskElapsed.Stop();meshEditor.SetVisible(false);}
     public void PanelClosing(uint documentSerialNumber,bool onCloseDocument)
-    {if(onCloseDocument)PanelNavigation.Close(serial);else SaveWorkspace();shown=false;RevokePlacements();placementTimer.Stop();taskElapsed.Stop();meshEditor.Clear();if(onCloseDocument){lifetime.Cancel();session.Operations.CancelPrefix(Scope);}}
+    {SaveWorkspace();if(onCloseDocument)PanelNavigation.Close(serial);shown=false;RevokePlacements();placementTimer.Stop();taskElapsed.Stop();meshEditor.Clear();if(onCloseDocument){lifetime.Cancel();session.Operations.CancelPrefix(Scope);}}
     private async Task DisposeLifetimeAsync(){await invocations.CloseAsync().ConfigureAwait(false);lifetime.Dispose();}
     protected override void Dispose(bool disposing)
     {
@@ -486,7 +510,7 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
             if(disposing&&!disposed)
             {
                 SaveWorkspace();disposed=true;lifetime.Cancel();RevokePlacements();session.Changed-=SessionChanged;session.TaskChanged-=TaskChanged;Aholo3DPlugin.DocumentCancellationRequested-=DocumentCancellationRequested;
-                placementTimer.Stop();placementTimer.Dispose();elapsed.Stop();elapsed.Dispose();taskElapsed.Stop();taskElapsed.Dispose();
+                RhinoDoc.EndSaveDocument-=DocumentSaved;saveDelay.Stop();saveDelay.Dispose();searchDelay.Stop();searchDelay.Dispose();historyRead?.Cancel();placementTimer.Stop();placementTimer.Dispose();elapsed.Stop();elapsed.Dispose();taskElapsed.Stop();taskElapsed.Dispose();
                 try{meshEditor.Dispose();}
                 finally{foreach(var draft in drafts.Values)draft.Dispose();drafts.Clear();_=DisposeLifetimeAsync();}
             }

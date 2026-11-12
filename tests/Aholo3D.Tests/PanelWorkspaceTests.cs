@@ -101,4 +101,13 @@ public sealed class PanelWorkspaceTests
         var request=registry.Request(1,WorkspaceDestination.Model);registry.Cancel(1,request.Revision);
         Assert.Null(registry.Peek(1));Assert.Single(workspace.Drafts);Assert.Same(workspace,registry.Open(1));
     }
+    [Fact] public void FlushUsesCurrentOwnerAndGuardsReentrantClose()
+    {
+        var registry=new PanelWorkspaces();var workspace=registry.Open(1);int firstCalls=0,secondCalls=0;
+        var first=new Owner(()=>firstCalls++);registry.Claim(1,workspace,first);
+        var second=new Owner(()=>{secondCalls++;registry.Flush(1);registry.Close(1);});registry.Claim(1,workspace,second);
+        registry.FlushAll();Assert.Equal(1,firstCalls);Assert.Equal(1,secondCalls);Assert.False(registry.IsCurrent(1,workspace));
+        registry.Flush(1);Assert.Equal(1,secondCalls);GC.KeepAlive(first);GC.KeepAlive(second);
+    }
+
 }

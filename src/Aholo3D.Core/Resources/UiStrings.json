@@ -5114,5 +5114,137 @@
   {
     "English": "The saved GS display mode could not be renamed. Retry later; its identity is retained.",
     "Chinese": "已有 GS 显示模式暂时无法改名，标识已保留，请稍后重试。"
+  },
+  {
+    "English": "More result actions",
+    "Chinese": "更多结果操作"
+  },
+  {
+    "English": "Local mesh",
+    "Chinese": "本地网格"
+  },
+  {
+    "English": "Select a task",
+    "Chinese": "请选择任务"
+  },
+  {
+    "English": "Result unavailable",
+    "Chinese": "结果暂不可用"
+  },
+  {
+    "English": "Remember creation drafts for this document",
+    "Chinese": "记住此文档的创建草稿"
+  },
+  {
+    "English": "Forget saved draft and stop remembering",
+    "Chinese": "删除已保存的草稿并停止记忆"
+  },
+  {
+    "English": "Save this Rhino document first to restore its workspace after restart.",
+    "Chinese": "先保存此 Rhino 文档，才能在重启后恢复它的工作区。"
+  },
+  {
+    "English": "Drafts stay on this Mac or PC. URLs and file selections must be entered again; credentials and upload overrides are never saved here.",
+    "Chinese": "草稿仅保存在本机。网址和文件需重新选择；此处不保存凭据或上传覆盖选项。"
+  },
+  {
+    "English": "Saved workspace is too large. The original file was retained.",
+    "Chinese": "已保存的工作区过大，原文件已保留。"
+  },
+  {
+    "English": "Saved workspace is unsupported or damaged. The original file was retained.",
+    "Chinese": "已保存的工作区版本不受支持或已损坏，原文件已保留。"
+  },
+  {
+    "English": "Workspace changed in another window or Rhino session. Reopen the document before saving it again.",
+    "Chinese": "其他窗口或 Rhino 会话已修改此工作区。请重新打开文档后再保存。"
+  },
+  {
+    "English": "Workspace text is too large to save. The previous saved draft was retained.",
+    "Chinese": "工作区文字过大，无法保存。先前保存的草稿已保留。"
+  },
+  {
+    "English": "Enter a whole number without separators.",
+    "Chinese": "请输入不含分隔符的整数。"
+  },
+  {
+    "English": "Enter a finite number using a decimal point.",
+    "Chinese": "请输入有限数值，小数使用英文句点。"
+  },
+  {
+    "English": "Choose Yes or No.",
+    "Chinese": "请选择是或否。"
+  },
+  {
+    "English": "Enter all matrix values.",
+    "Chinese": "请填写所有矩阵数值。"
+  },
+  {
+    "English": "Minimum items: {0}",
+    "Chinese": "最少项目数：{0}"
+  },
+  {
+    "English": "Maximum items: {0}",
+    "Chinese": "最多项目数：{0}"
+  },
+  {
+    "English": "Review the highlighted fields, including Advanced options.",
+    "Chinese": "请检查标出的字段，包括高级选项。"
+  },
+  {
+    "English": "Missing value: {0}",
+    "Chinese": "缺少数值：{0}"
+  },
+  {
+    "English": "Unsupported choice: {0}",
+    "Chinese": "不支持的选项：{0}"
+  },
+  {
+    "English": "Expected fields: {0}",
+    "Chinese": "应为字段对象：{0}"
+  },
+  {
+    "English": "Unknown or duplicate field: {0}",
+    "Chinese": "未知或重复字段：{0}"
+  },
+  {
+    "English": "Required field: {0}",
+    "Chinese": "必填字段：{0}"
+  },
+  {
+    "English": "Expected a list: {0}",
+    "Chinese": "应为列表：{0}"
+  },
+  {
+    "English": "Invalid number of items: {0}",
+    "Chinese": "项目数量不符合要求：{0}"
+  },
+  {
+    "English": "Duplicate choices: {0}",
+    "Chinese": "存在重复选项：{0}"
+  },
+  {
+    "English": "Expected text: {0}",
+    "Chinese": "应为文字：{0}"
+  },
+  {
+    "English": "Enter a value: {0}",
+    "Chinese": "请输入数值：{0}"
+  },
+  {
+    "English": "Text is too short: {0}",
+    "Chinese": "文字过短：{0}"
+  },
+  {
+    "English": "Expected a finite number: {0}",
+    "Chinese": "请输入有限数值：{0}"
+  },
+  {
+    "English": "Value is outside the service range: {0}",
+    "Chinese": "数值超出服务允许范围：{0}"
+  },
+  {
+    "English": "Expected a yes/no choice: {0}",
+    "Chinese": "请选择是或否：{0}"
   }
 ]

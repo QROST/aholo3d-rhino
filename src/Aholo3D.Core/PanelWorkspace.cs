@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 namespace Aholo3D.Core;
 
-/// <summary>Unvalidated UI text only. Immutable, process-local and never submitted or persisted.</summary>
+/// <summary>Unvalidated UI text only. Immutable and never submitted directly; disk persistence is explicit and filtered.</summary>
 public sealed class CreationDraft
 {
     public IReadOnlyDictionary<string,IReadOnlyList<string>> Values { get; }
@@ -16,6 +16,7 @@ public sealed class PanelWorkspace
 {
     private readonly Dictionary<string,CreationDraft> drafts=new(StringComparer.Ordinal);
     private string lastWorld="world.generate",lastModel="lux.text-to-3d";
+    public WorkspaceStateHandle? Storage { get; set; }
     public long NavigationRevision { get; private set; }
     public void UserNavigated()=>NavigationRevision++;
     public WorkspacePage Page { get; private set; }
@@ -81,6 +82,14 @@ public sealed class PanelWorkspaces
     }
     public void Cancel(uint serial,long requestedRevision)
     {if(pending.TryGetValue(serial,out var request)&&request.Revision==requestedRevision)pending.Remove(serial);}
+    private readonly HashSet<uint> flushing=new();
+    public void Flush(uint serial)
+    {
+        if(!flushing.Add(serial))return;
+        try{if(owners.TryGetValue(serial,out var owner)&&owner.Panel.TryGetTarget(out var panel))panel.SaveWorkspace();}
+        finally{flushing.Remove(serial);}
+    }
+    public void FlushAll(){foreach(var serial in owners.Keys.ToArray())Flush(serial);}
     public void Close(uint serial){pending.Remove(serial);owners.Remove(serial);workspaces.Remove(serial);}
     public void Clear(){pending.Clear();owners.Clear();workspaces.Clear();}
 }
