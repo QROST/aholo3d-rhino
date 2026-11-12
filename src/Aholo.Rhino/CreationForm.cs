@@ -19,7 +19,7 @@ internal sealed class CreationForm : Panel
     public void RestoreDraft(CreationDraft draft)
     {foreach(var field in draftFields)if(draft.Values.TryGetValue(field.Key,out var values))field.Value.Restore(values);}
     private readonly TextBox name=new(){PlaceholderText=UiText.Get("Task name (optional)")};
-    private static Label Label(string text)=>new(){Text=UiText.Get(text),Wrap=WrapMode.Word};
+    private static Label Label(string text)=>new(){Text=UiText.Get(text),Wrap=WrapMode.Word,Width=1};
     private static readonly Dictionary<string,string> Titles=new()
     {
         ["prompt"]="Description",["img"]="Reference image",["imgs"]="Reference images",["resources"]="Photos or video",["cover"]="Cover image",
@@ -55,7 +55,7 @@ internal sealed class CreationForm : Panel
             string[] paths=Array.Empty<string>();
             var summary=Label("No files selected");
             var choose=new Button{Text=UiText.Get("Choose files")};var clear=new Button{Text=UiText.Get("Clear")};
-            var url=new TextArea{Height=45,Wrap=false,ToolTip=UiText.Get("Public HTTPS URL; one per line for multiple images"),Visible=field!="resources"&&field!="inputFileUrl"};
+            var url=new TextArea{Height=45,Wrap=true,ToolTip=UiText.Get("Public HTTPS URL; one per line for multiple images"),Visible=field!="resources"&&field!="inputFileUrl"};
             choose.Click+=(_,_)=>
             {
                 using var dialog=new OpenFileDialog{Title=UiText.Get(Titles.GetValueOrDefault(field,field)),MultiSelect=field=="imgs"||field=="resources"&&operation=="world.reconstruct"};
@@ -69,7 +69,7 @@ internal sealed class CreationForm : Panel
             files.Add(()=>paths.Length==0?null:new ServiceFileInput(field,paths.ToArray()));
             readers.Add(()=>{string text=url.Text.Trim();return(field,text.Length==0?null:field=="imgs"?text.Split(new[]{'\r','\n'},StringSplitOptions.RemoveEmptyEntries):text);});
             var row=new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={choose,clear}};
-            return new StackLayout{Spacing=4,Items={summary,row,url}};
+            return new StackLayout{Spacing=4,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={summary,row,url}};
         }
         if(schema.TryGetProperty("enum",out var values))
         {

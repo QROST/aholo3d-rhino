@@ -1,6 +1,6 @@
 # Integrated alpha acceptance
 
-CuriousArc · qrost. Candidate: 0.2.0-alpha.28. Native and service acceptance: pending.
+CuriousArc · qrost. Candidate: 0.2.0-alpha.29. Native and service acceptance: pending.
 
 ## Offline Rhino checks
 

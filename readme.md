@@ -6,7 +6,7 @@ Worlds, objects, Gaussian viewing and cloud rendering inside Rhino 8, by **Curio
 
 The repository and checkout directory are now **`aholo3d-rhino`**. The existing Yak package remains **`aholo-rhino`** so installed users keep the same update channel. Plug-in identity, commands, credentials, state/cache and optional USD runtime locations remain compatible. See [repository rename and compatibility](docs/repository-rename.md).
 
-**0.2.0-alpha.28 — local development candidate, not installed or published.** The previous `0.1.1-beta.2` Yak release was unlisted at the user's request. The new interface and service workflows have local build/mock-test evidence; their live service behavior and native Rhino layout are not yet accepted. Earlier Mac GS acceptance applies only to the earlier implementation. CuriousArc's independent integration is not an official Aholo or McNeel product.
+**0.2.0-alpha.29 — local development candidate, not installed or published.** The previous `0.1.1-beta.2` Yak release was unlisted at the user's request. The new interface and service workflows have local build/mock-test evidence; their live service behavior and native Rhino layout are not yet accepted. Earlier Mac GS acceptance applies only to the earlier implementation. CuriousArc's independent integration is not an official Aholo or McNeel product.
 
 This candidate also binds local render preparation to its original connection and prevents simultaneous USD exports from overwriting the same destination. [Behavior and acceptance scope](docs/operation-lifecycle.md).
 

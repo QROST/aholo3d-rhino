@@ -62,7 +62,7 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
     private LocalTask? Selected=>tasks.SelectedValue as LocalTask;
     private TaskArtifact? SelectedArtifact=>(artifacts.SelectedValue as LibraryResultRow)?.Artifact;
     private static string T(string value)=>UiText.Get(value);
-    private static Label Info(string value)=>new(){Text=T(value),Wrap=WrapMode.Word};
+    private static Label Info(string value)=>new(){Text=T(value),Wrap=WrapMode.Word,Width=1};
     private RhinoDoc Document()=>RhinoDoc.FromRuntimeSerialNumber(serial)??throw new InvalidOperationException(T("The target document has closed."));
     private string Scope=>AholoPlugin.DocumentScope(serial);
     public AholoPanel(uint documentSerialNumber)
@@ -124,10 +124,30 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
     }
     private static StackLayout Stack(params Control[] controls)
     {var stack=new StackLayout{Padding=6,Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch};foreach(var control in controls)stack.Items.Add(control);return stack;}
-    private static Control Column(params Control[] controls)=>new Scrollable{Content=Stack(controls)};
-    private static Expander Section(string title,params Control[] controls)=>new(){Header=Info(title),Content=Stack(controls),Expanded=false};
-    private static Control Row(params Control[] controls)
-    {var row=new StackLayout{Orientation=Orientation.Horizontal,Spacing=6};foreach(var control in controls)row.Items.Add(new StackLayoutItem(control,true));return row;}
+    private static Control Column(params Control[] controls)
+    {
+        var content=Stack(controls);
+        var scroll=new Scrollable{Content=content,ExpandContentWidth=true,Border=BorderType.None};
+        void Fit(){if(scroll.ClientSize.Width>0)content.Width=Math.Max(1,scroll.ClientSize.Width-24);}
+        scroll.SizeChanged+=(_,_)=>Fit();scroll.Load+=(_,_)=>Fit();
+        return scroll;
+    }
+    private static Expander Section(string title,params Control[] controls)=>new(){Header=new Label{Text=T(title),Wrap=WrapMode.Word},Content=Stack(controls),Expanded=false};
+    internal static Control Row(params Control[] controls)
+    {
+        var row=new StackLayout{Orientation=Orientation.Vertical,Spacing=6,HorizontalContentAlignment=HorizontalAlignment.Stretch};
+        foreach(var control in controls)row.Items.Add(new StackLayoutItem(control));
+        // Start narrow; choose columns only after the host has assigned a real width.
+        row.SizeChanged+=(_,_)=>
+        {
+            bool wide=row.Width>=640;
+            var orientation=wide?Orientation.Horizontal:Orientation.Vertical;
+            if(row.Orientation==orientation)return;
+            row.Orientation=orientation;
+            foreach(var item in row.Items)item.Expand=wide;
+        };
+        return row;
+    }
     private Button Action(string title,Func<PanelInvocation,Task> work,WorkKind kind=WorkKind.Interaction)
     {var button=new Button{Text=T(title)};button.Click+=(_,_)=>_=RunAsync(title,work,kind);actions.Add((button,title,kind));return button;}
     private Button Local(string title,System.Action work)
@@ -417,7 +437,7 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         string setup;
         try{setup=UsdRuntime.SetupCommand(UsdRuntime.SetupScript,OperatingSystem.IsWindows());}
         catch(FileNotFoundException){setup=T("The USD setup script is missing. Reinstall the complete plugin package.");}
-        var usdSetup=new TextArea{ReadOnly=true,Height=65,Text=setup};
+        var usdSetup=new TextArea{ReadOnly=true,Height=65,Wrap=true,Width=1,Text=setup};
         var usdCheck=Local("Check USD readiness",()=>{_=RunAsync("Checking USD runtime",async context=>
         {
             var result=await UsdRuntime.CheckAsync(ct:context.Cancellation);

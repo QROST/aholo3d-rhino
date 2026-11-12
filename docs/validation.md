@@ -1,6 +1,10 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.28. Earlier entries below retain their original scope.
+Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.29. Earlier entries below retain their original scope.
+
+## Narrow-window correction — alpha.29
+
+After the initial alpha.28 manual pass, the user reported right-side clipping in Settings and the main panel. Scroll content now follows the viewport width with scrollbar space reserved; wrapped informational labels no longer request their full text width. Shared action rows start vertically and use horizontal columns only at wider sizes. Candidate controls follow the same policy; placement values use stacked labels and inputs. Input URL and setup-command text wrap. Native Mac/Windows resize behavior remains pending user verification. The earlier alpha.28 pass is retained with this subsequently discovered limitation. Release compilation passes with zero warnings/errors; 25 language and plugin metadata checks pass. These checks do not assert native visual acceptance.
 
 ## Mac manual acceptance — 2026-11-11 America/Los_Angeles
 

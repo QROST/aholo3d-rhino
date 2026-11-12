@@ -43,9 +43,9 @@ internal sealed class MeshPlacementEditor : IDisposable
         timer.Elapsed+=(_,_)=>ShowPreview();
         View=new StackLayout{Spacing=6,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
             new Label{Text=UiText.Get("Mesh placement and candidates")},mode,
-            new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={new Label{Text=UiText.Get("Height (document units)")},height,new Label{Text=UiText.Get("Rotation (degrees)")},rotation}},
-            new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={pick,constructionPlane}},position,
-            selected,new StackLayout{Orientation=Orientation.Horizontal,Spacing=6,Items={Button("Accept candidate",Accept),Button("Remove candidate",_=>Remove()),Button("Clear candidates",_=>Clear())}}}};
+            new StackLayout{Spacing=6,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={new Label{Text=UiText.Get("Height (document units)"),Wrap=WrapMode.Word,Width=1},height,new Label{Text=UiText.Get("Rotation (degrees)"),Wrap=WrapMode.Word,Width=1},rotation}},
+            AholoPanel.Row(pick,constructionPlane),position,
+            selected,AholoPanel.Row(Button("Accept candidate",Accept),Button("Remove candidate",_=>Remove()),Button("Clear candidates",_=>Clear()))}};
         UpdateMode();
     }
     private RhinoDoc Document()=>RhinoDoc.FromRuntimeSerialNumber(serial)??throw new InvalidOperationException(UiText.Get("The target document has closed."));
