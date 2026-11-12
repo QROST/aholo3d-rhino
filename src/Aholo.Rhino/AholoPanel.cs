@@ -63,7 +63,7 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
     private LocalTask? Selected=>tasks.SelectedValue as LocalTask;
     private TaskArtifact? SelectedArtifact=>(artifacts.SelectedValue as LibraryResultRow)?.Artifact;
     private static string T(string value)=>UiText.Get(value);
-    private static Label Info(string value)=>new(){Text=T(value),Wrap=WrapMode.Word,Width=1};
+    private static Label Info(string value)=>UiLayout.Text(T(value));
     private RhinoDoc Document()=>RhinoDoc.FromRuntimeSerialNumber(serial)??throw new InvalidOperationException(T("The target document has closed."));
     private string Scope=>AholoPlugin.DocumentScope(serial);
     public AholoPanel(uint documentSerialNumber)
@@ -118,15 +118,15 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         cancel.Click+=(_,_)=>AholoPlugin.CancelDocumentOperations(serial);
         taskElapsed.Elapsed+=(_,_)=>{if(!disposed&&shown&&Selected is{} task&&TaskCapabilities.For(task).IsRunning)UpdateTaskDetail();};
         elapsed.Elapsed+=(_,_)=>{if(!disposed)UpdateOperationStatus();};
-        Content=new StackLayout{Padding=10,Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
-            UiLayout.Toolbar(new Label{Text="Aholo3D",Font=new Font(SystemFont.Bold,16)},Local("Settings",ShowSettings)),connection,new StackLayoutItem(tabs,true),Row(operation,cancel),feedback}};
+        Content=new StackLayout{Padding=10,Spacing=8,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
+            UiLayout.Toolbar(new Label{Text="Aholo3D",TextAlignment=TextAlignment.Left,VerticalAlignment=VerticalAlignment.Top,Font=new Font(SystemFont.Bold,16)},Local("Settings",ShowSettings)),connection,new StackLayoutItem(tabs,true),Row(operation,cancel),feedback}};
         RestoreWorkspace();workspaceReady=true;tabs.SelectedIndexChanged+=(_,_)=>WorkspaceUserNavigated();
         session.Changed+=SessionChanged;session.TaskChanged+=TaskChanged;AholoPlugin.DocumentCancellationRequested+=DocumentCancellationRequested;UpdateActions();
         Report(T("Create assets, organize results and place them in this Rhino document."));
     }
     private static StackLayout Stack(params Control[] controls)=>UiLayout.Stack(controls);
     private static Control Column(params Control[] controls)=>UiLayout.Scroll(controls);
-    private static Expander Section(string title,params Control[] controls)=>new(){Header=new Label{Text=T(title),Wrap=WrapMode.Word},Content=Stack(controls),Expanded=false};
+    private static Expander Section(string title,params Control[] controls)=>new(){Header=UiLayout.Text(T(title)),Content=Stack(controls),Expanded=false};
     internal static Control Row(params Control[] controls)=>UiLayout.Actions(controls);
     private Button Action(string title,Func<PanelInvocation,Task> work,WorkKind kind=WorkKind.Interaction)
     {var button=new Button{Text=UiLayout.Caption(title),ToolTip=T(title)};button.Click+=(_,_)=>_=RunAsync(title,work,kind);actions.Add((button,title,kind));return button;}
@@ -420,13 +420,13 @@ public sealed partial class AholoPanel : Panel,IPanel,IPanelWorkspaceOwner
         var disconnect=Local("Disconnect and clear credentials",()=>{if(busy||!CanRun("Disconnecting",WorkKind.Connection)){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}_=RunAsync("Disconnecting",async context=>{await session.DisconnectAsync(context.Cancellation);AholoHost.Ui(()=>Report(T("Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.")));},WorkKind.Connection);});
         var restore=Local("Restore saved connection",()=>{if(busy||!CanRun("Restoring connection",WorkKind.Connection))return;_=RunAsync("Restoring connection",async context=>{await session.ReadConnectionAsync(context.Cancellation);},WorkKind.Connection);});
         var uploadMetadata=new TextBox{Text=uploadOptions.Metadata??""};var uploadPrefix=new TextBox{Text=uploadOptions.CustomPrefix??""};var uploadFilename=new TextBox{Text=uploadOptions.CustomFilename??""};
-        var uploadFields=new StackLayout{Spacing=6,Visible=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={Info("Multipart upload options apply to every local input. Leave blank for automatic storage. Small files do not support these fields."),Info("Upload metadata"),uploadMetadata,Info("Storage prefix"),uploadPrefix,Info("Stored filename"),uploadFilename}};
+        var uploadFields=new StackLayout{Spacing=6,Visible=false,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={Info("Multipart upload options apply to every local input. Leave blank for automatic storage. Small files do not support these fields."),Info("Upload metadata"),uploadMetadata,Info("Storage prefix"),uploadPrefix,Info("Stored filename"),uploadFilename}};
         var uploadAdvanced=new CheckBox{Text=T("Advanced upload settings")};uploadAdvanced.CheckedChanged+=(_,_)=>uploadFields.Visible=uploadAdvanced.Checked==true;
         var usdStatus=Info("USD readiness has not been checked.");
         string setup;
         try{setup=UsdRuntime.SetupCommand(UsdRuntime.SetupScript,OperatingSystem.IsWindows());}
         catch(FileNotFoundException){setup=T("The USD setup script is missing. Reinstall the complete plugin package.");}
-        var usdSetup=new TextArea{ReadOnly=true,Height=65,Wrap=true,Width=1,Text=setup};
+        var usdSetup=new TextArea{ReadOnly=true,Height=65,Wrap=true,Text=setup};
         var usdCheck=Local("Check USD readiness",()=>{_=RunAsync("Checking USD runtime",async context=>
         {
             var result=await UsdRuntime.CheckAsync(ct:context.Cancellation);

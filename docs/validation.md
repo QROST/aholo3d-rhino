@@ -1,6 +1,14 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.30. Earlier entries below retain their original scope.
+Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.31. Earlier entries below retain their original scope.
+
+## Wrapped-label height correction — alpha.31
+
+The user's alpha.30 Mac screenshot shows very tall label rows and right-aligned text in Settings and Create. This is a native UI regression; the earlier compile/test result did not establish visual acceptance. Wrapped labels had an explicit `Width=1`. The upstream [Eto 2.8 Mac label implementation](https://github.com/picoe/Eto/blob/2.8.0/src/Eto.Mac/Forms/Controls/MacLabel.cs#L98-L130) uses a positive preferred width while measuring wrapped text height, even when the parent can subsequently stretch the control. This mechanism explains the symptom but is source evidence, not an instrumented trace of the installed host.
+
+The correction removes the preferred width from shared labels and the USD setup text area, sets labels to left/top alignment, disables parent label-alignment overrides and keeps scroll content at its natural height. Existing viewport-width fitting and action order remain intact. The corrected UI builds with zero warnings/errors and passes **25 focused language and plugin metadata tests**. Native compactness, wrapping, resize behavior and Windows remain pending manual acceptance; these tests do not execute Eto controls. A remote review selected `remote/gemini-4-carbon` but returned HTTP 503 without an answer; status was checked and the request was not retried. Local inspection and verification supplied the result.
+
+Versioned archive and installation evidence is recorded separately in artifacts. No public release is implied.
 
 ## UI candidate alpha.30 — 2026-11-11 America/Los_Angeles
 
@@ -70,7 +78,7 @@ An independent local OpenUSD check parsed a production-generated scene with Rect
 
 Packaging verifies both platform-tagged archives against the allowlisted files and records commit/dirty state, SHA-256 and pending host/service acceptance in `artifacts/latest-package-{mac,win}.json`. Those receipts are the authority for whether an archive was produced; source compilation on a Mac does not prove Windows execution. No GUI automation, installation, push or publication is part of this candidate preparation.
 
-The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha30) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
+The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha31) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
 
 ## Integrated development candidate — 2026-11-09
 

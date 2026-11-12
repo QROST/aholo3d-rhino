@@ -19,7 +19,7 @@ internal sealed class CreationForm : Panel
     public void RestoreDraft(CreationDraft draft)
     {foreach(var field in draftFields)if(draft.Values.TryGetValue(field.Key,out var values))field.Value.Restore(values);}
     private readonly TextBox name=new(){PlaceholderText=UiText.Get("Task name (optional)")};
-    private static Label Label(string text)=>new(){Text=UiText.Get(text),Wrap=WrapMode.Word,Width=1};
+    private static Label Label(string text)=>UiLayout.Text(UiText.Get(text));
     private static readonly Dictionary<string,string> Titles=new()
     {
         ["prompt"]="Description",["img"]="Reference image",["imgs"]="Reference images",["resources"]="Photos or video",["cover"]="Cover image",
@@ -31,8 +31,8 @@ internal sealed class CreationForm : Panel
     public CreationForm(string operation)
     {
         this.operation=operation;
-        var basic=new StackLayout{Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch};
-        var advanced=new StackLayout{Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch,Visible=false};
+        var basic=new StackLayout{Spacing=8,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch};
+        var advanced=new StackLayout{Spacing=8,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Visible=false};
         basic.Items.Add(name);DraftText("$name",name);
         var schema=ServiceOperations.RequestSchema(operation);
         var required=schema.TryGetProperty("required",out var r)?r.EnumerateArray().Select(x=>x.GetString()!).ToHashSet():new HashSet<string>();
@@ -69,7 +69,7 @@ internal sealed class CreationForm : Panel
             files.Add(()=>paths.Length==0?null:new ServiceFileInput(field,paths.ToArray()));
             readers.Add(()=>{string text=url.Text.Trim();return(field,text.Length==0?null:field=="imgs"?text.Split(new[]{'\r','\n'},StringSplitOptions.RemoveEmptyEntries):text);});
             var row=UiLayout.Toolbar(choose,clear);
-            return new StackLayout{Spacing=4,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={summary,row,url}};
+            return new StackLayout{Spacing=4,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={summary,row,url}};
         }
         if(schema.TryGetProperty("enum",out var values))
         {
@@ -100,7 +100,7 @@ internal sealed class CreationForm : Panel
         {
             var entries=schema.GetProperty("items").GetProperty("enum").EnumerateArray().Select(x=>x.GetString()!).ToArray();
             var boxes=entries.Select(x=>new CheckBox{Text=UiText.Get(x),Tag=x,Checked=field=="outputFormat"&&x=="glb"}).ToArray();
-            var list=new StackLayout{Spacing=3,HorizontalContentAlignment=HorizontalAlignment.Stretch};foreach(var box in boxes)list.Items.Add(box);
+            var list=new StackLayout{Spacing=3,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch};foreach(var box in boxes)list.Items.Add(box);
             DraftField(field+":selected",()=>boxes.Where(x=>x.Checked==true).Select(x=>(string)x.Tag).ToArray(),values=>{foreach(var box in boxes)box.Checked=values.Contains((string)box.Tag);});
             readers.Add(()=>{var selected=boxes.Where(x=>x.Checked==true).Select(x=>(string)x.Tag).ToArray();return(field,selected.Length==0?null:selected);});
             return boxes.Length>10?new Scrollable{Height=160,Content=list}:list;

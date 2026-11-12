@@ -42,9 +42,9 @@ internal sealed class MeshPlacementEditor : IDisposable
         selected.SelectedIndexChanged+=(_,_)=>{UpdateCandidateActions();Schedule();};height.TextChanged+=(_,_)=>Schedule();rotation.TextChanged+=(_,_)=>Schedule();
         timer.Elapsed+=(_,_)=>ShowPreview();
         accept=Button("Accept candidate",Accept);remove=Button("Remove candidate",_=>Remove());clear=Button("Clear candidates",_=>Clear());
-        View=new StackLayout{Spacing=6,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
-            new Label{Text=UiText.Get("Mesh placement and candidates")},mode,
-            new StackLayout{Spacing=6,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={new Label{Text=UiText.Get("Height (document units)"),Wrap=WrapMode.Word,Width=1},height,new Label{Text=UiText.Get("Rotation (degrees)"),Wrap=WrapMode.Word,Width=1},rotation}},
+        View=new StackLayout{Spacing=6,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={
+            UiLayout.Text(UiText.Get("Mesh placement and candidates")),mode,
+            new StackLayout{Spacing=6,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={UiLayout.Text(UiText.Get("Height (document units)")),height,UiLayout.Text(UiText.Get("Rotation (degrees)")),rotation}},
             AholoPanel.Row(pick,constructionPlane),position,
             selected,AholoPanel.Row(accept,remove,clear)}};
         UpdateMode();UpdateCandidateActions();

@@ -53,3 +53,10 @@ Manual acceptance (both languages, Mac then Windows):
 5. A paid button still visibly says it uses credits. Connection changes keep the existing authority behavior; test operation completion and cancellation while Settings is open.
 
 This is source/static evidence until the user performs the native checks. The scrolling helper uses a coalesced, disposal-guarded UI callback and the visible viewport width instead of a guessed 24-pixel reserve. Its APIs were checked against the installed SDK; upstream [Scrollable contract](https://github.com/picoe/Eto/blob/develop/src/Eto/Forms/Controls/Scrollable.cs) is supporting documentation, not proof that every installed platform handler behaves identically.
+
+
+## Wrapped-label height correction (alpha.31)
+
+The alpha.30 Mac screenshot exposed oversized vertical label regions. Wrapped labels now leave preferred width unset, use explicit left/top alignment and share one helper; their parent stacks do not override label alignment. Scroll content does not expand vertically to fill unused space. Viewport width fitting remains responsible for the actual wrapping width. Avoid using a one-pixel preferred label width as a shrink hint: the Mac handler can use it to calculate text height.
+
+After restarting with alpha.31, check Settings first: Service region, its selector and Apply button should form compact successive rows, and connection status should not occupy a large blank region. Then inspect Create, Library and Render at narrow/wide widths and with long English/Chinese text. Increase window height: spare space should remain outside the compact form rows. Confirm vertical scrolling and the fixed Close footer still work. Native confirmation is pending; compilation alone does not establish this result.

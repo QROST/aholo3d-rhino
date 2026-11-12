@@ -22,10 +22,12 @@ internal static class UiLayout
         "Export selected mesh USD" => "Export mesh USD",
         _=>identity
     });
-    internal static Label Text(string text)=>new(){Text=text,Wrap=WrapMode.Word,Width=1};
+    // Leave preferred width unset: Mac wrapped labels measure height at an explicit Width,
+    // even when their parent later stretches them to the available width.
+    internal static Label Text(string text)=>new(){Text=text,Wrap=WrapMode.Word,TextAlignment=TextAlignment.Left,VerticalAlignment=VerticalAlignment.Top};
     internal static StackLayout Stack(params Control[] controls)
     {
-        var stack=new StackLayout{Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch};
+        var stack=new StackLayout{Spacing=8,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch};
         foreach(var control in controls)stack.Items.Add(control);
         return stack;
     }
@@ -39,7 +41,7 @@ internal static class UiLayout
     }
     internal static Scrollable Scroll(params Control[] controls)=>new FittedScroll(Stack(controls));
     internal static Control DialogBody(Control body,Button close)=>new StackLayout
-    {Padding=12,Spacing=8,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={new StackLayoutItem(body,true),close}};
+    {Padding=12,Spacing=8,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={new StackLayoutItem(body,true),close}};
     private sealed class FittedScroll : Scrollable
     {
         private readonly Control body;
@@ -47,7 +49,7 @@ internal static class UiLayout
         private int assigned=-1;
         internal FittedScroll(Control body)
         {
-            this.body=body;Content=body;Border=BorderType.None;ExpandContentWidth=true;
+            this.body=body;Content=body;Border=BorderType.None;ExpandContentWidth=true;ExpandContentHeight=false;
             Load+=(_,_)=>QueueFit();SizeChanged+=(_,_)=>QueueFit();body.SizeChanged+=(_,_)=>QueueFit();
         }
         private void QueueFit()
