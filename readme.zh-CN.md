@@ -6,7 +6,9 @@
 
 仓库和源码目录现为 **`aholo3d-rhino`**。已发布的 Yak 包继续使用 **`aholo-rhino`**，保持原有用户的更新渠道；插件标识、命令、凭据、任务/缓存及可选 USD 运行时路径保持兼容。详见[仓库改名与兼容说明](docs/repository-rename.md)。
 
-**0.2.0-alpha.29：本地开发候选版，尚未安装或发布。** 旧 `0.1.1-beta.2` Yak 包已按用户要求撤下。新界面和服务流程已有本地构建及模拟测试证据，真实服务行为和 Rhino 原生布局仍待验收；先前 Mac GS 验收不自动覆盖本次新增能力。CuriousArc 开发的独立集成并非 Aholo 或 McNeel 官方产品。
+**0.2.0-alpha.30：用于手动验收的本地候选版，尚未发布。** 旧 `0.1.1-beta.2` Yak 包已按用户要求撤下。新界面和服务流程已有本地构建及模拟测试证据，真实服务行为和 Rhino 原生布局仍待验收；先前 Mac GS 验收不自动覆盖本次新增能力。CuriousArc 开发的独立集成并非 Aholo 或 McNeel 官方产品。
+
+设置页现分为连接、任务、导入默认值和高级工具，关闭按钮固定在底部。窄窗口中的操作组保持固定顺序，按钮文案缩短；任务恢复、轮询和候选模型按钮按可用状态启用。[布局与键盘验收](docs/workspace-navigation.md#narrow-layouts-and-action-feedback-after-alpha29)。
 
 本候选版还将本地渲染准备绑定到原始连接，并阻止同时进行的 USD 导出覆盖同一目标文件。详见[行为与验收范围](docs/operation-lifecycle.md)。
 

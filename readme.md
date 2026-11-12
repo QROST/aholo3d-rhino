@@ -6,7 +6,9 @@ Worlds, objects, Gaussian viewing and cloud rendering inside Rhino 8, by **Curio
 
 The repository and checkout directory are now **`aholo3d-rhino`**. The existing Yak package remains **`aholo-rhino`** so installed users keep the same update channel. Plug-in identity, commands, credentials, state/cache and optional USD runtime locations remain compatible. See [repository rename and compatibility](docs/repository-rename.md).
 
-**0.2.0-alpha.29 — local development candidate, not installed or published.** The previous `0.1.1-beta.2` Yak release was unlisted at the user's request. The new interface and service workflows have local build/mock-test evidence; their live service behavior and native Rhino layout are not yet accepted. Earlier Mac GS acceptance applies only to the earlier implementation. CuriousArc's independent integration is not an official Aholo or McNeel product.
+**0.2.0-alpha.30 — local development candidate for manual acceptance; not published.** The previous `0.1.1-beta.2` Yak release was unlisted at the user's request. The new interface and service workflows have local build/mock-test evidence; their live service behavior and native Rhino layout are not yet accepted. Earlier Mac GS acceptance applies only to the earlier implementation. CuriousArc's independent integration is not an official Aholo or McNeel product.
+
+Settings now groups connection, tasks, import defaults and advanced tools, with a fixed Close footer. Narrow layouts use stable action groups and shorter captions; recovery, polling and candidate controls reflect their available actions. [Layout and keyboard acceptance](docs/workspace-navigation.md#narrow-layouts-and-action-feedback-after-alpha29).
 
 This candidate also binds local render preparation to its original connection and prevents simultaneous USD exports from overwriting the same destination. [Behavior and acceptance scope](docs/operation-lifecycle.md).
 
@@ -72,7 +74,7 @@ Generating a world or starting a render can consume your Aholo service credits. 
 
 ## Install
 
-This alpha is built locally; it has not been installed or published automatically. The earlier Yak preview is unlisted. Build a local package with the scripts below and install the matching platform archive only after review. Restart Rhino manually after installation.
+Local installation is recorded separately; this alpha has not been published. The earlier Yak preview is unlisted. Build a local package with the scripts below and install the matching platform archive only after review. Restart Rhino manually after installation.
 
 1. Run `AholoPanel`, open **Settings**, select **International** or **China**, enter that region’s API Key and choose a validation service. **Validate and connect** applies the selected region; **Apply service region** restores its saved Key. Local GS import/export and local history work without a Key.
 2. Choose an operation in **Create**, fill its fields and submit once. **Advanced options** contains optional model/output settings.

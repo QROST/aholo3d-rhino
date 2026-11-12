@@ -1,6 +1,12 @@
 # Validation record
 
-Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.29. Earlier entries below retain their original scope.
+Maintainer: CuriousArc · qrost. Current local candidate: 0.2.0-alpha.30. Earlier entries below retain their original scope.
+
+## UI candidate alpha.30 — 2026-11-11 America/Los_Angeles
+
+Source `31443df` has a zero-warning/error Release build and **137 focused tests passed**, zero failures/skips. This UI-only iteration checks language/catalog metadata, Library/workspace, operation isolation, cloud history and application lifecycle; the broader alpha.28 suite remains historical evidence, not a newly rerun full suite. Shared scroll/dialog layout, concise bilingual captions with unchanged operation IDs, Settings groups, proportional matrix fields and contextual action states are implemented. Native appearance, resizing and keyboard behavior remain pending. Two remote `gemini-4-carbon` reviews completed and were source-checked; two final reviews timed out (HTTP 524), were status-checked and not retried. Final inspection/build/testing were performed locally. See [review details](implementation-progress.md) and [manual UI checks](workspace-navigation.md#narrow-layouts-and-action-feedback-after-alpha29).
+
+Versioned package and installation receipts are recorded separately in artifacts. Local installation does not establish host acceptance; no public release is implied.
 
 ## Narrow-window correction — alpha.29
 
@@ -64,7 +70,7 @@ An independent local OpenUSD check parsed a production-generated scene with Rect
 
 Packaging verifies both platform-tagged archives against the allowlisted files and records commit/dirty state, SHA-256 and pending host/service acceptance in `artifacts/latest-package-{mac,win}.json`. Those receipts are the authority for whether an archive was produced; source compilation on a Mac does not prove Windows execution. No GUI automation, installation, push or publication is part of this candidate preparation.
 
-The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha28) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
+The current product is not full end-user parity solely because all HTTP routes exist. See the [current parity table](api-capabilities.md#product-parity-at-alpha30) and [manual acceptance checklist](integrated-acceptance.md). At the alpha.3 checkpoint, native cloud depth composition, World GS ingestion and progressive LOD retained contract gates; texture/normal export, additional formats, realtime controls and account parity still needed development. Subsequent implementation and current remaining scope are recorded above and below.
 
 ## Integrated development candidate — 2026-11-09
 
