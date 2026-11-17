@@ -58,6 +58,7 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
     private readonly UITimer taskElapsed=new(){Interval=1};
     private readonly CancellationTokenSource lifetime=new();
     private bool disposed;
+    private bool firstRunChecked;
     private bool busy=>session.Resources.IsHeld(InteractionResource);
     private int offset;
     private LocalTask? Selected=>tasks.SelectedValue as LocalTask;
@@ -74,6 +75,8 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
         workspaceLease=PanelNavigation.Workspaces.Claim(serial,workspace,this);
         if(document is not null){double unitScale=global::Rhino.RhinoMath.UnitScale(global::Rhino.UnitSystem.Meters,document.ModelUnitSystem);if(double.IsFinite(unitScale)&&unitScale>0)objectHeight.Text=unitScale.ToString("R",CultureInfo.InvariantCulture);}
         InitializePersistence(document);
+        // First-run setup is offered once per install until a connection succeeds or the user skips it.
+        Shown+=(_,_)=>{if(firstRunChecked||session.Connection.Connected||FirstRunGuard.IsDismissed(session.Store.Root))return;firstRunChecked=true;using var setup=new FirstRunSetupDialog(session);setup.ShowModal(this);};
         InitializePlacement();
         creation.DataStore=ServiceOperations.All.Select(x=>T(x.Title)).ToArray();creation.SelectedIndex=ServiceOperations.All.ToList().FindIndex(x=>x.Id==workspace.Operation);
         creation.SelectedIndexChanged+=(_,_)=>{WorkspaceUserNavigated();ChangeForm();};ChangeForm();
@@ -436,9 +439,9 @@ public sealed partial class Aholo3DPanel : Panel,IPanel,IPanelWorkspaceOwner
         });
         var connectionError=Info(session.LastError??"");
         using var dialog=new Dialog{Title=T("Settings"),ClientSize=new Size(460,620),MinimumSize=new Size(320,300),Resizable=true};
-        var connect=Local("Validate and connect",()=>{if(string.IsNullOrWhiteSpace(key.Text)||busy||!CanRun("Connecting",WorkKind.Connection)){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}string selected=SelectedRegion();string value=key.Text;bool save=remember.Checked==true;string service=validation.SelectedIndex switch{1=>"lux",2=>"spatial",_=>"world"};key.Text="";_=RunAsync("Connecting",async context=>{await session.ConnectAsync(new(value,save,service,selected),context.Cancellation);Aholo3DHost.Ui(()=>Report(T("Connected. Service permissions and credits are checked per operation.")));},WorkKind.Connection);});
+        var connect=Local("Validate and connect",()=>{if(string.IsNullOrWhiteSpace(key.Text)||busy||!CanRun("Connecting",WorkKind.Connection)){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}string selected=SelectedRegion();string value=key.Text;bool save=remember.Checked==true;string service=validation.SelectedIndex switch{1=>"lux",2=>"spatial",_=>"world"};key.Text="";_=RunAsync("Connecting",async context=>{await session.ConnectAsync(new(value,save,service,selected),context.Cancellation);if(session.Connection.Connected)FirstRunGuard.Dismiss(session.Store.Root);Aholo3DHost.Ui(()=>Report(T("Connected. Service permissions and credits are checked per operation.")));},WorkKind.Connection);});
         var disconnect=Local("Disconnect and clear credentials",()=>{if(busy||!CanRun("Disconnecting",WorkKind.Connection)){status.Text=T("Wait for the current operation or cancel it before changing credentials.");return;}_=RunAsync("Disconnecting",async context=>{await session.DisconnectAsync(context.Cancellation);Aholo3DHost.Ui(()=>Report(T("Disconnected and cleared locally saved credentials. Remote tasks are not cancelled.")));},WorkKind.Connection);});
-        var restore=Local("Restore saved connection",()=>{if(busy||!CanRun("Restoring connection",WorkKind.Connection))return;_=RunAsync("Restoring connection",async context=>{await session.ReadConnectionAsync(context.Cancellation);},WorkKind.Connection);});
+        var restore=Local("Restore saved connection",()=>{if(busy||!CanRun("Restoring connection",WorkKind.Connection))return;_=RunAsync("Restoring connection",async context=>{await session.ReadConnectionAsync(context.Cancellation);if(session.Connection.Connected)FirstRunGuard.Dismiss(session.Store.Root);},WorkKind.Connection);});
         var uploadMetadata=new TextBox{Text=uploadOptions.Metadata??""};var uploadPrefix=new TextBox{Text=uploadOptions.CustomPrefix??""};var uploadFilename=new TextBox{Text=uploadOptions.CustomFilename??""};
         var uploadFields=new StackLayout{Spacing=6,Visible=false,AlignLabels=false,HorizontalContentAlignment=HorizontalAlignment.Stretch,Items={Info("Multipart upload options apply to every local input. Leave blank for automatic storage. Small files do not support these fields."),Info("Upload metadata"),uploadMetadata,Info("Storage prefix"),uploadPrefix,Info("Stored filename"),uploadFilename}};
         var uploadAdvanced=new CheckBox{Text=T("Advanced upload settings")};uploadAdvanced.CheckedChanged+=(_,_)=>uploadFields.Visible=uploadAdvanced.Checked==true;

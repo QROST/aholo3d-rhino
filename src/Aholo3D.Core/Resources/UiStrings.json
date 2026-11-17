@@ -5246,5 +5246,49 @@
   {
     "English": "Expected a yes/no choice: {0}",
     "Chinese": "请选择是或否：{0}"
+  },
+  {
+    "English": "Aholo3D first-run setup",
+    "Chinese": "Aholo3D 首次设置"
+  },
+  {
+    "English": "Choose your service region. Regions have separate API Keys.",
+    "Chinese": "选择服务区域。各区域使用独立的 API Key。"
+  },
+  {
+    "English": "Account sign-in is optional and never replaces the API Key. All generation and rendering uses the API Key of the selected region.",
+    "Chinese": "账号登录为可选，且不能替代 API Key。所有生成与渲染都使用所选区域的 API Key。"
+  },
+  {
+    "English": "Sign in with Manycore (optional)",
+    "Chinese": "登录 Manycore 账号（可选）"
+  },
+  {
+    "English": "Open the key console in your browser",
+    "Chinese": "在浏览器中打开密钥控制台"
+  },
+  {
+    "English": "Create or copy an API Key there, then paste it below.",
+    "Chinese": "在控制台创建或复制 API Key，然后粘贴到下方。"
+  },
+  {
+    "English": "API Key",
+    "Chinese": "API Key"
+  },
+  {
+    "English": "Paste from clipboard",
+    "Chinese": "从剪贴板粘贴"
+  },
+  {
+    "English": "Validate and finish",
+    "Chinese": "验证并完成"
+  },
+  {
+    "English": "Skip for now",
+    "Chinese": "暂时跳过"
+  },
+  {
+    "English": "Paste an API Key first.",
+    "Chinese": "请先粘贴 API Key。"
   }
 ]
