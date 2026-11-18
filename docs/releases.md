@@ -1,5 +1,9 @@
 # Release notes
 
+## 0.2.0-alpha.35 — preview candidate
+
+- First-run setup offers the service region, optional account sign-in, and the API Key that cloud work requires.
+
 ## 0.2.0-alpha.34 — preview candidate
 
 - Streamlined Create, Library and Render workspace with contextual result actions.
